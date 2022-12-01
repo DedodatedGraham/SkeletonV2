@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include "obj.h"
+#include "obj.c"
 #include "kdtree.h"
 
 
@@ -33,14 +33,26 @@ int main(){
         }
     }
     printf("count: %d\n",count);
-    //Get Size to allocate for loading
-    struct intpoint *points[] = malloc(count*sizeof(intpoint)); 
+    //Allocate for loading
+    struct intpoint *points[count]; 
+    //Loadin
+    fseek(fp, 0, SEEK_SET);
+    int k = 2;
+    int d = 0;
+    printf("loading\n");
+    int i;
+    for(i = 0;i<count;i++){
+        //For 2D
+        double x,y,nx,ny;
+        fscanf(fp,"%lf %lf %lf %lf",&x,&y,&nx,&ny);
+        points[i] = makeInt2(x,y,nx,ny); 
+    }
     //Close
     fclose(fp);
     //Then add to tree
-    int k=2,d=0,n=1000;
     printf("creating\n");
-    tree = kdCreate(&k,&d,&n);
+    tree = kdCreate(&k,&d,&count);
+    printf("Len points: %lu\n",sizeof(points)/sizeof(struct intpoint));
     //kdLoad(tree);
 }
 //Creation Methods
