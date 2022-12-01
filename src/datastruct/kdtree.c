@@ -17,6 +17,8 @@ struct kdtree{
 
 int main(){
     struct kdtree *tree; 
+    
+    
     //Example for loading in points :_)
     FILE *fp;
     fp = fopen("../../../SkeletonV1/SkeleData/Input/interface_points_020000.dat","r");
@@ -32,7 +34,6 @@ int main(){
             count++;
         }
     }
-    printf("count: %d\n",count);
     //Allocate for loading
     struct intpoint *points[count]; 
     //Loadin
@@ -49,11 +50,17 @@ int main(){
     }
     //Close
     fclose(fp);
+    
     //Then add to tree
     printf("creating\n");
     tree = kdCreate(&k,&d,&count);
-    printf("Len points: %lu\n",sizeof(points)/sizeof(struct intpoint));
-    //kdLoad(tree);
+    unsigned long len = sizeof(points)/sizeof(points[0]);
+    printf("Len points: %lu\n",len);
+    struct point *passpts[len];
+    for(i = 0; i < len; i++){
+        passpts[i] = points[i]->pt;
+    } 
+    kdLoad(tree,passpts);
 }
 //Creation Methods
 struct kdtree *kdCreate(int *k,int *d,int *n){
