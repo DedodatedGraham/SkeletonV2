@@ -16,19 +16,32 @@ struct kdtree{
 };
 
 int main(){
-    struct kdtree *tree;
-    int k=2,d=0,n=1000;
-    printf("creating\n");
-    tree = kdCreate(&k,&d,&n);
+    struct kdtree *tree; 
     //Example for loading in points :_)
     FILE *fp;
     fp = fopen("../../../SkeletonV1/SkeleData/Input/interface_points_020000.dat","r");
-    int i;
-    for(i = 0;i < 2; i++){
-
+    //Check    
+    if (fp == NULL){
+        return 0;
     }
+    //CountLines
+    int count = 0;
+    char c;
+    for(c = getc(fp);c != EOF; c = getc(fp)){
+        if(c == '\n'){
+            count++;
+        }
+    }
+    printf("count: %d\n",count);
+    //Get Size to allocate for loading
+    struct intpoint *points[] = malloc(count*sizeof(intpoint)); 
+    //Close
+    fclose(fp);
     //Then add to tree
-    kdLoad(tree);
+    int k=2,d=0,n=1000;
+    printf("creating\n");
+    tree = kdCreate(&k,&d,&n);
+    //kdLoad(tree);
 }
 //Creation Methods
 struct kdtree *kdCreate(int *k,int *d,int *n){
