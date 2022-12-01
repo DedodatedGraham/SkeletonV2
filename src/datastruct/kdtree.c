@@ -2,8 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include "obj.c"
 #include "kdtree.h"
+//Define for usage of functions
+#include "obj.c"
 
 
 #define MAX 4
@@ -81,5 +82,5 @@ struct kdtree *kdCreate(int *k,int *d,int *n){
     return tree;
 }
 void kdLoad(struct kdtree *tree,struct point *Pts[]){
-
+    
 }
