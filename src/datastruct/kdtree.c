@@ -4,7 +4,6 @@
 #include <math.h>
 #include "kdtree.h"
 //Define for usage of functions
-#include "obj.c"
 
 
 #define MAX 4
@@ -16,58 +15,10 @@ struct kdtree{
     int k;
 };
 
-int main(){
-    struct kdtree *tree; 
-    
-    
-    //Example for loading in points :_)
-    FILE *fp;
-    fp = fopen("../../../SkeletonV1/SkeleData/Input/interface_points_020000.dat","r");
-    //Check    
-    if (fp == NULL){
-        return 0;
-    }
-    //CountLines
-    int count = 0;
-    char c;
-    for(c = getc(fp);c != EOF; c = getc(fp)){
-        if(c == '\n'){
-            count++;
-        }
-    }
-    //Allocate for loading
-    struct intpoint *points[count]; 
-    //Loadin
-    fseek(fp, 0, SEEK_SET);
-    int k = 2;
-    int d = 0;
-    printf("loading\n");
-    int i;
-    for(i = 0;i<count;i++){
-        //For 2D
-        double x,y,nx,ny;
-        fscanf(fp,"%lf %lf %lf %lf",&x,&y,&nx,&ny);
-        points[i] = makeInt2(x,y,nx,ny); 
-    }
-    //Close
-    fclose(fp);
-    
-    //Then add to tree
-    printf("creating\n");
-    tree = kdCreate(&k,&d,&count);
-    unsigned long len = sizeof(points)/sizeof(points[0]);
-    printf("Len points: %lu\n",len);
-    struct point *passpts[len];
-    for(i = 0; i < len; i++){
-        passpts[i] = points[i]->pt;
-    } 
-    kdLoad(tree,passpts);
-}
 //Creation Methods
-struct kdtree *kdCreate(int *k,int *d,int *n){
+struct kdtree *kdCreate(struct kdtree *tree,int *k,int *d,int *n){
     //kdCreate will build tree, get splitting dimensions, and propper depth needed for easy loading
     //Will Allocate needed memory, However Will involve alot of Pointers:/
-    struct kdtree *tree;
     if(!(tree = malloc(sizeof *tree))){
         return 0;
     }
@@ -76,11 +27,19 @@ struct kdtree *kdCreate(int *k,int *d,int *n){
     if(*n / 2 > MAX){
         int nextsize = ceil((*n - 1) / 2);//take away node point and find max of layer, we maximize size here.
         int nextdep = *d + 1;
-        tree->left = kdCreate(k,&nextdep,&nextsize);
-        tree->right = kdCreate(k,&nextdep,&nextsize);
+        tree->left = kdCreate(tree->left,k,&nextdep,&nextsize);
+        tree->right = kdCreate(tree->right,k,&nextdep,&nextsize);
     }
     return tree;
 }
-void kdLoad(struct kdtree *tree,struct point *Pts[]){
-    
+
+void kdLoad(struct kdtree tree,struct point Pts[],int *len){
+    //Sorts our list
+    printf("len passed %d\n",*len);
+    int *start = 0;
+    int *stop = len;
+    printf("sorting Points\n");
+    quicksortPoint(&Pts,&tree.k,start,stop);
+    //Then we choose our nodepoint
+    //printf("%lf\n",Pts[len].x);
 }

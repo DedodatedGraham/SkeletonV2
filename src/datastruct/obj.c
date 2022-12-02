@@ -2,26 +2,6 @@
 #include <stdlib.h>
 #include "obj.h"
 
-//Creates point Types, 
-struct point {
-    double x;
-    double y;
-    double z;
-};
-
-struct skelepoint{
-    struct point *pt;
-    
-    double r;
-};
-
-struct intpoint{
-    struct point *pt;
-    
-    double nx;
-    double ny;
-    double nz;
-};
 
 //Point Creation
 struct skelepoint* makeSkele2(double x,double y,double r){
@@ -60,7 +40,7 @@ struct skelepoint* makeSkele3(double x,double y,double z,double r){
     spt->pt = pt;
     spt->r = r;
     return spt;
-}
+} 
 struct intpoint* makeInt2(double x,double y,double nx,double ny){
     //define points
     struct point *pt;
@@ -123,6 +103,13 @@ struct intpoint* toPointi2(struct skelepoint *point,double nx,double ny){
     ipt->ny = ny;
     return ipt;
 }
+
+struct point getPointi(struct intpoint *point){
+    struct point holdpoint; 
+    holdpoint = *point->pt;
+    return holdpoint;
+}
+
 
 //For Point Deletion
 void removePoints(struct skelepoint *point){
