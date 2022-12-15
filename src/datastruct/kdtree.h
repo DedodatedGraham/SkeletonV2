@@ -5,6 +5,6 @@
 struct kdtree;
 
 struct kdtree *kdCreate(struct kdtree *tree,int *k,int *d,int *n);
-void kdLoad(struct kdtree tree,struct point Pts[],int *len);
+void kdLoad(struct kdtree tree,struct point **Pts[],int *len);
 
 #endif

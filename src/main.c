@@ -43,9 +43,7 @@ int main(){
     printf("initalized\n");
     i = 0;
     while(i < count){
-        printf("adding point %d",i);
-        pts[i] = getPointi(points[i]);
-        printf(" added: x:%lf y:%lf \n",pts[i].x,pts[i].y);
+        **pts[i] = getPointi(points[i]);
         i ++;
     }
     printf("converting\n");

@@ -4,7 +4,7 @@
 
 
 //Point Creation
-struct skelepoint* makeSkele2(double x,double y,double r){
+struct skelepoint** makeSkele2(double x,double y,double r){
     //define points
     struct point *pt;
     struct skelepoint *spt;
@@ -22,7 +22,7 @@ struct skelepoint* makeSkele2(double x,double y,double r){
     spt->r = r;
     return spt;
 }
-struct skelepoint* makeSkele3(double x,double y,double z,double r){
+struct skelepoint** makeSkele3(double x,double y,double z,double r){
     //define points
     struct point *pt;
     struct skelepoint *spt;
@@ -41,7 +41,7 @@ struct skelepoint* makeSkele3(double x,double y,double z,double r){
     spt->r = r;
     return spt;
 } 
-struct intpoint* makeInt2(double x,double y,double nx,double ny){
+struct intpoint** makeInt2(double x,double y,double nx,double ny){
     //define points
     struct point *pt;
     struct intpoint *ipt;
@@ -60,7 +60,7 @@ struct intpoint* makeInt2(double x,double y,double nx,double ny){
     ipt->ny = ny;
     return ipt;
 }
-struct intpoint* makeInt3(double x,double y,double z,double nx, double ny,double nz){
+struct intpoint** makeInt3(double x,double y,double z,double nx, double ny,double nz){
     //define points
     struct point *pt;
     struct intpoint *ipt;

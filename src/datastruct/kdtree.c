@@ -39,9 +39,10 @@ void kdLoad(struct kdtree tree,struct point **Pts[],int *len){
     int start = 0;
     int stop = *len;
     printf("sorting Points\n");
-    printf("Inital p1: x=%lf y=%lf\n",Pts[0]->x,Pts[0].y);
+    struct point pointz = **Pts[0];
+    printf("Inital p1: x=%lf y=%lf\n",pointz.x,pointz.y);
     quicksortPoint(Pts,&tree.k,start,stop);
-    printf("After p1: x=%lf y=%lf\n",Pts[0],Pts[0].y);
+    printf("After p1: x=%lf y=%lf\n",pointz.x,pointz.y);
     
     //Then we choose our nodepoint
     //printf("%lf\n",Pts[len].x);
