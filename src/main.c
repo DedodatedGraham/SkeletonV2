@@ -21,7 +21,7 @@ int main(){
     }
     //Allocate for loading
     struct intpoint *points[count]; 
-    struct point pts[count]; 
+    struct point **pts[count]; 
     //Loadin
     fseek(fp, 0, SEEK_SET);
     int k = 2;
