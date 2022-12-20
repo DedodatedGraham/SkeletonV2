@@ -1,3 +1,5 @@
-#include "includesrc.h"
-#include "datastruct/includeds.c"
-#include "algorithm/includea.c"
+#ifndef SKELE_HEAD
+#define SKELE_HEAD
+#include "datastruct/includeds.h"
+#include "algorithm/includea.h"
+#endif
