@@ -1,4 +1,4 @@
-#include "includesrc.c"
+#include "includesrc.h"
 int main(){
     printf("Started\n"); 
     struct kdtree tree; 
