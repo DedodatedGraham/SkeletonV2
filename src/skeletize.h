@@ -23,8 +23,8 @@ struct kdleaf{
     int axis;
     //if its the lowest layer, then it will contain a colletion of points
     //lower layers
-    double *leftbound;
-    double *rightbound;
+    //double *leftbound;
+    //double *rightbound;
     struct kdleaf *left,*right; 
 };
 //method for slicing
@@ -50,16 +50,43 @@ double getDistance(double **point1,double **point2){
 }
 double **getNearest(double **searchpoint,struct kdleaf tree){
     double ** retpoint;
+    int dim = *(&searchpoint + 1) - searchpoint;
     if(tree.flag == false){
         //Can go deeper, finds node to dive to 
-        if(searchpoint[tree.axis] < tree.origin[tree.axis]){
+        bool side = searchpoint[tree.axis] < tree.origin[tree.axis] ;
+        if(side){
             retpoint = getNearest(searchpoint,*tree.left);
         }
         else{
             retpoint = getNearest(searchpoint,*tree.right);   
         }
-        //next we will test distances and bounds and see if we should just return
-
+        //next we will test if we need to go to the other side of the tree
+        double axisnodedis = abs((int)(searchpoint[tree.axis] - tree.origin[tree.axis]));//This only measure along one axis
+        if(axisnodedis < *retpoint[dim]){
+            double **tempretpoint;
+            if(side){
+                tempretpoint = getNearest(searchpoint,*tree.right);
+            }
+            else{
+                tempretpoint = getNearest(searchpoint,*tree.left);   
+            }
+            if(tempretpoint[dim] < retpoint[dim]){
+                retpoint = tempretpoint;
+            }
+        }
+        //finally check the node
+        double nodedis = getDistance(searchpoint,tree.origin);
+        if(nodedis < *retpoint[dim]){
+            retpoint[0] = tree.origin[0];
+            retpoint[1] = tree.origin[1];
+            if(dim == 3){
+                retpoint[2] = tree.origin[2];
+                retpoint[3] = &nodedis;
+            } 
+            else{
+                retpoint[2] = &nodedis;
+            }
+        }
     }
     else{
         //Lowest search level.
@@ -69,17 +96,25 @@ double **getNearest(double **searchpoint,struct kdleaf tree){
             double tdis = getDistance(searchpoint,&tree.origin[i]);
             if(lowdis == 0.0 || tdis < lowdis){
                 lowdis = tdis;
-                retpoint = &tree.origin[i];
+                retpoint[0] = &tree.origin[i][0];
+                retpoint[1] = &tree.origin[i][1];
+                if(dim == 3){
+                    retpoint[2] = &tree.origin[i][2];
+                    retpoint[3] = &lowdis;
+                } 
+                else{
+                    retpoint[2] = &lowdis;
+                }
             }
         }
     }
     return retpoint;
 }
 
-void CreateStructure(double **points,struct kdleaf tree,int axis,int *length,int lower,int upper,double *leftbound, double *rightbound){
+void CreateStructure(double **points,struct kdleaf tree,int axis,int *length,int lower,int upper){//,double *leftbound, double *rightbound){
     //First we will sort along each needed axis
-    tree.leftbound = leftbound;
-    tree.rightbound = rightbound;
+    //tree.leftbound = leftbound;
+    //tree.rightbound = rightbound;
     tree.axis = axis;
     if(upper-lower > 5){
         tree.flag = false;
@@ -93,67 +128,109 @@ void CreateStructure(double **points,struct kdleaf tree,int axis,int *length,int
         if(axis == *length - 1){
             axis = -1;//will correct back to right axis
         }
-        
-        if(*length == 2){
-            double *newrightbound;
-            double *newleftbound;
-            if(axis == 0){
-                //x axis
-                newrightbound[0] = *tree.origin[0];
-                newrightbound[1] = rightbound[1];
-                newleftbound[0] = *tree.origin[0];
-                newleftbound[1] = leftbound[1];
-            }
-            else{
-                //yaxis
-                newrightbound[0] = rightbound[0];
-                newrightbound[1] = *tree.origin[1];
-                newleftbound[0] = leftbound[0];
-                newleftbound[1] = *tree.origin[1];
-            }
-            CreateStructure(points, *tree.left, axis + 1, length, lower, nodeindex - 1,leftbound,newrightbound);
-            CreateStructure(points, *tree.right,axis + 1, length, nodeindex + 1, upper,newleftbound,rightbound);
-        }
-        else{
-            double *newrightbound;
-            double *newleftbound;
-            if(axis == 0){
-                //x axis
-                newrightbound[0] = *tree.origin[0];
-                newrightbound[1] = rightbound[1];
-                newrightbound[2] = rightbound[2];
-                newleftbound[0] = *tree.origin[0];
-                newleftbound[1] = leftbound[1];
-                newleftbound[2] = leftbound[2];
-            }
-            else if(axis == 1){
-                //y axis
-                newrightbound[0] = rightbound[0];
-                newrightbound[1] = *tree.origin[1];
-                newrightbound[2] = rightbound[2];
-                newleftbound[0] = leftbound[0];
-                newleftbound[1] = *tree.origin[1];
-                newleftbound[2] = leftbound[2];
-            }
-            else{
-                //z axis
-                newrightbound[0] = rightbound[0];
-                newrightbound[1] = rightbound[1];
-                newrightbound[2] = *tree.origin[2];
-                newleftbound[0] = leftbound[0];
-                newleftbound[1] = leftbound[1];
-                newleftbound[2] = *tree.origin[2];
-            }
-            CreateStructure(points, *tree.left, axis + 1, length, lower, nodeindex - 1,leftbound,newrightbound);
-            CreateStructure(points, *tree.right,axis + 1, length, nodeindex + 1, upper,newleftbound,rightbound);
-        }
+        //bounds
+        //if(*length == 2){
+        //    double *newrightbound;
+        //    double *newleftbound;
+        //    if(axis == 0){
+        //        //x axis
+        //        newrightbound[0] = *tree.origin[0];
+        //        newrightbound[1] = rightbound[1];
+        //        newleftbound[0] = *tree.origin[0];
+        //        newleftbound[1] = leftbound[1];
+        //    }
+        //    else{
+        //        //yaxis
+        //        newrightbound[0] = rightbound[0];
+        //        newrightbound[1] = *tree.origin[1];
+        //        newleftbound[0] = leftbound[0];
+        //        newleftbound[1] = *tree.origin[1];
+        //    }
+        //    CreateStructure(points, *tree.left, axis + 1, length, lower, nodeindex - 1,leftbound,newrightbound);
+        //    CreateStructure(points, *tree.right,axis + 1, length, nodeindex + 1, upper,newleftbound,rightbound);
+        //}
+        //else{
+        //    double *newrightbound;
+        //    double *newleftbound;
+        //    if(axis == 0){
+        //        //x axis
+        //        newrightbound[0] = *tree.origin[0];
+        //        newrightbound[1] = rightbound[1];
+        //        newrightbound[2] = rightbound[2];
+        //        newleftbound[0] = *tree.origin[0];
+        //        newleftbound[1] = leftbound[1];
+        //        newleftbound[2] = leftbound[2];
+        //    }
+        //    else if(axis == 1){
+        //        //y axis
+        //        newrightbound[0] = rightbound[0];
+        //        newrightbound[1] = *tree.origin[1];
+        //        newrightbound[2] = rightbound[2];
+        //        newleftbound[0] = leftbound[0];
+        //        newleftbound[1] = *tree.origin[1];
+        //        newleftbound[2] = leftbound[2];
+        //    }
+        //    else{
+        //        //z axis
+        //        newrightbound[0] = rightbound[0];
+        //        newrightbound[1] = rightbound[1];
+        //        newrightbound[2] = *tree.origin[2];
+        //        newleftbound[0] = leftbound[0];
+        //        newleftbound[1] = leftbound[1];
+        //        newleftbound[2] = *tree.origin[2];
+        //    }
+        //    CreateStructure(points, *tree.left, axis + 1, length, lower, nodeindex - 1,leftbound,newrightbound);
+        //    CreateStructure(points, *tree.right,axis + 1, length, nodeindex + 1, upper,newleftbound,rightbound);
+        //}
+        CreateStructure(points,*tree.left,axis + 1,length,lower,nodeindex - 1);
+        CreateStructure(points,*tree.right,axis+ 1,length,nodeindex + 1,upper);
     }
     else if(upper-lower > 0){
         tree.flag = true;
         *tree.origin = slice(*points,lower,upper);//will make origin now all 
     }
 }
+double getRadius(double **point,double **interface,int dim){
+    //point has norm data attached
+    //dim is size of data(makes life easier)
+    double top;
+    double bot = getDistance(interface,point);
+    for(int i = 0; i < dim; i++){
+        //goes though each dimension
+        top += point[dim + i] * (point[i] - interface[i]);
+    }
+    double theta = acos(top / bot);
+    return(bot / (2* cos(theta)));
+}
+double **makeSkeleton(double **points,struct kdleaf tree,int *length,int *max){
+    //length is dim
+    //max is size of list
+    printf("starting process");
+    double guessr = *max;
+    double **skeleton;
+    double **centerPoint;
+    double **radius;
+    double **interfacePoint;
+    for(int i = 0; i < *max; i++){
+        //Goes through each element of the list & generates a skeleton point
+        //First step is to make an initial guess
+        bool completeCase = true;
+        int index = 0;
+        double x = points[i][0] + guessr;
+        double y = points[i][1] + guessr;
+        double **tpoint;
+        tpoint[0] = &x;
+        tpoint[1] = &y;
+        if(*length == 3){
+            double z = points[i][2] + guessr;
+            tpoint[2] = &z;
+        }
+        interfacePoint[i] = *getNearest(tpoint,tree); 
+        while(completeCase){
 
+        }
+    }
+}
 void skeltize(double **points){
     //initial setup
     struct skeleData data;
@@ -165,94 +242,59 @@ void skeltize(double **points){
     int max = *(&points + 1) - points;//gets amount of points being put in
     printf("we have %d points",max);
     //gets bounds
-    double xbounds [2];
-    double ybounds [2];
-    double zbounds [2];
-    xbounds[0] = points[0][0];
-    xbounds[1] = points[1][0];
-    ybounds[0] = points[0][1];
-    ybounds[1] = points[1][1];
-    if(length == 3){
-        zbounds[0] = points[0][2];
-        zbounds[1] = points[1][2];
-    }
-    for(int i = 2; i < max; i ++){ 
-        if(points[i][0] < xbounds[0]){
-            xbounds[0] = points[i][0];
-        }
-        else if(points[i][0] > xbounds[1]){
-            xbounds[1] = points[i][0];
-        }
-        if(points[i][1] < ybounds[0]){
-            ybounds[0] = points[i][1];
-        }
-        else if(points[i][1] > ybounds[1]){
-            ybounds[1] = points[i][1];
-        }
-        if(length == 3){
-            if(points[i][2] < zbounds[0]){
-                zbounds[0] = points[i][2];
-            }
-            else if(points[i][2] > zbounds[1]){
-                zbounds[1] = points[i][2];
-            }
-        }
-    }
-    double *leftbound;
-    double *rightbound;
-    if(length == 2){
-        leftbound[0] = xbounds[0];
-        leftbound[1] = ybounds[0];
-        rightbound[0] = xbounds[1];
-        rightbound[1] = ybounds[1];
-    }
-    else{
-        leftbound[0] = xbounds[0];
-        leftbound[1] = ybounds[0];
-        leftbound[2] = zbounds[0];
-        rightbound[0] = xbounds[1];
-        rightbound[1] = ybounds[1];
-        rightbound[2] = zbounds[1];
-    }
+    //double xbounds [2];
+    //double ybounds [2];
+    //double zbounds [2];
+    //xbounds[0] = points[0][0];
+    //xbounds[1] = points[1][0];
+    //ybounds[0] = points[0][1];
+    //ybounds[1] = points[1][1];
+    //if(length == 3){
+    //    zbounds[0] = points[0][2];
+    //    zbounds[1] = points[1][2];
+    //}
+    //for(int i = 2; i < max; i ++){ 
+    //    if(points[i][0] < xbounds[0]){
+    //        xbounds[0] = points[i][0];
+    //    }
+    //    else if(points[i][0] > xbounds[1]){
+    //        xbounds[1] = points[i][0];
+    //    }
+    //    if(points[i][1] < ybounds[0]){
+    //        ybounds[0] = points[i][1];
+    //    }
+    //    else if(points[i][1] > ybounds[1]){
+    //        ybounds[1] = points[i][1];
+    //    }
+    //    if(length == 3){
+    //        if(points[i][2] < zbounds[0]){
+    //            zbounds[0] = points[i][2];
+    //        }
+    //        else if(points[i][2] > zbounds[1]){
+    //            zbounds[1] = points[i][2];
+    //        }
+    //    }
+    //}
+    //double *leftbound;
+    //double *rightbound;
+    //if(length == 2){
+    //    leftbound[0] = xbounds[0];
+    //    leftbound[1] = ybounds[0];
+    //    rightbound[0] = xbounds[1];
+    //    rightbound[1] = ybounds[1];
+    //}
+    //else{
+    //    leftbound[0] = xbounds[0];
+    //    leftbound[1] = ybounds[0];
+    //    leftbound[2] = zbounds[0];
+    //    rightbound[0] = xbounds[1];
+    //    rightbound[1] = ybounds[1];
+    //    rightbound[2] = zbounds[1];
+    //}
+    
     //Builds tree
-    CreateStructure(points,tree,0,&length,0,max,leftbound,rightbound);//make kd-tree
-
+    CreateStructure(points,tree,0,&length,0,max);//make kd-tree
+    
+    //Next we will skeletonize all the points in our list
+    double **skeleton = makeSkeleton(points,tree,&length,&max);
 }
-
-
-
-
-//void Swap(double *a, double *b){
-//    double temp = *a;
-//    *a = *b;
-//    *b = temp;
-//}
-//
-//int Partition(double **arr, int lbound, int tbound, int index){
-//    //lbound => lower bounds
-//    //tbound => top bounds
-//    double pivot = arr[tbound][index]; 
-//    int i = lbound - 1; 
-//
-//    for(int j = lbound; j < tbound; j++){
-//        if(arr[j][index] <= pivot){
-//	    i++;
-//	    Swap(&arr[i][index], &arr[j][index]);
-//	    Swap(&arr[i][index - 1], &arr[j][index - 1]);
-//	    Swap(&arr[i][index - 2], &arr[j][index - 2]);
-//	    }
-//    }
-//    Swap(&arr[i + 1][index], &arr[tbound][index]);
-//    Swap(&arr[i + 1][index - 1], &arr[tbound][index - 1]);
-//    Swap(&arr[i + 1][index - 2], &arr[tbound][index - 2]);
-//    int temp_pivot = i+1;
-//return temp_pivot;
-//}
-//
-//void QuickSort(double **arr, int lbound, int tbound, int index){
-//    if(lbound < tbound){
-//        double pivot = Partition(arr, lbound, tbound, index);
-//        QuickSort(arr, lbound, pivot - 1, index);
-//        QuickSort(arr, pivot + 1, tbound, index);
-//    }
-//}
