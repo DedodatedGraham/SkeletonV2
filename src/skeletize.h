@@ -190,17 +190,18 @@ void CreateStructure(double **points,struct kdleaf tree,int axis,int *length,int
         *tree.origin = slice(*points,lower,upper);//will make origin now all 
     }
 }
-double getRadius(double **point,double **interface,int dim){
+double getRadius(double **point,double **interface,int *dim){
     //point has norm data attached
     //dim is size of data(makes life easier)
     double top;
     double bot = getDistance(interface,point);
-    for(int i = 0; i < dim; i++){
+    for(int i = 0; i < *dim; i++){
         //goes though each dimension
-        top += point[dim + i] * (point[i] - interface[i]);
+        top += *point[*dim + i] * (*point[i] - *interface[i]);
     }
     double theta = acos(top / bot);
-    return(bot / (2* cos(theta)));
+    double ret = (bot / (2 * cos(theta)));
+    return ret;
 }
 double **makeSkeleton(double **points,struct kdleaf tree,int *length,int *max){
     //length is dim
@@ -209,7 +210,7 @@ double **makeSkeleton(double **points,struct kdleaf tree,int *length,int *max){
     double guessr = *max;
     double **skeleton;
     double **centerPoint;
-    double **radius;
+    double *radius;
     double **interfacePoint;
     for(int i = 0; i < *max; i++){
         //Goes through each element of the list & generates a skeleton point
@@ -218,6 +219,7 @@ double **makeSkeleton(double **points,struct kdleaf tree,int *length,int *max){
         int index = 0;
         double x = points[i][0] + guessr;
         double y = points[i][1] + guessr;
+        double z;
         double **tpoint;
         tpoint[0] = &x;
         tpoint[1] = &y;
@@ -225,11 +227,42 @@ double **makeSkeleton(double **points,struct kdleaf tree,int *length,int *max){
             double z = points[i][2] + guessr;
             tpoint[2] = &z;
         }
-        interfacePoint[i] = *getNearest(tpoint,tree); 
+        //We get a interface point and calulate the raidus to begin
+        interfacePoint[index] = *getNearest(tpoint,tree);
+        radius[index] = getRadius(&points[i],&interfacePoint[index],length);
         while(completeCase){
-
+            //first calculate new center point based on the last radius given
+            if(*length == 2){
+                x = points[i][0] - radius[index] * points[i][2];
+                y = points[i][1] - radius[index] * points[i][3];
+                tpoint[0] = &x;
+                tpoint[1] = &y;
+            }
+            else{
+                x = points[i][0] - radius[index] * points[i][3];
+                y = points[i][1] - radius[index] * points[i][4];
+                z = points[i][2] - radius[index] * points[i][5];
+                tpoint[0] = &x;
+                tpoint[1] = &y;
+                tpoint[2] = &z;
+            }
+            centerPoint[index] = *tpoint;
+            //then calculate the closest point
+            interfacePoint[index + 1] = *getNearest(tpoint,tree);
+            radius[index + 1] = getRadius(&points[i],&interfacePoint[index + 1],length);
+            if(fabs(radius[index] - radius[index + 1]) < 0.001){
+                //convergance conditions
+                //our center point should remain the same
+                for(int j = 0; j < *length; j++){
+                    //Create skeleton point
+                    skeleton[i][j] = centerPoint[index][j];
+                }
+                skeleton[i][*length] = radius[index];
+            }
+            index += 1;
         }
     }
+    return skeleton;
 }
 void skeltize(double **points){
     //initial setup
@@ -297,4 +330,13 @@ void skeltize(double **points){
     
     //Next we will skeletonize all the points in our list
     double **skeleton = makeSkeleton(points,tree,&length,&max);
+    //print results
+    for(int i = 0; i < max; i++){
+        if(length == 2){
+            printf("Skeleton %d: [%f,%f] Radius: %f",i,skeleton[i][0],skeleton[i][1],skeleton[i][2]);
+        }
+        else{
+            printf("Skeleton %d: [%f,%f,%f] Radius: %f",i,skeleton[i][0],skeleton[i][1],skeleton[i][2],skeleton[i][3]);
+        }
+    }
 }
