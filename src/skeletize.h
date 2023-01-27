@@ -128,60 +128,6 @@ void CreateStructure(double **points,struct kdleaf tree,int axis,int *length,int
         if(axis == *length - 1){
             axis = -1;//will correct back to right axis
         }
-        //bounds
-        //if(*length == 2){
-        //    double *newrightbound;
-        //    double *newleftbound;
-        //    if(axis == 0){
-        //        //x axis
-        //        newrightbound[0] = *tree.origin[0];
-        //        newrightbound[1] = rightbound[1];
-        //        newleftbound[0] = *tree.origin[0];
-        //        newleftbound[1] = leftbound[1];
-        //    }
-        //    else{
-        //        //yaxis
-        //        newrightbound[0] = rightbound[0];
-        //        newrightbound[1] = *tree.origin[1];
-        //        newleftbound[0] = leftbound[0];
-        //        newleftbound[1] = *tree.origin[1];
-        //    }
-        //    CreateStructure(points, *tree.left, axis + 1, length, lower, nodeindex - 1,leftbound,newrightbound);
-        //    CreateStructure(points, *tree.right,axis + 1, length, nodeindex + 1, upper,newleftbound,rightbound);
-        //}
-        //else{
-        //    double *newrightbound;
-        //    double *newleftbound;
-        //    if(axis == 0){
-        //        //x axis
-        //        newrightbound[0] = *tree.origin[0];
-        //        newrightbound[1] = rightbound[1];
-        //        newrightbound[2] = rightbound[2];
-        //        newleftbound[0] = *tree.origin[0];
-        //        newleftbound[1] = leftbound[1];
-        //        newleftbound[2] = leftbound[2];
-        //    }
-        //    else if(axis == 1){
-        //        //y axis
-        //        newrightbound[0] = rightbound[0];
-        //        newrightbound[1] = *tree.origin[1];
-        //        newrightbound[2] = rightbound[2];
-        //        newleftbound[0] = leftbound[0];
-        //        newleftbound[1] = *tree.origin[1];
-        //        newleftbound[2] = leftbound[2];
-        //    }
-        //    else{
-        //        //z axis
-        //        newrightbound[0] = rightbound[0];
-        //        newrightbound[1] = rightbound[1];
-        //        newrightbound[2] = *tree.origin[2];
-        //        newleftbound[0] = leftbound[0];
-        //        newleftbound[1] = leftbound[1];
-        //        newleftbound[2] = *tree.origin[2];
-        //    }
-        //    CreateStructure(points, *tree.left, axis + 1, length, lower, nodeindex - 1,leftbound,newrightbound);
-        //    CreateStructure(points, *tree.right,axis + 1, length, nodeindex + 1, upper,newleftbound,rightbound);
-        //}
         CreateStructure(points,*tree.left,axis + 1,length,lower,nodeindex - 1);
         CreateStructure(points,*tree.right,axis+ 1,length,nodeindex + 1,upper);
     }
@@ -258,13 +204,17 @@ double **makeSkeleton(double **points,struct kdleaf tree,int *length,int *max){
                     skeleton[i][j] = centerPoint[index][j];
                 }
                 skeleton[i][*length] = radius[index];
+                completeCase = false;
             }
             index += 1;
+            if(index >= 50){
+                break;
+            }
         }
     }
     return skeleton;
 }
-void skeltize(double **points){
+void skeletize(double **points){
     //initial setup
     struct skeleData data;
     struct kdleaf tree;
@@ -274,58 +224,6 @@ void skeltize(double **points){
     printf("length(dim) is: %d",length);
     int max = *(&points + 1) - points;//gets amount of points being put in
     printf("we have %d points",max);
-    //gets bounds
-    //double xbounds [2];
-    //double ybounds [2];
-    //double zbounds [2];
-    //xbounds[0] = points[0][0];
-    //xbounds[1] = points[1][0];
-    //ybounds[0] = points[0][1];
-    //ybounds[1] = points[1][1];
-    //if(length == 3){
-    //    zbounds[0] = points[0][2];
-    //    zbounds[1] = points[1][2];
-    //}
-    //for(int i = 2; i < max; i ++){ 
-    //    if(points[i][0] < xbounds[0]){
-    //        xbounds[0] = points[i][0];
-    //    }
-    //    else if(points[i][0] > xbounds[1]){
-    //        xbounds[1] = points[i][0];
-    //    }
-    //    if(points[i][1] < ybounds[0]){
-    //        ybounds[0] = points[i][1];
-    //    }
-    //    else if(points[i][1] > ybounds[1]){
-    //        ybounds[1] = points[i][1];
-    //    }
-    //    if(length == 3){
-    //        if(points[i][2] < zbounds[0]){
-    //            zbounds[0] = points[i][2];
-    //        }
-    //        else if(points[i][2] > zbounds[1]){
-    //            zbounds[1] = points[i][2];
-    //        }
-    //    }
-    //}
-    //double *leftbound;
-    //double *rightbound;
-    //if(length == 2){
-    //    leftbound[0] = xbounds[0];
-    //    leftbound[1] = ybounds[0];
-    //    rightbound[0] = xbounds[1];
-    //    rightbound[1] = ybounds[1];
-    //}
-    //else{
-    //    leftbound[0] = xbounds[0];
-    //    leftbound[1] = ybounds[0];
-    //    leftbound[2] = zbounds[0];
-    //    rightbound[0] = xbounds[1];
-    //    rightbound[1] = ybounds[1];
-    //    rightbound[2] = zbounds[1];
-    //}
-    
-    //Builds tree
     CreateStructure(points,tree,0,&length,0,max);//make kd-tree
     
     //Next we will skeletonize all the points in our list
