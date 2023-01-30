@@ -1,3 +1,6 @@
+#ifndef BASILISK_HEADER_1
+#define BASILISK_HEADER_1
+#line 1 "./../src/skeletize.h"
 #include <stdio.h>
 #include <math.h>
 #include <time.h>
@@ -238,3 +241,5 @@ void skeletize(double **points){
         }
     }
 }
+
+#endif
