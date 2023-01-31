@@ -19,7 +19,6 @@ struct kdleaf{
     //Bounds and position
     double **origin;//node point [x,y] or [x,y,z]
     bool flag;
-    int depth;
     int axis;
     //if its the lowest layer, then it will contain a colletion of points
     //lower layers
@@ -27,14 +26,26 @@ struct kdleaf{
     //double *rightbound;
     struct kdleaf *left,*right; 
 };
+//Destroy
+void kdDestroy(struct kdleaf kdtree){
+    if(kdtree.flag){
+        free(kdtree.origin);
+        free(kdtree);    
+    }
+    else{
+        kdDestroy(*kdtree.left);
+        free(kdtree.left);
+        kdDestroy(*kdtree.right);
+        free(kdtree.right);
+    }
+}
 //method for slicing
-double *slice(double *array, int start, int end){
+double **slice(double *array, int start, int end,int dim){
+    fprintf(stdout,"slicing from %d to %d \n",start,end);
     int numElements = (end - start + 1);//find length of wanted slice
-    int numBytes = sizeof(int) * numElements;//find byte size
-
-    double *slice = malloc(numBytes);//allocate
+    int numBytes = sizeof(double) * (dim * 2) * numElements;//find byte size
+    double **slice = (double**)malloc(numBytes);//allocate
     memcpy(slice, array + start, numBytes);//shift
-
     return slice;
 }
 //method for getting distance
@@ -51,7 +62,27 @@ double getDistance(double **point1,double **point2){
 double **getNearest(double **searchpoint,struct kdleaf kdtree){
     double ** retpoint;
     int dim = *(&searchpoint + 1) - searchpoint;
-    if(kdtree.flag == false){
+    if(kdtree.flag){
+        //Lowest search level.
+        double lowdis = 0.0;
+        int length = *(&kdtree.origin + 1) - kdtree.origin;
+        for(int i = 0; i < length; i++){
+            double tdis = getDistance(searchpoint,&kdtree.origin[i]);
+            if(lowdis == 0.0 || tdis < lowdis){
+                lowdis = tdis;
+                retpoint[0] = &kdtree.origin[i][0];
+                retpoint[1] = &kdtree.origin[i][1];
+                if(dim == 3){
+                    retpoint[2] = &kdtree.origin[i][2];
+                    retpoint[3] = &lowdis;
+                } 
+                else{
+                    retpoint[2] = &lowdis;
+                }
+            }
+        }
+    }
+    else{
         //Can go deeper, finds node to dive to 
         bool side = searchpoint[kdtree.axis] < kdtree.origin[kdtree.axis] ;
         if(side){
@@ -88,26 +119,6 @@ double **getNearest(double **searchpoint,struct kdleaf kdtree){
             }
         }
     }
-    else{
-        //Lowest search level.
-        double lowdis = 0.0;
-        int length = *(&kdtree.origin + 1) - kdtree.origin;
-        for(int i = 0; i < length; i++){
-            double tdis = getDistance(searchpoint,&kdtree.origin[i]);
-            if(lowdis == 0.0 || tdis < lowdis){
-                lowdis = tdis;
-                retpoint[0] = &kdtree.origin[i][0];
-                retpoint[1] = &kdtree.origin[i][1];
-                if(dim == 3){
-                    retpoint[2] = &kdtree.origin[i][2];
-                    retpoint[3] = &lowdis;
-                } 
-                else{
-                    retpoint[2] = &lowdis;
-                }
-            }
-        }
-    }
     return retpoint;
 }
 
@@ -115,12 +126,16 @@ void CreateStructure(double **points,struct kdleaf kdtree,int axis,int *length,i
     //First we will sort along each needed axis
     //tree.leftbound = leftbound;
     //tree.rightbound = rightbound;
+    kdtree = malloc(sizeof(struct kdleaf));
     kdtree.axis = axis;
     if(upper-lower > 5){
+        //fprintf(stdout,"main create %d %d\n",upper,lower);
         kdtree.flag = false;
-        QuickSort(points,lower,upper,axis,length);
+        
+        skeleQuickSort(points,lower,upper,axis,length);
+        
         //points now sorted, Next applying our node point and split the list to the appropiate list
-        int nodeindex = (upper - lower) / 2; 
+        int nodeindex = (upper + lower) / 2; 
         kdtree.origin = &points[nodeindex];
         //getting new bounds for lower layers
         //bounds change depending on axis dividing
@@ -128,12 +143,28 @@ void CreateStructure(double **points,struct kdleaf kdtree,int axis,int *length,i
         if(axis == *length - 1){
             axis = -1;//will correct back to right axis
         }
+        struct kdleaf kdleft;
+        kdtree.left = &kdleft;
+        //fprintf(stdout,"making new left: %d %d \n",lower,nodeindex-1);
         CreateStructure(points,*kdtree.left,axis + 1,length,lower,nodeindex - 1);
+        struct kdleaf kdright;
+        kdtree.right = &kdright;
+        //fprintf(stdout,"making new right: %d %d \n",nodeindex+1,upper);
         CreateStructure(points,*kdtree.right,axis+ 1,length,nodeindex + 1,upper);
+        //fprintf(stdout,"main create good\n");
     }
     else if(upper-lower > 0){
+        //fprintf(stdout,"alt create\n");
         kdtree.flag = true;
-        *kdtree.origin = slice(*points,lower,upper);//will make origin now all 
+        //double **sliced = slice(*points,lower,upper,*length);
+        double **hold = (double**)malloc((upper - lower) * sizeof(double*));
+        for(int i = 0; i < upper - lower; i++){
+            hold[i] = (double*)malloc(sizeof(double)*2*(*length));
+            //Now we have allocated space for this
+            memcpy(hold[i],points[lower + i],sizeof(double) * 4);
+        }
+        kdtree.origin = hold;
+        //fprintf(stdout,"alt create good\n");
     }
 }
 double getRadius(double **point,double **interface,int *dim){
@@ -214,27 +245,79 @@ double **makeSkeleton(double **points,struct kdleaf kdtree,int *length,int *max)
     }
     return skeleton;
 }
-void skeletize(double **points){
+void skeletize(double **points,int *max,int *length){
     //initial setup
-    struct skeleData data;
     struct kdleaf kdtree;
-    data.points = points;
     //sizes
-    int length = (*(&points[0] + 1) - points[0]) / 2;//gets dimension of skeleton data, should give 2 or 3
-    printf("length(dim) is: %d",length);
-    int max = *(&points + 1) - points;//gets amount of points being put in
-    printf("we have %d points",max);
-    CreateStructure(points,kdtree,0,&length,0,max);//make kd-tree
-    
+    //int length = (*(&points[0] + 1) - points[0]) / 2;//gets dimension of skeleton data, should give 2 or 3
+    //fprintf(stdout,"length(dim) is: %d\n",*length);
+    //int max = *(&points + 1) - points;//gets amount of points being put in
+    //fprintf(stdout,"we have %d points\n",*max);
+    CreateStructure(points,kdtree,0,length,0,*max);//make kd-tree
+    fprintf(stdout,"we have completed kdtree\n");
     //Next we will skeletonize all the points in our list
-    double **skeleton = makeSkeleton(points,kdtree,&length,&max);
+    //double **skeleton = makeSkeleton(points,kdtree,&length,&max);
     //print results
-    for(int i = 0; i < max; i++){
-        if(length == 2){
-            printf("Skeleton %d: [%f,%f] Radius: %f",i,skeleton[i][0],skeleton[i][1],skeleton[i][2]);
-        }
-        else{
-            printf("Skeleton %d: [%f,%f,%f] Radius: %f",i,skeleton[i][0],skeleton[i][1],skeleton[i][2],skeleton[i][3]);
-        }
+    //for(int i = 0; i < max; i++){
+    //    if(length == 2){
+    //        fprintf(stdout,"Skeleton %d: [%f,%f] Radius: %f",i,skeleton[i][0],skeleton[i][1],skeleton[i][2]); 
+    //    }
+    //    else{
+    //        fprintf(stdout,"Skeleton %d: [%f,%f,%f] Radius: %f",i,skeleton[i][0],skeleton[i][1],skeleton[i][2],skeleton[i][3]); 
+    //    }
+    //}
+    //return skeleton;
+    kdDestroy(kdtree);
+}
+
+//Extract the interfacial points. here we are extracting the center of the cut surface
+struct OutputXYNorm{
+    scalar c;
+    //FILE *fp;
+    face vector s;
+    int level;
+};
+
+double** output_points_xynorm(struct OutputXYTheta p, int *nrow){
+    scalar c = p.c;
+    restriction({c});
+    face vector s = p.s;
+    //if(!p.fp) p.fp = stdout;
+    if(!s.x.i) s.x.i = -1;
+    int j = 0;// number of interfacial cells 
+    foreach_level_or_leaf(p.level){
+        if(c[] > 1e-6 && c[] < 1.-1e-6){
+	    j++;
+	}
     }
+    int nr = j; int nc = 4;// nc is the number of column, we initialize it with 3 because we will stor x,y theta data in those columns
+    fprintf(stdout,"Number of interfacial cells=%d\n",nr);
+    *nrow = j - 1;
+    //fprintf(p.fp,"#x y\n");
+    j = 0;
+    //Lets allocate memory to store the interface data as an array
+    //fprintf(stdout,"DEBUG: Lets allocate memory\n");
+    double **arr = (double**)malloc(nr*sizeof(double*));
+    for(int k = 0; k < nr; k++){
+        arr[k] = (double*)malloc(nc*sizeof(double));
+    }
+    //Calculate the interface data
+    foreach_level_or_leaf(p.level){
+        if(c[] > 1e-6 && c[] < 1.-1e-6){
+	        coord n = facet_normal(point, c, s);
+	        double alpha = plane_alpha(c[], n);
+	        coord pc;
+	        double area = plane_area_center(n, alpha, &pc);
+	        if(area==0){
+	            fprintf(stdout,"Area=Null\n");// This statement is just to make some use of the area info. otherwise compiler throws warning!!
+	        }
+	        //fprintf(p.fp, "%g %g\n",x+Delta*pc.x, y+Delta*pc.y);
+	        arr[j][0] = x+Delta*pc.x; 
+	        arr[j][1] = y+Delta*pc.y;
+	        arr[j][2] = n.x; 
+	        arr[j][3] = n.y;
+	        j++;
+	    }
+    }
+    return arr;
 }
