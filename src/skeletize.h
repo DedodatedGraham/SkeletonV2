@@ -20,7 +20,7 @@ struct kdleaf{
     double **origin;//node point [x,y] or [x,y,z]
     bool flag;
     int axis;
-    int *leng;
+    int leng;
     //if its the lowest layer, then it will contain a colletion of points
     //lower layers
     //double *leftbound;
@@ -59,7 +59,8 @@ double **getNearest(double **searchpoint,struct kdleaf *kdtree){
     if(kdtree->flag){
         //Lowest search level.
         double lowdis = 0.0;
-        for(int i = 0; i < *kdtree->leng; i++){
+        fprintf(stdout,"length: %d\n",kdtree->leng);
+        for(int i = 0; i < kdtree->leng; i++){
             double tdis = getDistance(searchpoint,&kdtree->origin[i]);
             if(lowdis == 0.0 || tdis < lowdis){
                 lowdis = tdis;
@@ -76,7 +77,8 @@ double **getNearest(double **searchpoint,struct kdleaf *kdtree){
         }
     }
     else{
-        //Can go deeper, finds node to dive to 
+        //Can go deeper, finds node to dive to
+        fprintf(stdout,"axis = %d\n",kdtree->axis);
         bool side = searchpoint[kdtree->axis] < kdtree->origin[kdtree->axis] ;
         if(side){
             retpoint = getNearest(searchpoint,kdtree->left);
@@ -122,7 +124,6 @@ void kdDestroy(struct kdleaf *kdtree){
     struct kdleaf kdtree2 = *kdtree;
     free(kdtree2.origin);
     if(kdtree2.flag){
-        free(kdtree2.leng);
         fprintf(stdout,"destroyed bot\n");
     }
     else{
@@ -133,34 +134,42 @@ void kdDestroy(struct kdleaf *kdtree){
         free(kdtree2.right);
     }
 }
-struct kdleaf *createLeaf(int axis, double **points){
-    fprintf(stdout,"created leaf \n");
-    struct kdleaf *kdtree = (struct kdleaf*)malloc(sizeof(struct kdleaf));
-    kdtree->axis = axis;
-    kdtree->origin = points;
+struct kdleaf createLeaf(int axis, double **points){
+    //fprintf(stdout,"created leaf \n");
+    struct kdleaf kdtree;
+    kdtree.axis = axis;
+    fprintf(stdout,"axisin = %d\n",kdtree.axis);
+    kdtree.origin = points;
     return kdtree;
 }
-void CreateStructure(double **points,struct kdleaf *kdtree,int axis,int *length,int lower,int upper){//,double *leftbound, double *rightbound){
+void CreateStructure(double **points,struct kdleaf kdtree,int axis,int *length,int lower,int upper){//,double *leftbound, double *rightbound){
     //First we will sort along each needed axis
     //tree.leftbound = leftbound;
     //tree.rightbound = rightbound;
+    if(axis == *length){
+        axis = -1;//will correct back to right axis
+    }
     if(upper-lower > 5){
+        fprintf(stdout,"size of numbers = %d\n",*length);
+        
         skeleQuickSort(points,lower,upper,axis,length);
         int nodeindex = (upper + lower) / 2; 
         //fprintf(stdout,"main create %d %d\n",upper,lower);
         kdtree = createLeaf(axis,&points[nodeindex]);
-        kdtree->flag = false; 
+        kdtree.flag = false; 
+        
         //points now sorted, Next applying our node point and split the list to the appropiate list
         //getting new bounds for lower layers
         //bounds change depending on axis dividing
-        if(axis == *length - 1){
-            axis = -1;//will correct back to right axis
-        }
 
         //fprintf(stdout,"making new left: %d %d \n",lower,nodeindex-1);
-        CreateStructure(points,kdtree->left,axis + 1,length,lower,nodeindex - 1);
+        struct kdleaf* left = (struct kdleaf*)malloc(sizeof(struct kdleaf));
+        kdtree.left = left;
+        CreateStructure(points,*kdtree.left,axis + 1,length,lower,nodeindex - 1);
         //fprintf(stdout,"making new right: %d %d \n",nodeindex+1,upper);
-        CreateStructure(points,kdtree->right,axis+ 1,length,nodeindex + 1,upper);
+        struct kdleaf* right = (struct kdleaf*)malloc(sizeof(struct kdleaf));
+        kdtree.right = right;
+        CreateStructure(points,*kdtree.right,axis+ 1,length,nodeindex + 1,upper);
         //fprintf(stdout,"main create good\n");
     }
     else if(upper-lower > 0){
@@ -172,12 +181,15 @@ void CreateStructure(double **points,struct kdleaf *kdtree,int axis,int *length,
             memcpy(hold[i],points[lower + i],sizeof(double) * 2 * (*length));
         }
         kdtree = createLeaf(axis,hold);
-        kdtree->flag = true;
+        kdtree.flag = true;
         int leng = upper-lower;
-        kdtree->leng = &leng;
+        kdtree.leng = leng;
+        fprintf(stdout,"u/l = %d %d\n",upper,lower);
+        fprintf(stdout,"leng = %d\n",kdtree.leng);
         //double **sliced = slice(*points,lower,upper,*length);
         //fprintf(stdout,"alt create good\n");
     }
+    fprintf(stdout,"axisout = %d\n",kdtree.axis);
 }
 double getRadius(double **point,double **interface,int *dim){
     //point has norm data attached
@@ -195,12 +207,19 @@ double getRadius(double **point,double **interface,int *dim){
 double **makeSkeleton(double **points,struct kdleaf *kdtree,int *length,int *max){
     //length is dim
     //max is size of list
-    printf("starting process");
+    int MAXCYCLES = 50;
+
+    fprintf(stdout,"starting process\n");
     double guessr = *max;
-    double **skeleton;
-    double **centerPoint;
-    double *radius;
-    double **interfacePoint;
+    double **skeleton = (double**)malloc(*max * sizeof(double*));
+    double **centerPoint = (double**)malloc(MAXCYCLES * sizeof(double*));
+    double *radius = (double*)malloc(MAXCYCLES * sizeof(double));
+    double **interfacePoint = (double**)malloc(MAXCYCLES * sizeof(double*));
+    for(int t = 0; t < MAXCYCLES; t++){
+        skeleton[t] = (double*)malloc((*length + 1) * sizeof(double));//set size of points + r
+        centerPoint[t] = (double*)malloc((*length) * sizeof(double));//set size of points
+        interfacePoint[t] = (double*)malloc((*length) * sizeof(double));//set size of points
+    }
     for(int i = 0; i < *max; i++){
         //Goes through each element of the list & generates a skeleton point
         //First step is to make an initial guess
@@ -210,10 +229,17 @@ double **makeSkeleton(double **points,struct kdleaf *kdtree,int *length,int *max
         double y = points[i][1] + guessr;
         double z;
         double **tpoint;
-        tpoint[0] = &x;
-        tpoint[1] = &y;
-        if(*length == 3){
+        if(*length == 2){
+            double **tpoint = (double**)malloc(2 * sizeof(double*));
+            tpoint[0] = &x;
+            tpoint[1] = &y;
+
+        }
+        else{
             double z = points[i][2] + guessr;
+            double **tpoint = (double**)malloc(3 * sizeof(double*));
+            tpoint[0] = &x;
+            tpoint[1] = &y;
             tpoint[2] = &z;
         }
         //We get a interface point and calulate the raidus to begin
@@ -250,7 +276,7 @@ double **makeSkeleton(double **points,struct kdleaf *kdtree,int *length,int *max
                 completeCase = false;
             }
             index += 1;
-            if(index >= 50){
+            if(index >= MAXCYCLES){
                 break;
             }
         }
@@ -259,16 +285,17 @@ double **makeSkeleton(double **points,struct kdleaf *kdtree,int *length,int *max
 }
 void skeletize(double **points,int *max,int *length){
     //initial setup
-    struct kdleaf *kdtree;
+    struct kdleaf kdtree;
     //sizes
     //int length = (*(&points[0] + 1) - points[0]) / 2;//gets dimension of skeleton data, should give 2 or 3
     //fprintf(stdout,"length(dim) is: %d\n",*length);
     //int max = *(&points + 1) - points;//gets amount of points being put in
     //fprintf(stdout,"we have %d points\n",*max);
     CreateStructure(points,kdtree,0,length,0,*max);//make kd-tree
+    fprintf(stdout,"axisabs = %d\n",kdtree.axis);
     fprintf(stdout,"we have completed kdtree\n");
     //Next we will skeletonize all the points in our list
-    double **skeleton = makeSkeleton(points,kdtree,length,max);
+    double **skeleton = makeSkeleton(points,&kdtree,length,max);
     //print results
     for(int i = 0; i < *max; i++){
         if(*length == 2){
