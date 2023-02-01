@@ -20,6 +20,7 @@ struct kdleaf{
     double **origin;//node point [x,y] or [x,y,z]
     bool flag;
     int axis;
+    int *leng;
     //if its the lowest layer, then it will contain a colletion of points
     //lower layers
     //double *leftbound;
@@ -46,7 +47,7 @@ double getDistance(double **point1,double **point2){
     distance = sqrt(distance);
     return distance;
 }
-double **getNearest(double **searchpoint,struct kdleaf kdtree){
+double **getNearest(double **searchpoint,struct kdleaf *kdtree){
     int dim = *(&searchpoint + 1) - searchpoint;
     double **retpoint;
     if(dim == 2){
@@ -55,18 +56,17 @@ double **getNearest(double **searchpoint,struct kdleaf kdtree){
     else{
         retpoint = (double**)malloc(4 * sizeof(double*));
     }
-    if(kdtree.flag){
+    if(kdtree->flag){
         //Lowest search level.
         double lowdis = 0.0;
-        int length = *(&kdtree.origin + 1) - kdtree.origin;
-        for(int i = 0; i < length; i++){
-            double tdis = getDistance(searchpoint,&kdtree.origin[i]);
+        for(int i = 0; i < *kdtree->leng; i++){
+            double tdis = getDistance(searchpoint,&kdtree->origin[i]);
             if(lowdis == 0.0 || tdis < lowdis){
                 lowdis = tdis;
-                retpoint[0] = &kdtree.origin[i][0];
-                retpoint[1] = &kdtree.origin[i][1];
+                retpoint[0] = &kdtree->origin[i][0];
+                retpoint[1] = &kdtree->origin[i][1];
                 if(dim == 3){
-                    retpoint[2] = &kdtree.origin[i][2];
+                    retpoint[2] = &kdtree->origin[i][2];
                     retpoint[3] = &lowdis;
                 } 
                 else{
@@ -77,34 +77,34 @@ double **getNearest(double **searchpoint,struct kdleaf kdtree){
     }
     else{
         //Can go deeper, finds node to dive to 
-        bool side = searchpoint[kdtree.axis] < kdtree.origin[kdtree.axis] ;
+        bool side = searchpoint[kdtree->axis] < kdtree->origin[kdtree->axis] ;
         if(side){
-            retpoint = getNearest(searchpoint,*kdtree.left);
+            retpoint = getNearest(searchpoint,kdtree->left);
         }
         else{
-            retpoint = getNearest(searchpoint,*kdtree.right);   
+            retpoint = getNearest(searchpoint,kdtree->right);   
         }
         //next we will test if we need to go to the other side of the tree
-        double axisnodedis = abs((int)(searchpoint[kdtree.axis] - kdtree.origin[kdtree.axis]));//This only measure along one axis
+        double axisnodedis = abs((int)(searchpoint[kdtree->axis] - kdtree->origin[kdtree->axis]));//This only measure along one axis
         if(axisnodedis < *retpoint[dim]){
             double **tempretpoint;
             if(side){
-                tempretpoint = getNearest(searchpoint,*kdtree.right);
+                tempretpoint = getNearest(searchpoint,kdtree->right);
             }
             else{
-                tempretpoint = getNearest(searchpoint,*kdtree.left);   
+                tempretpoint = getNearest(searchpoint,kdtree->left);   
             }
             if(tempretpoint[dim] < retpoint[dim]){
                 retpoint = tempretpoint;
             }
         }
         //finally check the node
-        double nodedis = getDistance(searchpoint,kdtree.origin);
+        double nodedis = getDistance(searchpoint,kdtree->origin);
         if(nodedis < *retpoint[dim]){
-            retpoint[0] = kdtree.origin[0];
-            retpoint[1] = kdtree.origin[1];
+            retpoint[0] = kdtree->origin[0];
+            retpoint[1] = kdtree->origin[1];
             if(dim == 3){
-                retpoint[2] = kdtree.origin[2];
+                retpoint[2] = kdtree->origin[2];
                 retpoint[3] = &nodedis;
             } 
             else{
@@ -122,6 +122,7 @@ void kdDestroy(struct kdleaf *kdtree){
     struct kdleaf kdtree2 = *kdtree;
     free(kdtree2.origin);
     if(kdtree2.flag){
+        free(kdtree2.leng);
         fprintf(stdout,"destroyed bot\n");
     }
     else{
@@ -172,6 +173,8 @@ void CreateStructure(double **points,struct kdleaf *kdtree,int axis,int *length,
         }
         kdtree = createLeaf(axis,hold);
         kdtree->flag = true;
+        int leng = upper-lower;
+        kdtree->leng = &leng;
         //double **sliced = slice(*points,lower,upper,*length);
         //fprintf(stdout,"alt create good\n");
     }
@@ -189,7 +192,7 @@ double getRadius(double **point,double **interface,int *dim){
     double ret = (bot / (2 * cos(theta)));
     return ret;
 }
-double **makeSkeleton(double **points,struct kdleaf kdtree,int *length,int *max){
+double **makeSkeleton(double **points,struct kdleaf *kdtree,int *length,int *max){
     //length is dim
     //max is size of list
     printf("starting process");
@@ -265,17 +268,16 @@ void skeletize(double **points,int *max,int *length){
     CreateStructure(points,kdtree,0,length,0,*max);//make kd-tree
     fprintf(stdout,"we have completed kdtree\n");
     //Next we will skeletonize all the points in our list
-    //double **skeleton = makeSkeleton(points,kdtree,&length,&max);
+    double **skeleton = makeSkeleton(points,kdtree,length,max);
     //print results
-    //for(int i = 0; i < max; i++){
-    //    if(length == 2){
-    //        fprintf(stdout,"Skeleton %d: [%f,%f] Radius: %f",i,skeleton[i][0],skeleton[i][1],skeleton[i][2]); 
-    //    }
-    //    else{
-    //        fprintf(stdout,"Skeleton %d: [%f,%f,%f] Radius: %f",i,skeleton[i][0],skeleton[i][1],skeleton[i][2],skeleton[i][3]); 
-    //    }
-    //}
-    //return skeleton;
+    for(int i = 0; i < *max; i++){
+        if(*length == 2){
+            fprintf(stdout,"Skeleton %d: [%f,%f] Radius: %f",i,skeleton[i][0],skeleton[i][1],skeleton[i][2]); 
+        }
+        else{
+            fprintf(stdout,"Skeleton %d: [%f,%f,%f] Radius: %f",i,skeleton[i][0],skeleton[i][1],skeleton[i][2],skeleton[i][3]); 
+        }
+    }
     //kdDestroy(kdtree);
 }
 
