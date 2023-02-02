@@ -402,7 +402,19 @@ double **makeSkeleton(double **points,struct kdleaf *kdtree,int *dim,int *length
     }
     return skeleton;
 }
-void skeletize(double **points,int *length,int *dim){
+void outputskeleton(double **points, int *length, int *dim, FILE *fp){
+    //asumes already made/opened
+    for(int i = 0; i < *length; i++){
+        if(*dim == 2){
+            fprintf(fp,"%f %f %f\n",points[i][0],points[i][1],points[i][2]);
+        }
+        else{
+            fprintf(fp,"%f %f %f %f\n",points[i][0],points[i][1],points[i][2],points[i][3]);
+        }
+    }
+    fclose(fp);
+}
+void skeletize(double **points,int *length,int *dim,FILE *outfp){
     //initial setup
     struct kdleaf *kdtree;
     //sizes
@@ -414,15 +426,16 @@ void skeletize(double **points,int *length,int *dim){
     fprintf(stdout,"we have completed kdtree\n");
     //Next we will skeletonize all the points in our list
     double **skeleton = makeSkeleton(points,kdtree,dim,length);
+    outputskeleton(skeleton,length,dim,outfp);
     //print results
-    for(int i = 0; i < *length; i++){
-        if(*dim == 2){
-            fprintf(stdout,"Skeleton %d: [%f,%f] Radius: %f\n",i,skeleton[i][0],skeleton[i][1],skeleton[i][2]); 
-        }
-        else{
-            fprintf(stdout,"Skeleton %d: [%f,%f,%f] Radius: %f\n",i,skeleton[i][0],skeleton[i][1],skeleton[i][2],skeleton[i][3]); 
-        }
-    }
+    //for(int i = 0; i < *length; i++){
+    //    if(*dim == 2){
+    //        fprintf(stdout,"Skeleton %d: [%f,%f] Radius: %f\n",i,skeleton[i][0],skeleton[i][1],skeleton[i][2]); 
+    //    }
+    //    else{
+    //        fprintf(stdout,"Skeleton %d: [%f,%f,%f] Radius: %f\n",i,skeleton[i][0],skeleton[i][1],skeleton[i][2],skeleton[i][3]); 
+    //    }
+    //}
     //kdDestroy(kdtree);
 }
 
