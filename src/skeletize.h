@@ -256,7 +256,6 @@ double getRadius(double *point,double *interface,int *dim){
         return ret2;
     }
     else{
-        fprintf(stdout,"in=%f\n",inside1);
         if(inside1 < -1){
             inside1 = -1;
             double theta1 = acos(inside1);
@@ -332,7 +331,7 @@ double **makeSkeleton(double **points,struct kdleaf *kdtree,int *dim,int *length
         }
         interfacePoint[index] = getNearest(tpoint,kdtree,length,dim,ignorepoint);
         //fprintf(stdout,"center= x:%f y:%f \n",tpoint[0],tpoint[1]);
-        fprintf(stdout,"skeleton for point%d x:%f y:%f nx:%f ny:%f\n",i,points[i][0],points[i][1],points[i][2],points[i][3]);
+        //fprintf(stdout,"skeleton for point%d x:%f y:%f nx:%f ny:%f\n",i,points[i][0],points[i][1],points[i][2],points[i][3]);
         //fprintf(stdout,"intpoint%d x:%f y:%f\n",index,interfacePoint[index][0],interfacePoint[index][1]); 
         double* sendpoint = points[i];
         //fprintf(stdout,"NORMY:%f\n",sendpoint[3]);
@@ -347,8 +346,8 @@ double **makeSkeleton(double **points,struct kdleaf *kdtree,int *dim,int *length
                 ttpoint[0] = x;
                 ttpoint[1] = y;
                 tpoint = ttpoint;
-                fprintf(stdout,"x = %f \n",x);
-                fprintf(stdout,"y = %f \n",y);
+                //fprintf(stdout,"x = %f \n",x);
+                //fprintf(stdout,"y = %f \n",y);
             }
             else{
                 x = points[i][0] - radius[index] * points[i][3];
