@@ -219,59 +219,55 @@ struct kdleaf *CreateStructure(double **points,struct kdleaf **headkdtree,int ax
     }
     return currentkdtree;
 }
+#ifndef PI
 #define PI 3.1415926535897932384626433832795
+#endif
 double getRadius(double *point,double *interface,int *dim){
     //point has norm data attached
     //dim is size of data(makes life easier)
-    //fprintf(stdout,"\n starting radius!!\n");
+    fprintf(stdout,"\n starting radius!!\n");
     double top1 = 0.0;
     double bot = getDistance(interface,point,dim);
     //fprintf(stdout,"NORMY2:%f\n",point[3]);
-    //fprintf(stdout,"Point x:%f y:%f nx:%f ny:%f\n",point[0],point[1],point[2],point[3]);
-    //fprintf(stdout,"Interface x:%f y:%f\n",interface[0],interface[1]);
-    //fprintf(stdout,"distance=%f\n",bot);
+    fprintf(stdout,"Point x:%f y:%f\n",point[0],point[1]);
+    fprintf(stdout,"Inter x:%f y:%f\n",interface[0],interface[1]);
+    fprintf(stdout,"distance=%f\n",bot);
     for(int i = 0; i < *dim; i++){
         //goes though each dimension
         double diff1 = point[i] - interface[i];
         double add1 = point[*dim+i] * diff1;
         top1 += add1;
-        //fprintf(stdout,"top=%f\n",top);
+        fprintf(stdout,"top=%f\n",top1);
     }
-    double inside1 = top1/bot;
-    
+    double inside1 = top1/bot; 
     //fprintf(stdout,"\n");
-
+    if(inside1 > 1){
+        fprintf(stdout,"in-> 1\n");
+        inside1 = 1;
+    }
+    if(inside1 < -1){
+        fprintf(stdout,"in-> -1\n");
+        inside1 = -1;
+    }
     double theta1 = acos(inside1);
     double ret1 = (bot / (2 * cos(theta1)));
     double theta2 = asin(inside1);
     double ret2 = (bot / (2 * cos(theta2)));
-    //fprintf(stdout,"rad1=%f\n",ret1);
-    //fprintf(stdout,"rad2=%f\n",ret2);
+    fprintf(stdout,"thetac=%f\n",theta1);
+    fprintf(stdout,"thetas=%f\n",theta2);
+    fprintf(stdout,"rad1=%f\n",ret1);
+    fprintf(stdout,"rad2=%f\n",ret2);
     //fprintf(stdout,"\n");
     //fprintf(stdout,"\n");
-    if(ret1 > 0 && theta1 < theta2){
+    if(ret1 > 0 && ret1 > ret2){
         return ret1;
     }
-    else if(ret2 > 0 && theta2 < theta1){
+    else if(ret2 > 0 && ret2 > ret1){
         return ret2;
     }
     else{
-        if(inside1 < -1){
-            inside1 = -1;
-            double theta1 = acos(inside1);
-            double ret1 = (bot / (2 * cos(theta1)));
-            return ret1;
-        }
-        else if(inside1 > 1){
-            inside1 = 1;
-            double theta1 = acos(inside1);
-            double ret1 = (bot / (2 * cos(theta1)));
-            return ret1;
-        }
-        else{
-            fprintf(stdout,"ERROR NO RAD!\n");
-            return 0.;
-        }
+        fprintf(stdout,"ERROR NO RAD!\n");
+        return 0.;
     }
 }
 double **makeSkeleton(double **points,struct kdleaf *kdtree,int *dim,int *length){
@@ -291,7 +287,7 @@ double **makeSkeleton(double **points,struct kdleaf *kdtree,int *dim,int *length
         interfacePoint[t] = (double*)malloc((*dim) * sizeof(double));//set size of points
     }
     for(int i = 0; i < *length; i++){
-        fprintf(stdout,"\n%d\n",i);
+        fprintf(stdout,"%d\n",i);
         //Goes through each element of the list & generates a skeleton point
         //First step is to make an initial guess
         bool completeCase = true;
@@ -379,32 +375,32 @@ double **makeSkeleton(double **points,struct kdleaf *kdtree,int *dim,int *length
             if(radius[index] != 0. && fabs(radius[index] - radius[index + 1]) < 0.001){
                 //convergance conditions
                 //our center point should remain the same
-                fprintf(stdout,"sucess!\n");
                 for(int j = 0; j < *dim; j++){
                     //Create skeleton point
-                    fprintf(stdout,"center:%f\n",tpoint[j]);
-                }
-                for(int j = 0; j < *dim; j++){
-                    //Create skeleton point
-                    fprintf(stdout,"center:%f\n",centerPoint[index][j]);
+                    //fprintf(stdout,"center:%f\n",centerPoint[index][j]);
                     skeleton[i][j] = centerPoint[index][j];
                 }
                 skeleton[i][*length] = radius[index];
+                fprintf(stdout,"final rad = %f\n",skeleton[i][*length] = radius[index]);
                 completeCase = false;
             }
             index += 1;
             if(index >= MAXCYCLES){
+                fprintf(stdout,"broken\n");
                 break;
             }
         }
-        fprintf(stdout,"\n");
+        //fprintf(stdout,"\n");
     }
     return skeleton;
 }
-void outputskeleton(double **points, int *length, int *dim, FILE *fp){
-    //asumes already made/opened
+void outputskeleton(double **points, int *length, int *dim, char path[80]){
+    FILE *fp = fopen(path,"w");
     for(int i = 0; i < *length; i++){
         if(*dim == 2){
+            //fprintf(stdout,"x:%f\n",points[i][0]);
+            //fprintf(stdout,"y:%f\n",points[i][1]);
+            //fprintf(stdout,"r:%f\n",points[i][2]);
             fprintf(fp,"%f %f %f\n",points[i][0],points[i][1],points[i][2]);
         }
         else{
@@ -413,7 +409,7 @@ void outputskeleton(double **points, int *length, int *dim, FILE *fp){
     }
     fclose(fp);
 }
-void skeletize(double **points,int *length,int *dim,FILE *outfp){
+void skeletize(double **points,int *length,int *dim,char path[80]){
     //initial setup
     struct kdleaf *kdtree;
     //sizes
@@ -425,7 +421,7 @@ void skeletize(double **points,int *length,int *dim,FILE *outfp){
     fprintf(stdout,"we have completed kdtree\n");
     //Next we will skeletonize all the points in our list
     double **skeleton = makeSkeleton(points,kdtree,dim,length);
-    outputskeleton(skeleton,length,dim,outfp);
+    outputskeleton(skeleton,length,dim,path);
     //print results
     //for(int i = 0; i < *length; i++){
     //    if(*dim == 2){
