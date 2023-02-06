@@ -30,7 +30,7 @@ int main(){
 
     //alllocate for load in properties
     rewind(fp1);
-    double **inputpoints = (double**)malloc(sz*sizeof(double*));
+    double **inputpoints = (double**)malloc(2*sz*sizeof(double*));
     int count = 0;
     fprintf(stdout,"trying length %d\n",sz); 
     
