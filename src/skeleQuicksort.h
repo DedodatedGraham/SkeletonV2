@@ -9,44 +9,50 @@ void skeleSwap(double *a, double *b){
 }
 
 int skelePartition(double **arr, int lbound, int tbound, int axis, int *length){
-    //fprintf(stdout,"partitioning %d, on axis %d\n",tbound,axis);
+    //fprintf(stdout,"partitioning [%d-%d], on axis %d\n",lbound,tbound,axis);
+    //fprintf(stdout, "partitioning x :%f\n",arr[tbound][0]);
+    //fprintf(stdout, "partitioning y: %f\n",arr[tbound][1]);
+    //fprintf(stdout,"partitioning nx: %f\n",arr[tbound][2]);
+    //fprintf(stdout,"partitioning ny: %f\n",arr[tbound][3]);
     double pivot = arr[tbound][axis]; 
     //fprintf(stdout,"piv = %f\n",pivot);
     int i = lbound - 1; 
     for(int j = lbound; j < tbound; j++){
         if(arr[j][axis] <= pivot){
 	        i++;
-            //fprintf(stdout,"swapping %d & %d\n",i,j);
+            //fprintf(stdout,"swapping %d & %d\n",i,j); 
             if(*length == 2){
-	            skeleSwap(&arr[i][axis    ], &arr[j][axis    ]);
-	            skeleSwap(&arr[i][axis - 1], &arr[j][axis - 1]);
-	            skeleSwap(&arr[i][axis - 2], &arr[j][axis - 2]);
-	            skeleSwap(&arr[i][axis - 3], &arr[j][axis - 3]);
+                //fprintf(stdout,"swapping [%f,%f],[%f,%f]\n");
+                //fprintf(stdout,"with [%f,%f],[%f,%f]\n");
+	            skeleSwap(&arr[i][0], &arr[j][0]);
+	            skeleSwap(&arr[i][1], &arr[j][1]);
+	            skeleSwap(&arr[i][2], &arr[j][2]);
+	            skeleSwap(&arr[i][3], &arr[j][3]);
             }
             else{
-	            skeleSwap(&arr[i][axis    ], &arr[j][axis    ]);
-	            skeleSwap(&arr[i][axis - 1], &arr[j][axis - 1]);
-	            skeleSwap(&arr[i][axis - 2], &arr[j][axis - 2]);
-	            skeleSwap(&arr[i][axis - 3], &arr[j][axis - 3]);
-	            skeleSwap(&arr[i][axis - 4], &arr[j][axis - 4]);
-	            skeleSwap(&arr[i][axis - 5], &arr[j][axis - 5]);
+	            skeleSwap(&arr[i][0], &arr[j][0]);
+	            skeleSwap(&arr[i][1], &arr[j][1]);
+	            skeleSwap(&arr[i][2], &arr[j][2]);
+	            skeleSwap(&arr[i][3], &arr[j][3]);
+	            skeleSwap(&arr[i][4], &arr[j][4]);
+	            skeleSwap(&arr[i][5], &arr[j][5]);
             }
 	    }
     }
     //fprintf(stdout,"swapping %d & %d\n",i + 1,tbound);
     if(*length == 2){
-	    skeleSwap(&arr[i + 1][axis    ], &arr[tbound][axis    ]);
-	    skeleSwap(&arr[i + 1][axis - 1], &arr[tbound][axis - 1]);
-	    skeleSwap(&arr[i + 1][axis - 2], &arr[tbound][axis - 2]);
-	    skeleSwap(&arr[i + 1][axis - 3], &arr[tbound][axis - 3]);
+	    skeleSwap(&arr[i + 1][0], &arr[tbound][0]);
+	    skeleSwap(&arr[i + 1][1], &arr[tbound][1]);
+	    skeleSwap(&arr[i + 1][2], &arr[tbound][2]);
+	    skeleSwap(&arr[i + 1][3], &arr[tbound][3]);
     }
     else{
-	    skeleSwap(&arr[i + 1][axis    ], &arr[tbound][axis    ]);
-	    skeleSwap(&arr[i + 1][axis - 1], &arr[tbound][axis - 1]);
-	    skeleSwap(&arr[i + 1][axis - 2], &arr[tbound][axis - 2]);
-	    skeleSwap(&arr[i + 1][axis - 3], &arr[tbound][axis - 3]);
-	    skeleSwap(&arr[i + 1][axis - 4], &arr[tbound][axis - 4]);
-	    skeleSwap(&arr[i + 1][axis - 5], &arr[tbound][axis - 5]);
+	    skeleSwap(&arr[i + 1][0], &arr[tbound][0]);
+	    skeleSwap(&arr[i + 1][1], &arr[tbound][1]);
+	    skeleSwap(&arr[i + 1][2], &arr[tbound][2]);
+	    skeleSwap(&arr[i + 1][3], &arr[tbound][3]);
+	    skeleSwap(&arr[i + 1][4], &arr[tbound][4]);
+	    skeleSwap(&arr[i + 1][5], &arr[tbound][5]);
     }
     int temp_pivot = i+1;
     return temp_pivot;
