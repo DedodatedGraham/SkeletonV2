@@ -7,7 +7,8 @@ struct OutputXYNorm{
     int level;
 };
 
-double** output_points_xynorm(struct OutputXYTheta p, int *nrow){
+double** output_points_xynorm(struct OutputXYTheta p, int *nrow,int *ndim){
+    *ndim = 2;
     scalar c = p.c;
     restriction({c});
     face vector s = p.s;
@@ -43,8 +44,12 @@ double** output_points_xynorm(struct OutputXYTheta p, int *nrow){
 	        //fprintf(p.fp, "%g %g\n",x+Delta*pc.x, y+Delta*pc.y);
 	        arr[j][0] = x+Delta*pc.x; 
 	        arr[j][1] = y+Delta*pc.y;
-	        arr[j][2] = n.x; 
-	        arr[j][3] = n.y;
+	        double abs = sqrt(pow(n.x,2)+pow(n.y,2));
+            double tx = n.x/abs;
+            double ty = n.y/abs;
+            arr[j][2] = tx;  
+            arr[j][3] = ty;
+            //fprintf(stdout,"nx:%g ny:%g dis:%g\n",arr[j][2],arr[j][3],pow(arr[j][2],2) + pow(arr[j][3],2));
 	        j++;
 	    }
     }
