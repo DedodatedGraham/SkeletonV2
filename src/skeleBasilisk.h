@@ -22,12 +22,12 @@ double** output_points_xynorm(struct OutputXYTheta p, int *nrow,int *ndim){
     }
     int nr = j; int nc = 4;// nc is the number of column, we initialize it with 3 because we will stor x,y theta data in those columns
     fprintf(stdout,"Number of interfacial cells=%d\n",nr);
-    int nrp = j - 1;
+    int nrp = 2*j - 1;
     *nrow = nrp;
     //fprintf(stdout,"nrow=%d\n",*nrow);
     j = 0;
-    double **arr = (double**)malloc(nr*sizeof(double*));
-    for(int k = 0; k < nr; k++){
+    double **arr = (double**)malloc(2*nr*sizeof(double*));
+    for(int k = 0; k < 2*nr; k++){
         arr[k] = (double*)malloc(nc*sizeof(double));
     }
     //Calculate the interface data
@@ -47,7 +47,11 @@ double** output_points_xynorm(struct OutputXYTheta p, int *nrow,int *ndim){
             double ty = n.y/abs;
             arr[j][2] = tx;  
             arr[j][3] = ty;
-	        j = j + 1;
+	        arr[j+1][0] = x+Delta*pc.x; 
+	        arr[j+1][1] = -y+Delta*pc.y;
+            arr[j+1][2] = tx;  
+            arr[j+1][3] = -ty;
+	        j = j + 2;
 	    }
     }
     return arr;

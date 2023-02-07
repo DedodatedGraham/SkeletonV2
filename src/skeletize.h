@@ -260,7 +260,7 @@ double getRadius(double *point,double *interface,int *dim){
         return -ret1;
     }
 }
-double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length){
+double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,double *mindis){
     int MAXCYCLES = 50;
 
     fprintf(stdout,"starting process\n");
@@ -324,7 +324,7 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
         radius[index] = getRadius(sendpoint,interfacePoint[index],dim);
         fprintf(stdout,"rad1 = %f\n",radius[index]);
         while(completeCase){
-            //fprintf(stdout,"calculating:%d\n",index);
+            fprintf(stdout,"calculating:%d\n",index);
             //first calculate new center point based on the last radius given
             double *tpoint;
             //fprintf(stdout,"dim = %d\n",*dim);
@@ -367,7 +367,8 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
             fprintf(stdout,"rad is %f\n",radius[index + 1]);
             //fprintf(stdout,"\n");
             //fprintf(stdout,"rad (%d,%d) = %f\n",i,index,radius[index+1]);
-            if(radius[index] != 0. && fabs(radius[index] - radius[index + 1]) < 0.001){
+            double distancecomp = getDistance(interfacePoint[index + 1],points[i],dim);
+            if(radius[index] != 0. && fabs(radius[index] - radius[index + 1]) < *mindis){
                 //convergance conditions
                 //our center point should remain the same
                 //for(int j = 0; j < *dim; j++){
@@ -379,6 +380,18 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
                 //}
                 skeleton[i] = centerPoint[index];
                 skeleton[i][*dim] = radius[index + 1];
+                fprintf(stdout,"skelept:[x=%f,y=%f,r=%f]\n",skeleton[i][0],skeleton[i][1],skeleton[i][2]);
+                completeCase = false;
+            }
+            else if(index > 0 && distancecomp < radius[index]){
+                skeleton[i] = centerPoint[index - 1];
+                skeleton[i][*dim] = radius[index];
+                fprintf(stdout,"skelept:[x=%f,y=%f,r=%f]\n",skeleton[i][0],skeleton[i][1],skeleton[i][2]);
+                completeCase = false;
+            }
+            else if(index > 0 && distancecomp < *mindis * 10){
+                skeleton[i] = centerPoint[index - 1];
+                skeleton[i][*dim] = radius[index];
                 fprintf(stdout,"skelept:[x=%f,y=%f,r=%f]\n",skeleton[i][0],skeleton[i][1],skeleton[i][2]);
                 completeCase = false;
             }
@@ -411,7 +424,7 @@ void outputskeleton(double **points, int *length, int *dim, char path[80]){
     fflush(fp);
     fclose(fp);
 }
-void skeletize(double **points,int *length,int *dim,char path[80]){
+void skeletize(double **points,int *length,int *dim,char path[80],double *mindis){
     //initial setup
     struct kdleaf *kdstruct;
     //sizes
@@ -424,7 +437,7 @@ void skeletize(double **points,int *length,int *dim,char path[80]){
     CreateStructure(points,&kdstruct,0,dim,0,*length);//make kd-struct
     fprintf(stdout,"we have completed kdstruct\n");
     //Next we will skeletonize all the points in our list
-    double **skeleton = makeSkeleton(points,kdstruct,dim,length);
+    double **skeleton = makeSkeleton(points,kdstruct,dim,length,mindis);
     outputskeleton(skeleton,length,dim,path);
     free(skeleton);
     fprintf(stdout,"skeleton complete\n");

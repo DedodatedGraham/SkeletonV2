@@ -154,58 +154,34 @@ event logfile (i++){
     ke /= 2.;
     ud /= vol;
     xd /= vol;
-    //R_avg = cbrt(3*vol/(4*pi));
-    //fprintf(stdout,"DEBUG:vol = %g R_av=%g\n",vol,R_avg);
-
- 
-    //fprintf(stdout,"DEBUG:maxruntime=%g\n",maxruntime);
-    //Extract interfacial points and corresponding angle 
     clock_t begin = clock();
-    //int nr;
-    //struct OutputXYTheta P; P.c = f; P.level = max_level;
-    // Centroid should not be smaller than the initial centroid 
     xd = (xd < x0)? x0 : xd;
-    //fprintf(stdout,"xd=%g\n",xd);    
-    //double **Arr = output_points_xytheta(P,xd,&nr);
-    //fprintf(stdout,"DEBUG:Lets print the array xy\n");
-    //Display(Arr,nr,3);
-    
-    //Calculate Fourier-legendre coefficient
-    //int n_max = 10;//maximum number of modes we want to consider
-    //double ** C = fLegCoeff(Arr, n_max, nr, xd, R_avg);  
     clock_t end = clock();
     calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for calculating the mode coefficients
-
-    //if ( i == 0 ){
-    //    //Print the colum title for the log
-    //    fprintf(ferr,
-    //    "#1: t; 2: dt; 3: xc; 4, uc; 5:y_max; 6:x_max; 7: x_min; 8: x_y0_max; 9: x_y0_min; 10: vol; 11: KE; 12: n_grid; 13: cput; 14: speed;  15:C0;  16:C1;  17:C2;  18:C3;  19:C4;  20:C5;  21:C6;  22:C7;  23:C8;  24:C9;  25:C10 26: calc_time\n");
-    //}
-    //if ( i > 10 ){
-    //    fprintf (ferr, "%g %g %g %g %g %g %g %g %g %g %g %ld %g %g %g %g %g %g %g %g %g %g %g %g %g %g\n",t, dt, xd, ud, sy.max, sx.max, sx.min, sx_y0.max, sx_y0.min, vol, ke, grid->tn, perf.t, perf.speed, C[0][1], C[1][1], C[2][1], C[3][1], C[4][1], C[5][1], C[6][1], C[7][1], C[8][1], C[9][1], C[10][1], calc_time);
-    //}
-
-//fprintf(stdout,"DEBUG:\n");
-    
-
-    //fprintf(stdout,"Skeleton at %f\n",t);
-    //char sname[80];
-    //sprintf (sname, "skeleton-%5.3f.dat", t);
-    //struct OutputXYTheta sP; sP.c = f; sP.level = max_level;
-    //int snr;int snd;
-    //double **sinterface = output_points_xynorm(sP,&snr,&snd);
-    //skeletize(sinterface,&snr,&snd,sname);
-
     fflush(ferr);
 }
+
+int slevel = 0.;
+double mindis = 0.;
 event skeleton(t+=t_out){
+    //First find min grid distance    
+    if(slevel == 0 || slevel < max_level){
+        foreach(){
+            if(Delta < mindis || mindis == 0.){
+                mindis = Delta;
+                slevel = max_level;
+            }
+        }
+    }
     fprintf(stdout,"Skeleton at %f\n",t);
+    fprintf(stdout,"mindis= %f\n",mindis);
+    fprintf(stdout,"slevel= %d\n",slevel);
     char sname[80];
     sprintf (sname, "skeleton-%5.3f.dat", t);
     struct OutputXYTheta sP; sP.c = f; sP.level = max_level;
     int snr;int snd;
     double **sinterface = output_points_xynorm(sP,&snr,&snd);
-    skeletize(sinterface,&snr,&snd,sname);
+    skeletize(sinterface,&snr,&snd,sname,&mindis);
 
     fflush(ferr);
 }
