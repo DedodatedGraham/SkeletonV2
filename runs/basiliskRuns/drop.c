@@ -16,7 +16,8 @@
 double max_level = 8;
 double L = 4.;
 double t_out = 0.01;       
-double t_end = 4;    
+double t_end = 0.01;
+//double t_end = 4;    
 
 /** dimensionless properties, normalized by scaling variables rhol, D, sigma
  */
@@ -187,6 +188,17 @@ event logfile (i++){
 //fprintf(stdout,"DEBUG:\n");
     
 
+    //fprintf(stdout,"Skeleton at %f\n",t);
+    //char sname[80];
+    //sprintf (sname, "skeleton-%5.3f.dat", t);
+    //struct OutputXYTheta sP; sP.c = f; sP.level = max_level;
+    //int snr;int snd;
+    //double **sinterface = output_points_xynorm(sP,&snr,&snd);
+    //skeletize(sinterface,&snr,&snd,sname);
+
+    fflush(ferr);
+}
+event skeleton(t+=t_out){
     fprintf(stdout,"Skeleton at %f\n",t);
     char sname[80];
     sprintf (sname, "skeleton-%5.3f.dat", t);
@@ -197,7 +209,6 @@ event logfile (i++){
 
     fflush(ferr);
 }
-
 //Function for extracting the interfacial points: cut-surface center
 struct OutputPoints{
     scalar c;

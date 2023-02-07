@@ -277,7 +277,7 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
         interfacePoint[t] = (double*)malloc((*dim) * sizeof(double));//set size of points
     }
     for(int i = 0; i < *length; i++){
-        //fprintf(stdout,"\n%d\n",i);
+        fprintf(stdout,"\ni:%d\n",i);
         //Goes through each element of the list & generates a skeleton point
         //First step is to make an initial guess
         bool completeCase = true;
@@ -316,13 +316,13 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
             ignorepoint[2] = points[i][2];
         }
         interfacePoint[index] = getNearest(tpoint,kdstruct,length,dim,ignorepoint);
-        //fprintf(stdout,"skeleton for point%d x:%f y:%f nx:%f ny:%f\n",i,points[i][0],points[i][1],points[i][2],points[i][3]);
-        //fprintf(stdout,"center= x:%f y:%f \n",tpoint[0],tpoint[1]);
-        //fprintf(stdout,"interface point%d x:%f y:%f\n",index,interfacePoint[index][0],interfacePoint[index][1]); 
+        fprintf(stdout,"skeleton for point%d x:%f y:%f nx:%f ny:%f\n",i,points[i][0],points[i][1],points[i][2],points[i][3]);
+        fprintf(stdout,"center= x:%f y:%f \n",tpoint[0],tpoint[1]);
+        fprintf(stdout,"interface point%d x:%f y:%f\n",index,interfacePoint[index][0],interfacePoint[index][1]); 
         double* sendpoint = points[i];
         //fprintf(stdout,"NORMY:%f\n",sendpoint[3]);
         radius[index] = getRadius(sendpoint,interfacePoint[index],dim);
-        //fprintf(stdout,"rad1 = %f\n",radius[index]);
+        fprintf(stdout,"rad1 = %f\n",radius[index]);
         while(completeCase){
             //fprintf(stdout,"calculating:%d\n",index);
             //first calculate new center point based on the last radius given
@@ -349,7 +349,7 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
                 tpoint = ttpoint;
             }
             centerPoint[index] = tpoint;
-            //fprintf(stdout,"\nCenter Point = [%f,%f]\n",centerPoint[index][0],centerPoint[index][1]);
+            fprintf(stdout,"\nCenter Point = [%f,%f]\n",centerPoint[index][0],centerPoint[index][1]);
             //then calculate the closest point
             //fprintf(stdout,"\n");
             //fprintf(stdout,"center= x:%f y:%f \n",tpoint[0],tpoint[1]);
@@ -362,9 +362,9 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
                 ignorepoint[2] = points[i][2];
             }
             interfacePoint[index + 1] = getNearest(centerPoint[index],kdstruct,length,dim,ignorepoint);
-            //fprintf(stdout,"interface point%d x:%f y:%f\n",index + 1,interfacePoint[index + 1][0],interfacePoint[index + 1][1]); 
+            fprintf(stdout,"interface point%d x:%f y:%f\n",index + 1,interfacePoint[index + 1][0],interfacePoint[index + 1][1]); 
             radius[index + 1] = getRadius(points[i],interfacePoint[index + 1],dim);
-            //fprintf(stdout,"rad is %f\n",radius[index + 1]);
+            fprintf(stdout,"rad is %f\n",radius[index + 1]);
             //fprintf(stdout,"\n");
             //fprintf(stdout,"rad (%d,%d) = %f\n",i,index,radius[index+1]);
             if(radius[index] != 0. && fabs(radius[index] - radius[index + 1]) < 0.001){
@@ -379,7 +379,7 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
                 //}
                 skeleton[i] = centerPoint[index];
                 skeleton[i][*dim] = radius[index + 1];
-                //fprintf(stdout,"skelept:[x=%f,y=%f,r=%f]\n",skeleton[i][0],skeleton[i][1],skeleton[i][2]);
+                fprintf(stdout,"skelept:[x=%f,y=%f,r=%f]\n",skeleton[i][0],skeleton[i][1],skeleton[i][2]);
                 completeCase = false;
             }
             index += 1;
