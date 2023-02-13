@@ -17,29 +17,33 @@ double** output_points_xynorm(struct OutputXYTheta p, int *nrow,int *ndim){
     int j = 0;// number of interfacial cells 
     foreach_level_or_leaf(p.level){
         if(c[] > 1e-6 && c[] < 1.-1e-6){
-	        j++;
+            j++;
 	    }
     }
-    int nr = j; int nc = 4;// nc is the number of column, we initialize it with 3 because we will stor x,y theta data in those columns
+    int nr = j; int nc = 4;// nc is the number of column, we initialize it with 4 because we will stor x,y norm data in those columns
     //fprintf(stdout,"Number of interfacial cells=%d\n",nr);
-    int nrp = 2*(j - 1);
+    int nrp = 2*nr - 1;
     *nrow = nrp;
+    //fprintf(stdout,"nr=%d\n",j);
     //fprintf(stdout,"nrow=%d\n",*nrow);
     j = 0;
-    double **arr = (double**)malloc(2*nr*sizeof(double*));
-    for(int k = 0; k < 2*nr; k++){
+    double **arr = (double**)malloc((nrp+1)*sizeof(double*));
+    //fprintf(stdout,"allocating %d points\n",nrp+1);
+    for(int k = 0; k < nrp+1; k++){
+        //fprintf(stdout,"allocating %d dim in point %d\n",nc,k);
         arr[k] = (double*)malloc(nc*sizeof(double));
     }
     //Calculate the interface data
     foreach_level_or_leaf(p.level){
         if(c[] > 1e-6 && c[] < 1.-1e-6){
-	        coord n = facet_normal(point, c, s);
+            coord n = facet_normal(point, c, s);
 	        double alpha = plane_alpha(c[], n);
 	        coord pc;
 	        double area = plane_area_center(n, alpha, &pc);
 	        if(area==0){
 	            fprintf(stdout,"Area=Null\n");// This statement is just to make some use of the area info. otherwise compiler throws warning!!
 	        }
+	        //fprintf(stdout,"Adding in point %d\n",j);
 	        arr[j][0] = x+Delta*pc.x; 
 	        arr[j][1] = y+Delta*pc.y;
 	        double abs = sqrt(pow(n.x,2)+pow(n.y,2));
@@ -47,6 +51,7 @@ double** output_points_xynorm(struct OutputXYTheta p, int *nrow,int *ndim){
             double ty = n.y/abs;
             arr[j][2] = tx;  
             arr[j][3] = ty;
+	        //fprintf(stdout,"Adding in point %d\n",j + 1);
 	        arr[j+1][0] = -(x+Delta*pc.x); 
 	        arr[j+1][1] = y+Delta*pc.y;
             arr[j+1][2] = -tx;  

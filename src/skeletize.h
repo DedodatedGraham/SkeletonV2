@@ -271,6 +271,7 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
     //fprintf(stdout,"starting process\n");
     double guessr = *length;
     double **skeleton = (double**)malloc(*length * sizeof(double*));
+    //fprintf(stdout,"allocating for %d\n",MAXCYCLES);
     double **centerPoint = (double**)malloc(MAXCYCLES * sizeof(double*));
     double *radius = (double*)malloc(MAXCYCLES * sizeof(double));
     double **interfacePoint = (double**)malloc(MAXCYCLES * sizeof(double*));
@@ -280,6 +281,7 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
     for(int t = 0; t < MAXCYCLES; t++){
         centerPoint[t] = (double*)malloc((*dim) * sizeof(double));//set size of points
         interfacePoint[t] = (double*)malloc((*dim) * sizeof(double));//set size of points
+        //fprintf(stdout,"allocating %d to %d\n",*dim,t);
     }
     for(int i = 0; i < *length; i++){
         //fprintf(stdout,"\ni:%d\n",i);
@@ -298,7 +300,7 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
             ttpoint[0] = x;
             ttpoint[1] = y;
             tpoint = ttpoint;
-            //free(ttpoint);
+            free(ttpoint);
             //fprintf(stdout,"x = %f or %f\n",x,tpoint[0]);
             //fprintf(stdout,"y = %f or %f\n",y,tpoint[1]);
         }
@@ -311,7 +313,7 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
             ttpoint[1] = y;
             ttpoint[2] = z;
             tpoint = ttpoint;
-            //free(ttpoint);
+            free(ttpoint);
         }
         //fprintf(stdout,"x = %f \n",tpoint[0]);
         //fprintf(stdout,"y = %f \n",tpoint[1]);
@@ -345,7 +347,7 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
                 tpoint = ttpoint;
                 //fprintf(stdout,"cx = %f \n",x);
                 //fprintf(stdout,"cy = %f \n",y);
-                //free(ttpoint);
+                free(ttpoint);
             }
             else{
                 x = points[i][0] - radius[index] * points[i][3];
@@ -356,7 +358,7 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
                 ttpoint[1] = y;
                 ttpoint[2] = z;
                 tpoint = ttpoint;
-                //free(ttpoint);
+                free(ttpoint);
             }
             centerPoint[index] = tpoint;
             //fprintf(stdout,"\nCenter Point = [%f,%f]\n",centerPoint[index][0],centerPoint[index][1]);
@@ -416,6 +418,7 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
         //fprintf(stdout,"\n");
     }
     for(int t = 0; t < MAXCYCLES; t++){
+        //fprintf(stdout,"removing at %d\n",t);
         free(centerPoint[t]);
         //free(interfacePoint[t]);//set size of points
     }
@@ -456,10 +459,8 @@ void skeletize(double **points,int *length,int *dim,char path[80],double *mindis
     //Next we will skeletonize all the points in our list
     double **skeleton = makeSkeleton(points,kdstruct,dim,length,mindis);
     outputskeleton(skeleton,length,dim,path,points);
-    for(int i = 0;i < *length; i++){
-        //fprintf(stdout,"%d/%d\n",i,*length);
-        //fprintf(stdout,"Removing skeleton [%f,%f],%f\n",skeleton[i][0],skeleton[i][1],skeleton[i][2]);
-        //fprintf(stdout,"Removing point [%f,%f],[%f,%f]\n",points[i][0],points[i][1],points[i][2],points[i][3]);
+    for(int i = 0;i < *length + 1; i++){
+        //fprintf(stdout,"removing point %d\n",i);
         free(points[i]);
         //free(skeleton[i]);
     }
