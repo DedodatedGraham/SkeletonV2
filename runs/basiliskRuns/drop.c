@@ -14,27 +14,35 @@
 #define LARGE 1e36
 
 double max_level = 8;
-double L = 4.;
+double L = 9.;
 double t_out = 0.01;       
-double t_end = 0.01;
-//double t_end = 4;    
+//double t_end = 0.01;
+double t_end = 8;    
 
 /** dimensionless properties, normalized by scaling variables rhol, D, sigma
  */
 double rhog=1.2e-3;
 double mul=2.995e-3;
 double mug=5.390e-5;
-double u0 = 16.71;        //free stream velocity
+double u0 = 0.01;        //free stream velocity
 double h   = 0.2;          //initial gap between drop and inlet
 double femax = 0.001;
 double uemax = 0.001;
 double maxruntime = 60;
+//boundary for falling drop
+u.t[right] = dirichlet(0);
+u.t[left] = dirichlet(0);
 
-u.n[left] = dirichlet(u0);
-
-u.n[right] = neumann(0);
 p[right] = dirichlet(0);
+p[left]  = neumann(0);
+
 pf[right] = dirichlet(0);
+pf[left]  = neumann(0);
+
+uf.n[bottom] = 0.;
+uf.n[top] = 0.;
+
+
 
 
 int main(int argc, char * argv[])
@@ -75,21 +83,17 @@ int main(int argc, char * argv[])
   mu1 = mul, mu2 = mug;
   f.sigma = 1.;
  
-
-  //TOLERANCE = 1.e-5; 
-  //NITERMIN = 5;
-
   run();
 }
 
 /**
 The initial drop is spherical. */
-double x0 = 2.; double Rd = 0.5; 
+double x0 = 8.; double Rd = 0.5; 
 
 event init (t = 0){
     if (!restore (file = "dump")) {
-        refine (  sq(y)+sq(x-x0) < sq(1.2*Rd) && sq(y)+sq(x-x0) > sq(0.8*Rd) && level < max_level);
-        fraction (f, -sq(y)-sq(x-x0)+sq(Rd));
+        refine (  sq(y-x0)+sq(x) < sq(1.2*Rd) && sq(y-x0)+sq(x) > sq(0.8*Rd) && level < max_level);
+        fraction (f, -sq(y-x0)-sq(x)+sq(Rd));
 
         /** It is important to initialize the flow field. If u.x=0, Poisson
         solver crahses. If u.x=u0*(1-f[]), the interface velocity is too large
@@ -97,69 +101,25 @@ event init (t = 0){
         field. As along as we use u.x=a*u0*(1-f[]), with a<0.01, then the results 
         look normal and not sensitive to a. */
         foreach() {
-            u.x[]=1.e-7*u0*(1.-f[]);
+            u.y[]=1.e-7*u0*(1.-f[]);
         }
-        boundary ({f,u.x});
+        boundary ({f,u.y});
     }
 }
-
-
-double calc_time = 0;
-event logfile (i++){
-    scalar posy[],posx[],posx_y0[],udrop[],xdrop[];
-    position (f,posx,{1,0});
-    position (f,posy,{0,1});
-    position (f,posx_y0,{1,0});
-
-    double area=0.,vol=0.,ke=0.,ud=0.,xd=0.;//,R_avg=0.;
-    foreach(reduction(+:area) reduction(+:vol) reduction(+:ke)
-          reduction(+:ud) reduction(+:xd)) {
-        #if 1 
-        if ( f[] <= 1e-6 || f[] >= 1. - 1e-6 ) {
-            posx[] = nodata;
-            posy[] = nodata;
-            posx_y0[] = nodata;
-        }
-        #endif 
-        if ( y<-Delta || y > Delta ) {
-            posx_y0[] = nodata;
-        }
-
-        /** statistics in axisymmetric geometry */
-        if (f[] > 1e-6 && f[] < 1. - 1e-6) {
-            /** interfacial area */
-            coord n = interface_normal (point, f), p;
-            double alpha = plane_alpha (f[], n);
-            area += pow(Delta, 1.)*plane_area_center (n, alpha, &p)*2.*pi*posy[];
-        }
-    
-        double dv_axi = pow(Delta, 2.)*2.*pi*y;
-
-        /** Volume */
-        if (f[] > 1e-6 ) {
-            vol += dv_axi*f[];
-
-            /** kinetic energy  */
-            foreach_dimension() {
-                ke += dv_axi*sq(u.x[]);
-            }
-
-            /** mean velocity*/
-            ud += dv_axi*f[]*u.x[];
-
-            /** centroid */
-            xd += dv_axi*f[]*x;
-        }
-    }
-    ke /= 2.;
-    ud /= vol;
-    xd /= vol;
-    clock_t begin = clock();
-    xd = (xd < x0)? x0 : xd;
-    clock_t end = clock();
-    calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for calculating the mode coefficients
-    fflush(ferr);
+event acceleration (i++) {
+  face vector av = a;
+  foreach_face(x)
+    av.x[] -= 0.98;
+  boundary({p});
 }
+
+//double calc_time = 0;
+//event logfile (i++){
+//    clock_t begin = clock();
+//    clock_t end = clock();
+//    calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for calculating the mode coefficients
+//    fflush(ferr);
+//}
 
 int slevel = 0.;
 double mindis = 0.;
@@ -174,17 +134,19 @@ event skeleton(t+=t_out){
         }
     }
     fprintf(stdout,"Skeleton at %f\n",t);
-    fprintf(stdout,"mindis= %f\n",mindis);
-    fprintf(stdout,"slevel= %d\n",slevel);
+    //fprintf(stdout,"mindis= %f\n",mindis);
+    //fprintf(stdout,"slevel= %d\n",slevel);
     char sname[80];
     sprintf (sname, "skeleton-%5.3f.dat", t);
     struct OutputXYTheta sP; sP.c = f; sP.level = max_level;
     int snr;int snd;
     double **sinterface = output_points_xynorm(sP,&snr,&snd);
+    //fprintf(stdout,"%d %d\n",snr,snd);
     skeletize(sinterface,&snr,&snd,sname,&mindis);
-
+    //free(sinterface);
     fflush(ferr);
 }
+
 //Function for extracting the interfacial points: cut-surface center
 struct OutputPoints{
     scalar c;
@@ -210,7 +172,11 @@ void output_points_norm(struct OutputPoints p){
 	    if(area==0){
 	        fprintf(stdout,"Area=Null\n");// This statement is just to make some use of the area info. otherwise compiler throws warning!!
 	    }
-	    fprintf(p.fp, "%g %g %g %g\n",x+Delta*pc.x, y+Delta*pc.y, n.x, n.y);
+	    double abs = sqrt(pow(n.x,2)+pow(n.y,2));
+        double tx = n.x/abs;
+        double ty = n.y/abs;
+	    fprintf(p.fp, "%g %g %g %g\n",x+Delta*pc.x, y+Delta*pc.y, tx,ty);
+	    fprintf(p.fp, "%g %g %g %g\n",-(x+Delta*pc.x), y+Delta*pc.y, -tx, ty);
 	    //fprintf(p.fp, "%g %g %g %g\n",x+Delta*pc.x, -y-Delta*pc.y, n.x,-n.y);
 	}
     }
@@ -233,7 +199,6 @@ event interface (t += t_out) {
     fflush(fp1);
     fclose(fp1);
 }
-
 //#endif 
  
 event snapshot (t += t_out; t<=t_end ) {
@@ -302,12 +267,7 @@ event adapt (i=10;i++) {
   adapt_wavelet ({f,q}, (double[]){femax,uemax,uemax}, minlevel = 3, maxlevel = max_level);
 #else
   adapt_wavelet ({f,u}, (double[]){femax,uemax,uemax}, minlevel = 3, maxlevel = max_level);
-  //adapt_wavelet2((scalar *){f,u.x,u.y},(double []){femax,uemax,uemax},(int []){max_level, max_level-2, max_level-2},3);
 #endif 
-
-//#if _UNREFINE
-//  unrefine ( x>0.5*L && level >= max_level-2 );
-//#endif
 
 }
 
