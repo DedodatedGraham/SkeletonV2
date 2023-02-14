@@ -200,9 +200,10 @@ struct kdleaf *CreateStructure(double **points,struct kdleaf **headkdstruct,int 
         //fprintf(stdout,"alt create\n");
         double **hold = (double**)malloc((upper - lower) * sizeof(double*));
         for(int i = 0; i < upper - lower; i++){
-            hold[i] = (double*)malloc(sizeof(double)*2*(*length));
+            //hold[i] = (double*)malloc(sizeof(double)*2*(*length));
             //Now we have allocated space for this
-            memcpy(hold[i],points[lower + i],sizeof(double) * 2 * (*length));
+            //memcpy(hold[i],points[lower + i],sizeof(double) * 2 * (*length));
+            hold[i] = points[lower + i];
         }
         currentkdstruct = createLeaf(axis,hold);
         //currentkdstruct->flag = (bool*)malloc(sizeof(bool));
@@ -270,20 +271,20 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
 
     //fprintf(stdout,"starting process\n");
     double guessr = *length;
-    double **skeleton = (double**)malloc(*length * sizeof(double*));
+    double **skeleton = (double**)malloc((*length + 1) * sizeof(double*));
     //fprintf(stdout,"allocating for %d\n",MAXCYCLES);
     double **centerPoint = (double**)malloc(MAXCYCLES * sizeof(double*));
     double *radius = (double*)malloc(MAXCYCLES * sizeof(double));
     double **interfacePoint = (double**)malloc(MAXCYCLES * sizeof(double*));
-    for(int len = 0; len < *length; len++){
-        skeleton[len] = (double*)malloc((*dim) * sizeof(double));//set size of points + r
-    }
-    for(int t = 0; t < MAXCYCLES; t++){
-        centerPoint[t] = (double*)malloc((*dim) * sizeof(double));//set size of points
-        interfacePoint[t] = (double*)malloc((*dim) * sizeof(double));//set size of points
-        //fprintf(stdout,"allocating %d to %d\n",*dim,t);
-    }
-    for(int i = 0; i < *length; i++){
+    //for(int len = 0; len < *length; len++){
+    //    skeleton[len] = (double*)malloc((*dim) * sizeof(double));//set size of points + r
+    //}
+    //for(int t = 0; t < MAXCYCLES; t++){
+    //    centerPoint[t] = (double*)malloc((*dim) * sizeof(double));//set size of points
+    //    interfacePoint[t] = (double*)malloc((*dim) * sizeof(double));//set size of points
+    //    //fprintf(stdout,"allocating %d to %d\n",*dim,t);
+    //}
+    for(int i = 0; i < *length + 1; i++){
         //fprintf(stdout,"\ni:%d\n",i);
         //Goes through each element of the list & generates a skeleton point
         //First step is to make an initial guess
@@ -318,6 +319,7 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
         //fprintf(stdout,"x = %f \n",tpoint[0]);
         //fprintf(stdout,"y = %f \n",tpoint[1]);
         //We get a interface point and calulate the raidus to begin
+        //double *ignorepoint;
         double *ignorepoint = (double*)malloc(*dim * sizeof(double));
         ignorepoint[0] = points[i][0];
         ignorepoint[1] = points[i][1];
@@ -367,7 +369,8 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
             //fprintf(stdout,"center= x:%f y:%f \n",tpoint[0],tpoint[1]);
             //fprintf(stdout,"y1 = %f \n",tpoint[1]);
             //fprintf(stdout,"\n");
-            double *ignorepoint = (double*)malloc(*dim * sizeof(double));
+            //double *ignorepoint = (double*)malloc(*dim * sizeof(double));
+            //double *ignorepoint = points[i];
             ignorepoint[0] = points[i][0];
             ignorepoint[1] = points[i][1];
             if(*dim == 3){
@@ -416,15 +419,16 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
             }
         }
         //fprintf(stdout,"\n");
+        free(ignorepoint);
     }
-    for(int t = 0; t < MAXCYCLES; t++){
-        //fprintf(stdout,"removing at %d\n",t);
-        free(centerPoint[t]);
-        //free(interfacePoint[t]);//set size of points
-    }
+    //for(int t = 0; t < MAXCYCLES; t++){
+    //    //fprintf(stdout,"removing at %d\n",t);
+    //    free(centerPoint[t]);
+    //    //free(interfacePoint[t]);//set size of points
+    //}
     free(radius);
     free(centerPoint);
-    //free(interfacePoint);
+    free(interfacePoint);
     return skeleton;
 }
 void outputskeleton(double **points, int *length, int *dim, char path[80],double **inter){
