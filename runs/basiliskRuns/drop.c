@@ -17,7 +17,7 @@ double max_level = 8;
 double L = 9.;
 double t_out = 0.01;       
 //double t_end = 0.01;
-double t_end = 2;    
+double t_end = 8;    
 
 /** dimensionless properties, normalized by scaling variables rhol, D, sigma
  */
