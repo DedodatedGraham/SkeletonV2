@@ -315,8 +315,9 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,d
             ipoint = ignorepoint;
             free(ttpoint);
             free(ignorepoint);
-            //fprintf(stdout,"x = %f or %f or %f\n",ix,ipoint[0],points[i][0]);
-            //fprintf(stdout,"y = %f or %f or %f\n",iy,ipoint[1],points[i][1]);
+            fprintf(stdout,"\n(%d,%d)\n",i,index);
+            fprintf(stdout,"x = %f or %f\n",ipoint[0],points[i][0]);
+            fprintf(stdout,"y = %f or %f\n",ipoint[1],points[i][1]);
         }
         else{
             double x = points[i][0] - points[i][3] * guessr;
@@ -366,8 +367,9 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,d
                 ipoint = ignorepoint;
                 free(ttpoint);
                 free(ignorepoint);
-                //fprintf(stdout,"x = %f or %f or %f\n",ix,ipoint[0],points[i][0]);
-                //fprintf(stdout,"y = %f or %f or %f\n",iy,ipoint[1],points[i][1]);
+                fprintf(stdout,"(%d,%d)\n",i,index+1);
+                fprintf(stdout,"x = %f or %f\n",ipoint[0],points[i][0]);
+                fprintf(stdout,"y = %f or %f\n",ipoint[1],points[i][1]);
             }
             else{
                 double x = points[i][0] - points[i][3] * radius[index];
@@ -401,14 +403,18 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,d
                 //our center point should remain the same
                 skeleton[i] = centerPoint[index];
                 skeleton[i][*dim] = radius[index + 1];
-                //fprintf(stdout,"skelept:[x=%f,y=%f,r=%f]\n",skeleton[i][0],skeleton[i][1],skeleton[i][2]);
+                fprintf(stdout,"skelept:[x=%f,y=%f,r=%f]\n",skeleton[i][0],skeleton[i][1],skeleton[i][2]);
+                fprintf(stdout,"point : [x=%f,y=%f]\n",points[i][0],points[i][1]);
+                fprintf(stdout,"interfacepoint : [x=%f,y=%f]\n",interfacePoint[index + 1][0],interfacePoint[index + 1][1]);
                 outputskeleton(skeleton[i],dim,path);
                 completeCase = false;
             }
             else if(index > 0 && distancecomp < radius[index]){
                 skeleton[i] = centerPoint[index - 1];
                 skeleton[i][*dim] = radius[index];
-                //fprintf(stdout,"skelept:[x=%f,y=%f,r=%f]\n",skeleton[i][0],skeleton[i][1],skeleton[i][2]);
+                fprintf(stdout,"skelept:[x=%f,y=%f,r=%f]\n",skeleton[i][0],skeleton[i][1],skeleton[i][2]);
+                fprintf(stdout,"point : [x=%f,y=%f]\n",points[i][0],points[i][1]);
+                fprintf(stdout,"interfacepoint : [x=%f,y=%f]\n",interfacePoint[index + 1][0],interfacePoint[index + 1][1]);
                 outputskeleton(skeleton[i],dim,path);
                 completeCase = false;
             }
