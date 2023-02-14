@@ -266,7 +266,24 @@ double getRadius(double *point,double *interface,int *dim){
         return -ret1;
     }
 }
-double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,double *mindis){
+void outputskeleton(double *points, int *dim, char path[80]){
+    //we save each point as it comes in
+    FILE *fp = fopen(path,"a");
+    if(*dim == 2){
+        fprintf(stdout,"saving\n");
+        fprintf(stdout,"x:%f\n",points[0]);
+        fprintf(stdout,"y:%f\n",points[1]);
+        fprintf(stdout,"r:%f\n",points[2]);
+        fprintf(fp,"%f %f %f\n",points[0],points[1],points[2]);
+        //fprintf(fp,"%f %f %f - [%f,%f,%f,%f]\n",points[i][0],points[i][1],points[i][2],inter[i][0],inter[i][1],inter[i][2],inter[i][3]);
+    }
+    else{
+        fprintf(fp,"%f %f %f %f\n",points[0],points[1],points[2],points[3]);
+    }
+    fflush(fp);
+    fclose(fp);
+}
+void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,double *mindis,char path[80]){
     int MAXCYCLES = 50;
 
     //fprintf(stdout,"starting process\n");
@@ -285,104 +302,142 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
     //    //fprintf(stdout,"allocating %d to %d\n",*dim,t);
     //}
     for(int i = 0; i < *length + 1; i++){
-        //fprintf(stdout,"\ni:%d\n",i);
+        fprintf(stdout,"\ni:%d\n",i);
         //Goes through each element of the list & generates a skeleton point
         //First step is to make an initial guess
         bool completeCase = true;
         int index = 0;
         double *tpoint;
-        double x;
-        double y;
-        double z;
+        double *ipoint;
+        //double x;
+        //double y;
+        //double z;
+        //double ix;
+        //double iy;
+        //double iz;
         if(*dim == 2){
             double x = points[i][0] - points[i][2] * guessr;
             double y = points[i][1] - points[i][3] * guessr;
-            double *ttpoint = (double*)malloc(2 * sizeof(double));
+            double ix = points[i][0];
+            double iy = points[i][1];
+            double *ttpoint = (double*)malloc(*dim * sizeof(double));
+            double *ignorepoint = (double*)malloc(*dim * sizeof(double));
             ttpoint[0] = x;
             ttpoint[1] = y;
+            ignorepoint[0] = ix;
+            ignorepoint[1] = iy;
             tpoint = ttpoint;
+            ipoint = ignorepoint;
             free(ttpoint);
-            //fprintf(stdout,"x = %f or %f\n",x,tpoint[0]);
-            //fprintf(stdout,"y = %f or %f\n",y,tpoint[1]);
+            free(ignorepoint);
+            //fprintf(stdout,"x = %f or %f or %f\n",ix,ipoint[0],points[i][0]);
+            //fprintf(stdout,"y = %f or %f or %f\n",iy,ipoint[1],points[i][1]);
         }
         else{
-            double x = points[i][0] - guessr;
-            double y = points[i][1] - guessr;
-            double z = points[i][2] - guessr;
-            double *ttpoint = (double*)malloc(3 * sizeof(double));
+            double x = points[i][0] - points[i][3] * guessr;
+            double y = points[i][1] - points[i][4] * guessr;
+            double z = points[i][2] - points[i][5] * guessr;
+            double ix = points[i][0];
+            double iy = points[i][1];
+            double iz = points[i][2];
+            double *ttpoint = (double*)malloc(*dim * sizeof(double));
+            double *ignorepoint = (double*)malloc(*dim * sizeof(double));
             ttpoint[0] = x;
             ttpoint[1] = y;
             ttpoint[2] = z;
+            ignorepoint[0] = ix;
+            ignorepoint[1] = iy;
+            ignorepoint[2] = iz;
             tpoint = ttpoint;
+            ipoint = ignorepoint;
             free(ttpoint);
+            free(ignorepoint);
         }
         //fprintf(stdout,"x = %f \n",tpoint[0]);
         //fprintf(stdout,"y = %f \n",tpoint[1]);
         //We get a interface point and calulate the raidus to begin
         //double *ignorepoint;
-        double *ignorepoint = (double*)malloc(*dim * sizeof(double));
-        ignorepoint[0] = points[i][0];
-        ignorepoint[1] = points[i][1];
-        if(*dim == 3){
-            ignorepoint[2] = points[i][2];
-        }
+        //ignorepoint[0] = ix;
+        //ignorepoint[1] = iy;
+        //if(*dim == 3){
+        //    ignorepoint[2] = points[i][2];
+        //}
+        //ipoint = ignorepoint;
+        //free(ignorepoint);
         double lowestdistance = 0; 
-        interfacePoint[index] = getNearest(tpoint,kdstruct,length,dim,ignorepoint,&lowestdistance);
-        //fprintf(stdout,"skeleton for point%d x:%f y:%f nx:%f ny:%f\n",i,points[i][0],points[i][1],points[i][2],points[i][3]);
-        //fprintf(stdout,"center= x:%f y:%f \n",tpoint[0],tpoint[1]);
-        //fprintf(stdout,"interface point%d x:%f y:%f\n",index,interfacePoint[index][0],interfacePoint[index][1]); 
+        interfacePoint[index] = getNearest(tpoint,kdstruct,length,dim,ipoint,&lowestdistance);
+        //free(ignorepoint);
+        fprintf(stdout,"skeleton for point%d x:%f y:%f nx:%f ny:%f\n",i,points[i][0],points[i][1],points[i][2],points[i][3]);
+        fprintf(stdout,"center= x:%f y:%f \n",tpoint[0],tpoint[1]);
+        fprintf(stdout,"interface point%d x:%f y:%f\n",index,interfacePoint[index][0],interfacePoint[index][1]); 
         double* sendpoint = points[i];
         //fprintf(stdout,"NORMY:%f\n",sendpoint[3]);
         radius[index] = getRadius(sendpoint,interfacePoint[index],dim);
-        //fprintf(stdout,"rad1 = %f\n",radius[index]);
+        fprintf(stdout,"rad (%d,%d) = %f\n",i,index,radius[index]);
         while(completeCase){
-            //fprintf(stdout,"calculating:%d\n",index);
+            fprintf(stdout,"calculating:%d\n",index+1);
             //first calculate new center point based on the last radius given
             double *tpoint;
             //fprintf(stdout,"dim = %d\n",*dim);
             if(*dim == 2){
-                x = points[i][0] - radius[index] * points[i][2];
-                y = points[i][1] - radius[index] * points[i][3];
-                double *ttpoint = (double*)malloc(2 * sizeof(double));
+                double x = points[i][0] - points[i][2] * radius[index];
+                double y = points[i][1] - points[i][3] * radius[index];
+                double ix = points[i][0];
+                double iy = points[i][1];
+                double *ttpoint = (double*)malloc(*dim * sizeof(double));
+                double *ignorepoint = (double*)malloc(*dim * sizeof(double));
                 ttpoint[0] = x;
                 ttpoint[1] = y;
+                ignorepoint[0] = ix;
+                ignorepoint[1] = iy;
                 tpoint = ttpoint;
-                //fprintf(stdout,"cx = %f \n",x);
-                //fprintf(stdout,"cy = %f \n",y);
+                ipoint = ignorepoint;
                 free(ttpoint);
+                free(ignorepoint);
+                //fprintf(stdout,"x = %f or %f or %f\n",ix,ipoint[0],points[i][0]);
+                //fprintf(stdout,"y = %f or %f or %f\n",iy,ipoint[1],points[i][1]);
             }
             else{
-                x = points[i][0] - radius[index] * points[i][3];
-                y = points[i][1] - radius[index] * points[i][4];
-                z = points[i][2] - radius[index] * points[i][5];
-                double *ttpoint = (double*)malloc(3 * sizeof(double));
+                double x = points[i][0] - points[i][3] * radius[index];
+                double y = points[i][1] - points[i][4] * radius[index];
+                double z = points[i][2] - points[i][5] * radius[index];
+                double ix = points[i][0];
+                double iy = points[i][1];
+                double iz = points[i][2];
+                double *ttpoint = (double*)malloc(*dim * sizeof(double));
+                double *ignorepoint = (double*)malloc(*dim * sizeof(double));
                 ttpoint[0] = x;
                 ttpoint[1] = y;
                 ttpoint[2] = z;
+                ignorepoint[0] = ix;
+                ignorepoint[1] = iy;
+                ignorepoint[2] = iz;
                 tpoint = ttpoint;
+                ipoint = ignorepoint;
                 free(ttpoint);
+                free(ignorepoint);
             }
             centerPoint[index] = tpoint;
             //fprintf(stdout,"\nCenter Point = [%f,%f]\n",centerPoint[index][0],centerPoint[index][1]);
             //then calculate the closest point
             //fprintf(stdout,"\n");
-            //fprintf(stdout,"center= x:%f y:%f \n",tpoint[0],tpoint[1]);
+            fprintf(stdout,"center= x:%f y:%f \n",tpoint[0],tpoint[1]);
             //fprintf(stdout,"y1 = %f \n",tpoint[1]);
             //fprintf(stdout,"\n");
-            //double *ignorepoint = (double*)malloc(*dim * sizeof(double));
             //double *ignorepoint = points[i];
-            ignorepoint[0] = points[i][0];
-            ignorepoint[1] = points[i][1];
-            if(*dim == 3){
-                ignorepoint[2] = points[i][2];
-            }
-            interfacePoint[index + 1] = getNearest(centerPoint[index],kdstruct,length,dim,ignorepoint,&lowestdistance);
-            //fprintf(stdout,"interface point%d x:%f y:%f\n",index + 1,interfacePoint[index + 1][0],interfacePoint[index + 1][1]); 
+            //ignorepoint[0] = points[i][0];
+            //ignorepoint[1] = points[i][1];
+            //if(*dim == 3){
+            //    ignorepoint[2] = points[i][2];
+            //}
+            interfacePoint[index + 1] = getNearest(centerPoint[index],kdstruct,length,dim,ipoint,&lowestdistance);
+            fprintf(stdout,"interface point%d x:%f y:%f\n",index + 1,interfacePoint[index + 1][0],interfacePoint[index + 1][1]); 
+            //free(ignorepoint);
             radius[index + 1] = getRadius(points[i],interfacePoint[index + 1],dim);
             //fprintf(stdout,"rad is %f\n",radius[index + 1]);
             //fprintf(stdout,"rad1 is %f\n",radius[index]);
             //fprintf(stdout,"\n");
-            //fprintf(stdout,"rad (%d,%d) = %f\n",i,index,radius[index+1]);
+            fprintf(stdout,"rad (%d,%d) = %f\n",i,index+1,radius[index+1]);
             double distancecomp = getDistance(interfacePoint[index + 1],points[i],dim);
             if(radius[index] != 0. && fabs(radius[index] - radius[index + 1]) < *mindis){
                 //convergance conditions
@@ -396,14 +451,16 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
                 //}
                 skeleton[i] = centerPoint[index];
                 skeleton[i][*dim] = radius[index + 1];
-                //fprintf(stdout,"skelept:[x=%f,y=%f,r=%f]\n",skeleton[i][0],skeleton[i][1],skeleton[i][2]);
+                fprintf(stdout,"skelept:[x=%f,y=%f,r=%f]\n",skeleton[i][0],skeleton[i][1],skeleton[i][2]);
+                outputskeleton(skeleton[i],dim,path);
                 completeCase = false;
             }
             else if(index > 0 && distancecomp < radius[index]){
                 skeleton[i] = centerPoint[index - 1];
                 //fprintf(stdout,"dun%d\n",*dim);
                 skeleton[i][*dim] = radius[index];
-                //fprintf(stdout,"skelept:[x=%f,y=%f,r=%f]\n",skeleton[i][0],skeleton[i][1],skeleton[i][2]);
+                fprintf(stdout,"skelept:[x=%f,y=%f,r=%f]\n",skeleton[i][0],skeleton[i][1],skeleton[i][2]);
+                outputskeleton(skeleton[i],dim,path);
                 completeCase = false;
             }
             //else if(distancecomp < *mindis * 10){
@@ -419,34 +476,19 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
             }
         }
         //fprintf(stdout,"\n");
-        free(ignorepoint);
+        //free(ignorepoint);
     }
     //for(int t = 0; t < MAXCYCLES; t++){
     //    //fprintf(stdout,"removing at %d\n",t);
     //    free(centerPoint[t]);
     //    //free(interfacePoint[t]);//set size of points
     //}
+    //free(ignorepoint);
     free(radius);
     free(centerPoint);
     free(interfacePoint);
-    return skeleton;
-}
-void outputskeleton(double **points, int *length, int *dim, char path[80],double **inter){
-    FILE *fp = fopen(path,"w");
-    for(int i = 0; i < *length; i++){
-        if(*dim == 2){
-            //fprintf(stdout,"x:%f\n",points[i][0]);
-            //fprintf(stdout,"y:%f\n",points[i][1]);
-            //fprintf(stdout,"r:%f\n",points[i][2]);
-            fprintf(fp,"%f %f %f\n",points[i][0],points[i][1],points[i][2]);
-            //fprintf(fp,"%f %f %f - [%f,%f,%f,%f]\n",points[i][0],points[i][1],points[i][2],inter[i][0],inter[i][1],inter[i][2],inter[i][3]);
-        }
-        else{
-            fprintf(fp,"%f %f %f %f\n",points[i][0],points[i][1],points[i][2],points[i][3]);
-        }
-    }
-    fflush(fp);
-    fclose(fp);
+    free(skeleton);
+    //return skeleton;
 }
 void skeletize(double **points,int *length,int *dim,char path[80],double *mindis){
     //initial setup
@@ -461,14 +503,13 @@ void skeletize(double **points,int *length,int *dim,char path[80],double *mindis
     CreateStructure(points,&kdstruct,0,dim,0,*length);//make kd-struct
     //fprintf(stdout,"we have completed kdstruct\n");
     //Next we will skeletonize all the points in our list
-    double **skeleton = makeSkeleton(points,kdstruct,dim,length,mindis);
-    outputskeleton(skeleton,length,dim,path,points);
+    makeSkeleton(points,kdstruct,dim,length,mindis,path);
     for(int i = 0;i < *length + 1; i++){
         //fprintf(stdout,"removing point %d\n",i);
         free(points[i]);
         //free(skeleton[i]);
     }
-    free(skeleton);
+    //free(skeleton);
     free(points);
     kdDestroy(kdstruct);
     //fprintf(stdout,"skeleton complete\n");
