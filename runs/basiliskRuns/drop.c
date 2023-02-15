@@ -12,18 +12,18 @@
 
 #define LARGE 1e36
 
-double max_level = 9;
-double L = 9.;
+double max_level = 8;
+double L = 8.;
 double t_out = 0.01;       
-double t_end = 0.00;
-//double t_end = 8;    
+//double t_end = 0.00;
+double t_end = 4;    
 
 /** dimensionless properties, normalized by scaling variables rhol, D, sigma
  */
 double rhog=1.2e-3;
-double mul=2.995e-3;
-double mug=5.390e-5;
-double u0 = 0.01;        //free stream velocity
+double mul=9.21e-3;
+double mug=1.580e-4;
+double u0 = 0;        //free stream velocity
 double h   = 0.2;          //initial gap between drop and inlet
 double femax = 0.001;
 double uemax = 0.001;
@@ -87,7 +87,7 @@ int main(int argc, char * argv[])
 
 /**
 The initial drop is spherical. */
-double x0 = 8.; double Rd = 0.5; 
+double x0 = 7.; double Rd = 0.5; 
 
 event init (t = 0){
     if (!restore (file = "dump")) {
@@ -99,10 +99,10 @@ event init (t = 0){
         and will induce erroneous deformation at early time and wrong pressure 
         field. As along as we use u.x=a*u0*(1-f[]), with a<0.01, then the results 
         look normal and not sensitive to a. */
-        foreach() {
-            u.y[]=1.e-7*u0*(1.-f[]);
-        }
-        boundary ({f,u.y});
+        //foreach() {
+        //    u.y[]=1.e-7*u0*(1.-f[]);
+        //}
+        //boundary ({f,u.y});
     }
 }
 event acceleration (i++) {
@@ -112,20 +112,13 @@ event acceleration (i++) {
   boundary({p});
 }
 
-//double calc_time = 0;
-//event logfile (i++){
-//    clock_t begin = clock();
-//    clock_t end = clock();
-//    calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for calculating the mode coefficients
-//    fflush(ferr);
-//}
-
 int slevel = 0.;
 double mindis = 0.;
 event skeleton(t+=t_out){
     //First find min grid distance    
     if(slevel == 0 || slevel < max_level){
         foreach(){
+            if(f[] > 0. && f[] < 1.)
             if(Delta < mindis || mindis == 0.){
                 mindis = Delta;
                 slevel = max_level;
