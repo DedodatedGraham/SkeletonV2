@@ -112,18 +112,23 @@ event acceleration (i++) {
   boundary({p});
 }
 
+//double calc_time = 0;
+//event logfile (i++){
+//    clock_t begin = clock();
+//    clock_t end = clock();
+//    calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for calculating the mode coefficients
+//    fflush(ferr);
+//}
+
 int slevel = 0.;
 double mindis = 0.;
 event skeleton(t+=t_out){
     //First find min grid distance    
     if(slevel == 0 || slevel < max_level){
         foreach(){
-            if(f[] > 0. && f[] < 1.){
-                if(Delta < mindis || mindis == 0.){
-                    mindis = Delta;
-                    slevel = max_level;
-                }
-                
+            if(Delta < mindis || mindis == 0.){
+                mindis = Delta;
+                slevel = max_level;
             }
         }
     }
