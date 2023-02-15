@@ -7,7 +7,7 @@ struct OutputXYNorm{
     int level;
 };
 
-double** output_points_xynorm(struct OutputXYTheta p, int *nrow,int *ndim){
+double** output_points_xynorm(struct OutputXYNorm p, int *nrow,int *ndim){
     *ndim = 2;
     scalar c = p.c;
     restriction({c});

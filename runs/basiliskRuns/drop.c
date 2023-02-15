@@ -8,12 +8,11 @@
 #include "tension.h"
 #include "view.h"
 //#include "adapt2.h"
-#include "legendre.h"
 #include "../../src/skeleBasilisk.h"
 
 #define LARGE 1e36
 
-double max_level = 8;
+double max_level = 9;
 double L = 9.;
 double t_out = 0.01;       
 double t_end = 0.00;
@@ -138,7 +137,7 @@ event skeleton(t+=t_out){
     //fprintf(stdout,"slevel= %d\n",slevel);
     char sname[80];
     sprintf (sname, "skeleton-%5.3f.dat", t);
-    struct OutputXYTheta sP; sP.c = f; sP.level = max_level;
+    struct OutputXYNorm sP; sP.c = f; sP.level = max_level;
     int snr;int snd;
     double **sinterface = output_points_xynorm(sP,&snr,&snd);
     //fprintf(stdout,"%d %d\n",snr,snd);
