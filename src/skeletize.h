@@ -247,6 +247,7 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,d
             free(ignorepoint);
         }
         double lowestdistance = 0; 
+        centerPoint[index] = tpoint;
         interfacePoint[index] = getNearest(tpoint,kdstruct,length,dim,ipoint,&lowestdistance);
         //fprintf(stdout,"skeleton for point%d x:%f y:%f nx:%f ny:%f\n",i,points[i][0],points[i][1],points[i][2],points[i][3]);
         //fprintf(stdout,"center= x:%f y:%f \n",tpoint[0],tpoint[1]);
@@ -317,15 +318,15 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,d
                 completeCase = false;
             }
             else if(index > 0 && distancecomp < radius[index + 1]){
-                skeleton[i] = centerPoint[index - 1];
-                skeleton[i][*dim] = radius[index];
-                fprintf(stdout,"\n(%d,%d)\n",i,index);
-                fprintf(stdout,"skelept:[x=%f,y=%f,r=%f]\n",skeleton[i][0],skeleton[i][1],skeleton[i][2]);
-                fprintf(stdout,"point : [x=%f,y=%f]\n",points[i][0],points[i][1]);
-                fprintf(stdout,"centpoint-2 : [x=%f,y=%f]\n",centerPoint[index - 2][0],centerPoint[index - 2][1]);
-                fprintf(stdout,"centpoint-1 : [x=%f,y=%f]\n",centerPoint[index - 1][0],centerPoint[index - 1][1]);
-                fprintf(stdout,"centpoint-0 : [x=%f,y=%f]\n",centerPoint[index][0],centerPoint[index][1]);
-                fprintf(stdout,"interfacepoint : [x=%f,y=%f]\n",interfacePoint[index + 1][0],interfacePoint[index + 1][1]);
+                skeleton[i] = centerPoint[index];
+                skeleton[i][*dim] = radius[index+1];
+                //fprintf(stdout,"\n(%d,%d)\n",i,index);
+                //fprintf(stdout,"skelept:[x=%f,y=%f,r=%f]\n",skeleton[i][0],skeleton[i][1],skeleton[i][2]);
+                //fprintf(stdout,"point : [x=%f,y=%f]\n",points[i][0],points[i][1]);
+                //fprintf(stdout,"centpoint-2 : [x=%f,y=%f],%f\n",centerPoint[index - 2][0],centerPoint[index - 2][1],radius[index-1]);
+                //fprintf(stdout,"centpoint-1 : [x=%f,y=%f],%f\n",centerPoint[index - 1][0],centerPoint[index - 1][1],radius[index]);
+                //fprintf(stdout,"centpoint-0 : [x=%f,y=%f],%f\n",centerPoint[index][0],centerPoint[index][1],radius[index+1]);
+                //fprintf(stdout,"interfacepoint : [x=%f,y=%f]\n",interfacePoint[index + 1][0],interfacePoint[index + 1][1]);
                 outputskeleton(skeleton[i],dim,path);
                 completeCase = false;
             }

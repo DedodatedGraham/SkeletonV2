@@ -15,14 +15,18 @@
 double max_level = 8;
 double L = 8.;
 double t_out = 0.01;       
-double t_end = 0.00;
-//double t_end = 4;    
+//double t_end = 0.00;
+double t_end = 7;    
 
 /** dimensionless properties, normalized by scaling variables rhol, D, sigma
  */
 double rhog=1.2e-3;
-double mul=9.21e-3;
-double mug=1.580e-4;
+//WE8.5
+//double mul=9.21e-3;
+//double mug=1.580e-4;
+//WE35
+double mul=4.54e-3;
+double mug=7.81e-5;
 double u0 = 0;        //free stream velocity
 double h   = 0.2;          //initial gap between drop and inlet
 double femax = 0.001;
