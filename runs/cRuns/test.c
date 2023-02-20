@@ -10,7 +10,7 @@
 int main(){
     
     //open file
-    FILE *fp1 = fopen("../basiliskRuns/infc-0.180.dat","r");
+    FILE *fp1 = fopen("../../indata/infc-0.180.dat","r");
     if(fp1 == NULL){
         fprintf(stdout,"error opening file\n");
         return 1;
