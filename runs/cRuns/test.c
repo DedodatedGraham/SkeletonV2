@@ -10,7 +10,7 @@
 int main(){
     
     //open file
-    FILE *fp1 = fopen("../../indata/infc-0.000.dat","r");
+    FILE *fp1 = fopen("../basiliskRuns/infc-0.180.dat","r");
     if(fp1 == NULL){
         fprintf(stdout,"error opening file\n");
         return 1;
@@ -52,5 +52,6 @@ int main(){
     sz = sz - 1;
     char name[80];
     sprintf(name,"testOut.dat");
-    skeletize(inputpoints,&sz,&amount,name);
+    double mindis = (4.) / (128);
+    skeletize(inputpoints,&sz,&amount,name,&mindis);
 }

@@ -18,10 +18,10 @@ double t_end = 4;
 
 /** dimensionless properties, normalized by scaling variables rhol, D, sigma
  */
-double rhog=1.2e-3;
-double mul=2.995e-3;
-double mug=5.390e-5;
-double u0 = 16.71;        //free stream velocity
+double rhog=1.297e-3;
+double mul=5.275e-3;
+double mug=9.077e-5;
+double u0 = 78.54;        //free stream velocity
 double h   = 0.2;          //initial gap between drop and inlet
 double femax = 0.001;
 double uemax = 0.001;
@@ -187,8 +187,10 @@ event init (t = 0){
 //Function For Obtaining Skeleton
 int slevel = 0.;
 double mindis = 0.;
+//double calc_time = 0;
 event skeleton(t+=t_out){
     //First find min grid distance    
+    //clock_t begin = clock();
     if(slevel == 0 || slevel < max_level){
         foreach(){
             if(f[] > 0. && f[] < 1.)
@@ -198,17 +200,22 @@ event skeleton(t+=t_out){
             }
         }
     }
+    
     fprintf(stdout,"Skeleton at %f\n",t);
-    //fprintf(stdout,"mindis= %f\n",mindis);
-    //fprintf(stdout,"slevel= %d\n",slevel);
+    
+    //setup
     char sname[80];
     sprintf (sname, "skeleton-%5.3f.dat", t);
     struct OutputXYNorm sP; sP.c = f; sP.level = max_level;
     int snr;int snd;
+    
+    //run
     double **sinterface = output_points_xynorm(sP,&snr,&snd);
-    //fprintf(stdout,"%d %d\n",snr,snd);
     skeletize(sinterface,&snr,&snd,sname,&mindis);
-    //free(sinterface);
+    //clock_t end = clock();
+    //calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for skeleton 
+    
+    //fprintf(stdout,"time took for skeleton: %f\n",calc_time);
     fflush(ferr);
 }
 

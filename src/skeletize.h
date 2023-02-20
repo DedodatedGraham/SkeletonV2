@@ -204,30 +204,24 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,d
     double *radius = (double*)malloc(MAXCYCLES * sizeof(double));
     double **interfacePoint = (double**)malloc(MAXCYCLES * sizeof(double*));
     for(int i = 0; i < *length + 1; i++){
-        //fprintf(stdout,"\ni:%d\n",i);
+        //fprintf(stdout,"\ncalculating point: %d\n",i);
         //Goes through each element of the list & generates a skeleton point
         //First step is to make an initial guess
         bool completeCase = true;
         int index = 0;
-        double *tpoint;
-        double *ipoint;
+        double *ttpoint = (double*)malloc(*dim * sizeof(double));
+        double *ignorepoint = (double*)malloc(*dim * sizeof(double));
         if(*dim == 2){
             double x = points[i][0] - points[i][2] * guessr;
             double y = points[i][1] - points[i][3] * guessr;
             double ix = points[i][0];
             double iy = points[i][1];
-            double *ttpoint = (double*)malloc(*dim * sizeof(double));
-            double *ignorepoint = (double*)malloc(*dim * sizeof(double));
             ttpoint[0] = x;
             ttpoint[1] = y;
             ignorepoint[0] = ix;
             ignorepoint[1] = iy;
-            tpoint = ttpoint;
-            ipoint = ignorepoint;
-            free(ttpoint);
-            free(ignorepoint);
-            ttpoint = NULL;
-            ignorepoint = NULL;
+            //ttpoint = NULL;
+            //ignorepoint = NULL;
             //fprintf(stdout,"\n(%d,%d)\n",i,index);
             //fprintf(stdout,"x = %f or %f\n",ipoint[0],points[i][0]);
             //fprintf(stdout,"y = %f or %f\n",ipoint[1],points[i][1]);
@@ -247,44 +241,37 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,d
             ignorepoint[0] = ix;
             ignorepoint[1] = iy;
             ignorepoint[2] = iz;
-            tpoint = ttpoint;
-            ipoint = ignorepoint;
-            free(ttpoint);
-            free(ignorepoint);
-            ttpoint = NULL;
-            ignorepoint = NULL;
+            //free(ttpoint);
+            //free(ignorepoint);
+            //ttpoint = NULL;
+            //ignorepoint = NULL;
         }
         double lowestdistance = 0; 
-        centerPoint[index] = tpoint;
-        interfacePoint[index] = getNearest(tpoint,kdstruct,length,dim,ipoint,&lowestdistance);
-        //fprintf(stdout,"skeleton for point%d x:%f y:%f nx:%f ny:%f\n",i,points[i][0],points[i][1],points[i][2],points[i][3]);
-        //fprintf(stdout,"center= x:%f y:%f \n",tpoint[0],tpoint[1]);
-        //fprintf(stdout,"interface point%d x:%f y:%f\n",index,interfacePoint[index][0],interfacePoint[index][1]); 
+        centerPoint[index] = ttpoint;
+        interfacePoint[index] = getNearest(ttpoint,kdstruct,length,dim,ignorepoint,&lowestdistance);
+        fprintf(stdout,"\nskeleton for point%d x:%f y:%f nx:%f ny:%f\n",i,points[i][0],points[i][1],points[i][2],points[i][3]);
+        fprintf(stdout,"center%d x:%f y:%f \n",index,ttpoint[0],ttpoint[1]);
+        fprintf(stdout,"interface point%d x:%f y:%f\n",index,interfacePoint[index][0],interfacePoint[index][1]); 
         double* sendpoint = points[i];
         radius[index] = getRadius(sendpoint,interfacePoint[index],dim);
-        //fprintf(stdout,"rad (%d,%d) = %f\n",i,index,radius[index]);
+        fprintf(stdout,"rad (%d,%d) = %f\n",i,index,radius[index]);
         while(completeCase){
-            //fprintf(stdout,"calculating:%d\n",index+1);
+            fprintf(stdout,"calculating:%d\n",index+1);
             //first calculate new center point based on the last radius given
-            double *tpoint;
             //fprintf(stdout,"dim = %d\n",*dim);
             if(*dim == 2){
                 double x = points[i][0] - points[i][2] * radius[index];
                 double y = points[i][1] - points[i][3] * radius[index];
                 double ix = points[i][0];
                 double iy = points[i][1];
-                double *ttpoint = (double*)malloc(*dim * sizeof(double));
-                double *ignorepoint = (double*)malloc(*dim * sizeof(double));
                 ttpoint[0] = x;
                 ttpoint[1] = y;
                 ignorepoint[0] = ix;
                 ignorepoint[1] = iy;
-                tpoint = ttpoint;
-                ipoint = ignorepoint;
-                free(ttpoint);
-                free(ignorepoint);
-                ttpoint = NULL;
-                ignorepoint = NULL;
+                //free(ttpoint);
+                //free(ignorepoint);
+                //ttpoint = NULL;
+                //ignorepoint = NULL;
                 //fprintf(stdout,"(%d,%d)\n",i,index+1);
                 //fprintf(stdout,"x = %f or %f\n",ipoint[0],points[i][0]);
                 //fprintf(stdout,"y = %f or %f\n",ipoint[1],points[i][1]);
@@ -304,41 +291,41 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,d
                 ignorepoint[0] = ix;
                 ignorepoint[1] = iy;
                 ignorepoint[2] = iz;
-                tpoint = ttpoint;
-                ipoint = ignorepoint;
-                free(ttpoint);
-                free(ignorepoint);
-                ttpoint = NULL;
-                ignorepoint = NULL;
+                //tpoint = ttpoint;
+                //ipoint = ignorepoint;
+                //free(ttpoint);
+                //free(ignorepoint);
+                //ttpoint = NULL;
+                //ignorepoint = NULL;
             }
-            centerPoint[index] = tpoint;
-            //fprintf(stdout,"center= x:%f y:%f \n",tpoint[0],tpoint[1]);
-            interfacePoint[index + 1] = getNearest(centerPoint[index],kdstruct,length,dim,ipoint,&lowestdistance);
-            //fprintf(stdout,"interface point%d x:%f y:%f\n",index + 1,interfacePoint[index + 1][0],interfacePoint[index + 1][1]); 
+            centerPoint[index] = ttpoint;
+            fprintf(stdout,"center%d x:%f y:%f \n",index + 1,ttpoint[0],ttpoint[1]);
+            interfacePoint[index + 1] = getNearest(centerPoint[index],kdstruct,length,dim,ignorepoint,&lowestdistance);
+            fprintf(stdout,"interface point%d x:%f y:%f\n",index + 1,interfacePoint[index + 1][0],interfacePoint[index + 1][1]); 
             radius[index + 1] = getRadius(points[i],interfacePoint[index + 1],dim);
-            //fprintf(stdout,"rad (%d,%d) = %f\n",i,index+1,radius[index+1]);
+            fprintf(stdout,"rad (%d,%d) = %f\n",i,index+1,radius[index+1]);
             double distancecomp = getDistance(interfacePoint[index + 1],points[i],dim);
             if(radius[index] != 0. && fabs(radius[index] - radius[index + 1]) < *mindis){
                 //convergance conditions
                 //our center point should remain the same
                 skeleton[i] = centerPoint[index];
                 skeleton[i][*dim] = radius[index + 1];
-                //fprintf(stdout,"skelept:[x=%f,y=%f,r=%f]\n",skeleton[i][0],skeleton[i][1],skeleton[i][2]);
-                //fprintf(stdout,"point : [x=%f,y=%f]\n",points[i][0],points[i][1]);
-                //fprintf(stdout,"interfacepoint : [x=%f,y=%f]\n",interfacePoint[index + 1][0],interfacePoint[index + 1][1]);
+                fprintf(stdout,"converge skelept:[x=%f,y=%f,r=%f]\n",skeleton[i][0],skeleton[i][1],skeleton[i][2]);
+                fprintf(stdout,"point : [x=%f,y=%f]\n",points[i][0],points[i][1]);
+                fprintf(stdout,"interfacepoint : [x=%f,y=%f]\n",interfacePoint[index + 1][0],interfacePoint[index + 1][1]);
                 outputskeleton(skeleton[i],dim,path);
                 completeCase = false;
             }
             else if(index > 0 && distancecomp < radius[index + 1]){
-                skeleton[i] = centerPoint[index];
-                skeleton[i][*dim] = radius[index+1];
+                skeleton[i] = centerPoint[index-1];
+                skeleton[i][*dim] = radius[index];
                 //fprintf(stdout,"\n(%d,%d)\n",i,index);
-                //fprintf(stdout,"skelept:[x=%f,y=%f,r=%f]\n",skeleton[i][0],skeleton[i][1],skeleton[i][2]);
-                //fprintf(stdout,"point : [x=%f,y=%f]\n",points[i][0],points[i][1]);
+                fprintf(stdout,"discomp skelept:[x=%f,y=%f,r=%f]\n",skeleton[i][0],skeleton[i][1],skeleton[i][2]);
+                fprintf(stdout,"point : [x=%f,y=%f]\n",points[i][0],points[i][1]);
                 //fprintf(stdout,"centpoint-2 : [x=%f,y=%f],%f\n",centerPoint[index - 2][0],centerPoint[index - 2][1],radius[index-1]);
                 //fprintf(stdout,"centpoint-1 : [x=%f,y=%f],%f\n",centerPoint[index - 1][0],centerPoint[index - 1][1],radius[index]);
                 //fprintf(stdout,"centpoint-0 : [x=%f,y=%f],%f\n",centerPoint[index][0],centerPoint[index][1],radius[index+1]);
-                //fprintf(stdout,"interfacepoint : [x=%f,y=%f]\n",interfacePoint[index + 1][0],interfacePoint[index + 1][1]);
+                fprintf(stdout,"interfacepoint : [x=%f,y=%f]\n",interfacePoint[index + 1][0],interfacePoint[index + 1][1]);
                 outputskeleton(skeleton[i],dim,path);
                 completeCase = false;
             }
@@ -354,6 +341,8 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,d
                 break;
             }
         }
+        free(ttpoint);
+        free(ignorepoint);
     }
     free(radius);
     free(centerPoint);
