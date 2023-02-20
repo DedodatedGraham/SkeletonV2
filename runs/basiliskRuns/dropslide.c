@@ -101,88 +101,88 @@ event init (t = 0){
     }
 }
 
-double calc_time = 0;
-event logfile (i++){
-    scalar posy[],posx[],posx_y0[],udrop[],xdrop[];
-    position (f,posx,{1,0});
-    position (f,posy,{0,1});
-    position (f,posx_y0,{1,0});
-
-    double area=0.,vol=0.,ke=0.,ud=0.,xd=0.,R_avg=0.;
-    //fprintf(stdout,"i=%d\n",i); 
-    foreach(reduction(+:area) reduction(+:vol) reduction(+:ke)
-          reduction(+:ud) reduction(+:xd)) {
-        #if 1 
-        if ( f[] <= 1e-6 || f[] >= 1. - 1e-6 ) {
-            posx[] = nodata;
-            posy[] = nodata;
-            posx_y0[] = nodata;
-        }
-        #endif 
-        if ( y<-Delta || y > Delta ) {
-            posx_y0[] = nodata;
-        }
-
-        /** statistics in axisymmetric geometry */
-        if (f[] > 1e-6 && f[] < 1. - 1e-6) {
-            /** interfacial area */
-            coord n = interface_normal (point, f), p;
-            double alpha = plane_alpha (f[], n);
-            area += pow(Delta, 1.)*plane_area_center (n, alpha, &p)*2.*pi*posy[];
-        }
-    
-        double dv_axi = pow(Delta, 2.)*2.*pi*y;
-
-        /** Volume */
-        if (f[] > 1e-6 ) {
-            vol += dv_axi*f[];
-
-            /** kinetic energy  */
-            foreach_dimension() {
-                ke += dv_axi*sq(u.x[]);
-            }
-
-            /** mean velocity*/
-            ud += dv_axi*f[]*u.x[];
-
-            /** centroid */
-            xd += dv_axi*f[]*x;
-        }
-    }
-    ke /= 2.;
-    ud /= vol;
-    xd /= vol;
-    R_avg = cbrt(3*vol/(4*pi));
-    //fprintf(stdout,"DEBUG:vol = %g R_av=%g\n",vol,R_avg);
-
-    //stats sx = statsf (posx);
-    //stats sy = statsf (posy);
-    //stats sx_y0 = statsf (posx_y0);
- 
-    //fprintf(stdout,"DEBUG:maxruntime=%g\n",maxruntime);
-    //Extract interfacial points and corresponding angle 
-    clock_t begin = clock();
-    // Centroid should not be smaller than the initial centroid 
-    xd = (xd < x0)? x0 : xd;
-    //fprintf(stdout,"xd=%g\n",xd);    
-    //fprintf(stdout,"DEBUG:Lets print the array xy\n");
-    //Display(Arr,nr,3);
-    
-    //Calculate Fourier-legendre coefficient
-    clock_t end = clock();
-    calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for calculating the mode coefficients
-    //if ( i == 0 ){
-    //    //Print the colum title for the log
-    //    fprintf(ferr,
-    //    "#1: t; 2: dt; 3: xc; 4, uc; 5:y_max; 6:x_max; 7: x_min; 8: x_y0_max; 9: x_y0_min; 10: vol; 11: KE; 12: n_grid; 13: cput; 14: speed;  15:C0;  16:C1;  17:C2;  18:C3;  19:C4;  20:C5;  21:C6;  22:C7;  23:C8;  24:C9;  25:C10 26: calc_time\n");
-    //}
-    //if ( i % 10 == 0){
-    //    fprintf (ferr, "%g %g %g %g %g %g %g %g %g %g %g %ld %g %g %g\n",t, dt, xd, ud, sy.max, sx.max, sx.min, sx_y0.max, sx_y0.min, vol, ke, grid->tn, perf.t, perf.speed, calc_time);
-    //}
-
-//fprintf(stdout,"DEBUG:\n");
-fflush(ferr);
-}
+//double calc_time = 0;
+//event logfile (i++){
+//    scalar posy[],posx[],posx_y0[],udrop[],xdrop[];
+//    position (f,posx,{1,0});
+//    position (f,posy,{0,1});
+//    position (f,posx_y0,{1,0});
+//
+//    double area=0.,vol=0.,ke=0.,ud=0.,xd=0.,R_avg=0.;
+//    //fprintf(stdout,"i=%d\n",i); 
+//    foreach(reduction(+:area) reduction(+:vol) reduction(+:ke)
+//          reduction(+:ud) reduction(+:xd)) {
+//        #if 1 
+//        if ( f[] <= 1e-6 || f[] >= 1. - 1e-6 ) {
+//            posx[] = nodata;
+//            posy[] = nodata;
+//            posx_y0[] = nodata;
+//        }
+//        #endif 
+//        if ( y<-Delta || y > Delta ) {
+//            posx_y0[] = nodata;
+//        }
+//
+//        /** statistics in axisymmetric geometry */
+//        if (f[] > 1e-6 && f[] < 1. - 1e-6) {
+//            /** interfacial area */
+//            coord n = interface_normal (point, f), p;
+//            double alpha = plane_alpha (f[], n);
+//            area += pow(Delta, 1.)*plane_area_center (n, alpha, &p)*2.*pi*posy[];
+//        }
+//    
+//        double dv_axi = pow(Delta, 2.)*2.*pi*y;
+//
+//        /** Volume */
+//        if (f[] > 1e-6 ) {
+//            vol += dv_axi*f[];
+//
+//            /** kinetic energy  */
+//            foreach_dimension() {
+//                ke += dv_axi*sq(u.x[]);
+//            }
+//
+//            /** mean velocity*/
+//            ud += dv_axi*f[]*u.x[];
+//
+//            /** centroid */
+//            xd += dv_axi*f[]*x;
+//        }
+//    }
+//    ke /= 2.;
+//    ud /= vol;
+//    xd /= vol;
+//    R_avg = cbrt(3*vol/(4*pi));
+//    //fprintf(stdout,"DEBUG:vol = %g R_av=%g\n",vol,R_avg);
+//
+//    //stats sx = statsf (posx);
+//    //stats sy = statsf (posy);
+//    //stats sx_y0 = statsf (posx_y0);
+// 
+//    //fprintf(stdout,"DEBUG:maxruntime=%g\n",maxruntime);
+//    //Extract interfacial points and corresponding angle 
+//    clock_t begin = clock();
+//    // Centroid should not be smaller than the initial centroid 
+//    xd = (xd < x0)? x0 : xd;
+//    //fprintf(stdout,"xd=%g\n",xd);    
+//    //fprintf(stdout,"DEBUG:Lets print the array xy\n");
+//    //Display(Arr,nr,3);
+//    
+//    //Calculate Fourier-legendre coefficient
+//    clock_t end = clock();
+//    calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for calculating the mode coefficients
+//    //if ( i == 0 ){
+//    //    //Print the colum title for the log
+//    //    fprintf(ferr,
+//    //    "#1: t; 2: dt; 3: xc; 4, uc; 5:y_max; 6:x_max; 7: x_min; 8: x_y0_max; 9: x_y0_min; 10: vol; 11: KE; 12: n_grid; 13: cput; 14: speed;  15:C0;  16:C1;  17:C2;  18:C3;  19:C4;  20:C5;  21:C6;  22:C7;  23:C8;  24:C9;  25:C10 26: calc_time\n");
+//    //}
+//    //if ( i % 10 == 0){
+//    //    fprintf (ferr, "%g %g %g %g %g %g %g %g %g %g %g %ld %g %g %g\n",t, dt, xd, ud, sy.max, sx.max, sx.min, sx_y0.max, sx_y0.min, vol, ke, grid->tn, perf.t, perf.speed, calc_time);
+//    //}
+//
+////fprintf(stdout,"DEBUG:\n");
+//fflush(ferr);
+//}
 
 //Function For Obtaining Skeleton
 int slevel = 0.;

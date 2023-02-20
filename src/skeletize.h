@@ -107,6 +107,8 @@ void kdDestroy(struct kdleaf *kdstruct){
         kdDestroy(kdstruct->right);
     }
     free(kdstruct);
+    kdstruct->origin = NULL;
+    kdstruct->flag = NULL;
     kdstruct = NULL;
 }
 struct kdleaf *createLeaf(int axis, double **points){
