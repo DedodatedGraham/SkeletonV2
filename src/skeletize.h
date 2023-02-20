@@ -101,11 +101,13 @@ double *getNearest(double *searchpoint,struct kdleaf *kdstruct, int *length,int 
 //Destroy
 void kdDestroy(struct kdleaf *kdstruct){
     free(kdstruct->origin);
+    kdstruct->origin = NULL;
     if(!kdstruct->flag){
         kdDestroy(kdstruct->left);
         kdDestroy(kdstruct->right);
     }
     free(kdstruct);
+    kdstruct = NULL;
 }
 struct kdleaf *createLeaf(int axis, double **points){
     struct kdleaf *kdstruct = (struct kdleaf*)malloc(sizeof(struct kdleaf));
@@ -222,6 +224,8 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,d
             ipoint = ignorepoint;
             free(ttpoint);
             free(ignorepoint);
+            ttpoint = NULL;
+            ignorepoint = NULL;
             //fprintf(stdout,"\n(%d,%d)\n",i,index);
             //fprintf(stdout,"x = %f or %f\n",ipoint[0],points[i][0]);
             //fprintf(stdout,"y = %f or %f\n",ipoint[1],points[i][1]);
@@ -245,6 +249,8 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,d
             ipoint = ignorepoint;
             free(ttpoint);
             free(ignorepoint);
+            ttpoint = NULL;
+            ignorepoint = NULL;
         }
         double lowestdistance = 0; 
         centerPoint[index] = tpoint;
@@ -275,6 +281,8 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,d
                 ipoint = ignorepoint;
                 free(ttpoint);
                 free(ignorepoint);
+                ttpoint = NULL;
+                ignorepoint = NULL;
                 //fprintf(stdout,"(%d,%d)\n",i,index+1);
                 //fprintf(stdout,"x = %f or %f\n",ipoint[0],points[i][0]);
                 //fprintf(stdout,"y = %f or %f\n",ipoint[1],points[i][1]);
@@ -298,6 +306,8 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,d
                 ipoint = ignorepoint;
                 free(ttpoint);
                 free(ignorepoint);
+                ttpoint = NULL;
+                ignorepoint = NULL;
             }
             centerPoint[index] = tpoint;
             //fprintf(stdout,"center= x:%f y:%f \n",tpoint[0],tpoint[1]);
@@ -347,6 +357,10 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,d
     free(centerPoint);
     free(interfacePoint);
     free(skeleton);
+    radius = NULL;
+    centerPoint = NULL;
+    interfacePoint = NULL;
+    skeleton = NULL;
 }
 void skeletize(double **points,int *length,int *dim,char path[80],double *mindis){
     //initial setup
@@ -357,6 +371,7 @@ void skeletize(double **points,int *length,int *dim,char path[80],double *mindis
         free(points[i]);
     }
     free(points);
+    points = NULL;
     kdDestroy(kdstruct);
 }
  

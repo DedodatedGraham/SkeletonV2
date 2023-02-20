@@ -7,45 +7,31 @@
 #include "navier-stokes/conserving.h"
 #include "tension.h"
 #include "view.h"
-//#include "adapt2.h"
 #include "../../src/skeleBasilisk.h"
 
 #define LARGE 1e36
 
 double max_level = 8;
-double L = 8.;
+double L = 4.;
 double t_out = 0.01;       
-//double t_end = 0.00;
-double t_end = 7;    
+double t_end = 4;    
 
 /** dimensionless properties, normalized by scaling variables rhol, D, sigma
  */
 double rhog=1.2e-3;
-//WE8.5
-//double mul=9.21e-3;
-//double mug=1.580e-4;
-//WE35
-double mul=4.54e-3;
-double mug=7.81e-5;
-double u0 = 0;        //free stream velocity
+double mul=2.995e-3;
+double mug=5.390e-5;
+double u0 = 16.71;        //free stream velocity
 double h   = 0.2;          //initial gap between drop and inlet
 double femax = 0.001;
 double uemax = 0.001;
 double maxruntime = 60;
-//boundary for falling drop
-u.t[right] = dirichlet(0);
-u.t[left] = dirichlet(0);
 
+u.n[left] = dirichlet(u0);
+
+u.n[right] = neumann(0);
 p[right] = dirichlet(0);
-p[left]  = neumann(0);
-
 pf[right] = dirichlet(0);
-pf[left]  = neumann(0);
-
-uf.n[bottom] = 0.;
-uf.n[top] = 0.;
-
-
 
 
 int main(int argc, char * argv[])
@@ -86,36 +72,119 @@ int main(int argc, char * argv[])
   mu1 = mul, mu2 = mug;
   f.sigma = 1.;
  
+
+  //TOLERANCE = 1.e-5; 
+  //NITERMIN = 5;
+
   run();
 }
 
 /**
 The initial drop is spherical. */
-double x0 = 7.; double Rd = 0.5; 
+double x0 = 2.; double Rd = 0.5; 
+
 
 event init (t = 0){
     if (!restore (file = "dump")) {
-        refine (  sq(y-x0)+sq(x) < sq(1.2*Rd) && sq(y-x0)+sq(x) > sq(0.8*Rd) && level < max_level);
-        fraction (f, -sq(y-x0)-sq(x)+sq(Rd));
+        refine (  sq(y)+sq(x-x0) < sq(1.2*Rd) && sq(y)+sq(x-x0) > sq(0.8*Rd) && level < max_level);
+        fraction (f, -sq(y)-sq(x-x0)+sq(Rd));
 
         /** It is important to initialize the flow field. If u.x=0, Poisson
         solver crahses. If u.x=u0*(1-f[]), the interface velocity is too large
         and will induce erroneous deformation at early time and wrong pressure 
         field. As along as we use u.x=a*u0*(1-f[]), with a<0.01, then the results 
         look normal and not sensitive to a. */
-        //foreach() {
-        //    u.y[]=1.e-7*u0*(1.-f[]);
-        //}
-        //boundary ({f,u.y});
+        foreach() {
+            u.x[]=1.e-7*u0*(1.-f[]);
+        }
+        boundary ({f,u.x});
     }
 }
-event acceleration (i++) {
-  face vector av = a;
-  foreach_face(x)
-    av.x[] -= 0.98;
-  boundary({p});
+
+double calc_time = 0;
+event logfile (i++){
+    scalar posy[],posx[],posx_y0[],udrop[],xdrop[];
+    position (f,posx,{1,0});
+    position (f,posy,{0,1});
+    position (f,posx_y0,{1,0});
+
+    double area=0.,vol=0.,ke=0.,ud=0.,xd=0.,R_avg=0.;
+    //fprintf(stdout,"i=%d\n",i); 
+    foreach(reduction(+:area) reduction(+:vol) reduction(+:ke)
+          reduction(+:ud) reduction(+:xd)) {
+        #if 1 
+        if ( f[] <= 1e-6 || f[] >= 1. - 1e-6 ) {
+            posx[] = nodata;
+            posy[] = nodata;
+            posx_y0[] = nodata;
+        }
+        #endif 
+        if ( y<-Delta || y > Delta ) {
+            posx_y0[] = nodata;
+        }
+
+        /** statistics in axisymmetric geometry */
+        if (f[] > 1e-6 && f[] < 1. - 1e-6) {
+            /** interfacial area */
+            coord n = interface_normal (point, f), p;
+            double alpha = plane_alpha (f[], n);
+            area += pow(Delta, 1.)*plane_area_center (n, alpha, &p)*2.*pi*posy[];
+        }
+    
+        double dv_axi = pow(Delta, 2.)*2.*pi*y;
+
+        /** Volume */
+        if (f[] > 1e-6 ) {
+            vol += dv_axi*f[];
+
+            /** kinetic energy  */
+            foreach_dimension() {
+                ke += dv_axi*sq(u.x[]);
+            }
+
+            /** mean velocity*/
+            ud += dv_axi*f[]*u.x[];
+
+            /** centroid */
+            xd += dv_axi*f[]*x;
+        }
+    }
+    ke /= 2.;
+    ud /= vol;
+    xd /= vol;
+    R_avg = cbrt(3*vol/(4*pi));
+    //fprintf(stdout,"DEBUG:vol = %g R_av=%g\n",vol,R_avg);
+
+    //stats sx = statsf (posx);
+    //stats sy = statsf (posy);
+    //stats sx_y0 = statsf (posx_y0);
+ 
+    //fprintf(stdout,"DEBUG:maxruntime=%g\n",maxruntime);
+    //Extract interfacial points and corresponding angle 
+    clock_t begin = clock();
+    // Centroid should not be smaller than the initial centroid 
+    xd = (xd < x0)? x0 : xd;
+    //fprintf(stdout,"xd=%g\n",xd);    
+    //fprintf(stdout,"DEBUG:Lets print the array xy\n");
+    //Display(Arr,nr,3);
+    
+    //Calculate Fourier-legendre coefficient
+    clock_t end = clock();
+    calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for calculating the mode coefficients
+    //if ( i == 0 ){
+    //    //Print the colum title for the log
+    //    fprintf(ferr,
+    //    "#1: t; 2: dt; 3: xc; 4, uc; 5:y_max; 6:x_max; 7: x_min; 8: x_y0_max; 9: x_y0_min; 10: vol; 11: KE; 12: n_grid; 13: cput; 14: speed;  15:C0;  16:C1;  17:C2;  18:C3;  19:C4;  20:C5;  21:C6;  22:C7;  23:C8;  24:C9;  25:C10 26: calc_time\n");
+    //}
+    //if ( i % 10 == 0){
+    //    fprintf (ferr, "%g %g %g %g %g %g %g %g %g %g %g %ld %g %g %g\n",t, dt, xd, ud, sy.max, sx.max, sx.min, sx_y0.max, sx_y0.min, vol, ke, grid->tn, perf.t, perf.speed, calc_time);
+    //}
+
+//fprintf(stdout,"DEBUG:\n");
+fflush(ferr);
 }
 
+//Function For Obtaining Skeleton
 int slevel = 0.;
 double mindis = 0.;
 event skeleton(t+=t_out){
@@ -168,11 +237,8 @@ void output_points_norm(struct OutputPoints p){
 	    if(area==0){
 	        fprintf(stdout,"Area=Null\n");// This statement is just to make some use of the area info. otherwise compiler throws warning!!
 	    }
-	    double abs = sqrt(pow(n.x,2)+pow(n.y,2));
-        double tx = n.x/abs;
-        double ty = n.y/abs;
-	    fprintf(p.fp, "%g %g %g %g\n",x+Delta*pc.x, y+Delta*pc.y, tx,ty);
-	    fprintf(p.fp, "%g %g %g %g\n",-(x+Delta*pc.x), y+Delta*pc.y, -tx, ty);
+	    fprintf(p.fp, "%g %g %g %g\n",x+Delta*pc.x, y+Delta*pc.y, n.x, n.y);
+	    fprintf(p.fp, "%g %g %g %g\n",x+Delta*pc.x, -(y+Delta*pc.y), n.x, -n.y);
 	    //fprintf(p.fp, "%g %g %g %g\n",x+Delta*pc.x, -y-Delta*pc.y, n.x,-n.y);
 	}
     }
@@ -181,7 +247,6 @@ void output_points_norm(struct OutputPoints p){
 
 
 //#if !_MPI
-
 // output snapshot of simulation 
 event interface (t += t_out) {
 
@@ -195,6 +260,7 @@ event interface (t += t_out) {
     fflush(fp1);
     fclose(fp1);
 }
+
 //#endif 
  
 event snapshot (t += t_out; t<=t_end ) {
@@ -224,7 +290,7 @@ event images(t+=t_out){
     
     foreach(){
         vm[] = (1-f[])*sqrt(u.x[]*u.x[]+u.y[]*u.y[]);
-	    vml[]= f[]*sqrt(u.x[]*u.x[]+u.y[]*u.y[]);
+	vml[]= f[]*sqrt(u.x[]*u.x[]+u.y[]*u.y[]);
     }boundary({vm,vml});
     scalar Omega[];
     vorticity(u,Omega);
@@ -263,7 +329,7 @@ event adapt (i=10;i++) {
   adapt_wavelet ({f,q}, (double[]){femax,uemax,uemax}, minlevel = 3, maxlevel = max_level);
 #else
   adapt_wavelet ({f,u}, (double[]){femax,uemax,uemax}, minlevel = 3, maxlevel = max_level);
+  //adapt_wavelet2((scalar *){f,u.x,u.y},(double []){femax,uemax,uemax},(int []){max_level, max_level-2, max_level-2},3);
 #endif 
-
 }
 

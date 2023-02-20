@@ -52,10 +52,10 @@ double** output_points_xynorm(struct OutputXYNorm p, int *nrow,int *ndim){
             arr[j][2] = tx;  
             arr[j][3] = ty;
 	        //fprintf(stdout,"Adding in point %d\n",j + 1);
-	        arr[j+1][0] = -(x+Delta*pc.x); 
-	        arr[j+1][1] = y+Delta*pc.y;
-            arr[j+1][2] = -tx;  
-            arr[j+1][3] = ty;
+	        arr[j+1][0] = (x+Delta*pc.x); 
+	        arr[j+1][1] = -(y+Delta*pc.y);
+            arr[j+1][2] = tx;  
+            arr[j+1][3] = -ty;
             //fprintf(stdout,"loaded [%f,%f],[%f,%f]\n",arr[j][0],arr[j][1],arr[j][2],arr[j][3]);
             //fprintf(stdout,"loaded [%f,%f],[%f,%f]\n",arr[j+1][0],arr[j+1][1],arr[j+1][2],arr[j+1][3]);
 	        j = j + 2;
