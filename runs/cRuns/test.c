@@ -51,7 +51,7 @@ int main(){
     int amount = 2;
     sz = sz - 1;
     char name[80];
-    sprintf(name,"testOut.dat");
+    sprintf(name,"testOut.txt");
     double mindis = (4.) / (128);
     skeletize(inputpoints,&sz,&amount,name,&mindis);
 }
