@@ -32,7 +32,7 @@ int main(){
     rewind(fp1);
     double **inputpoints = (double**)malloc(2*sz*sizeof(double*));
     int count = 0;
-    fprintf(stdout,"trying length %d\n",sz); 
+    //fprintf(stdout,"trying length %d\n",sz); 
     
     //scan file
     while(count < sz){
@@ -42,7 +42,7 @@ int main(){
         inputpoints[count][1] = ty;
         inputpoints[count][2] = nx;
         inputpoints[count][3] = ny;
-        fprintf(stdout,"loaded in x:%f y:%f nx:%f ny:%f\n",tx,ty,nx,ny);
+        //fprintf(stdout,"loaded in x:%f y:%f nx:%f ny:%f\n",tx,ty,nx,ny);
         count++;
     }
 
