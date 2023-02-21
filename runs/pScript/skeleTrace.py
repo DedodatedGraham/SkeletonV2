@@ -17,7 +17,7 @@ def plotmirror(sdat,idat,mirroraxi,mirrorval,save,t,focus):
     plt.xlim(xb,xt)
     plt.ylim(yb,yt)
     vmin = 0
-    vmax = 1
+    vmax = 0.5
     plt.rcParams['figure.dpi'] = 1000
     if mirroraxi == 0:
         plt.scatter(idat[0],idat[1],color='black',s=5,vmin=vmin,vmax=vmax)
@@ -52,8 +52,8 @@ if __name__ == '__main__':
             iy = []
             inx = []
             iny = []
-            spath = source + r'basiliskRuns/' + "skeleton-{:.3f}.dat".format(t)
-            ipath = source + r'basiliskRuns/' + "infc-{:.3f}.dat".format(t)
+            spath = source + r'superRuns/' + "skeleton-{:.3f}.dat".format(t)
+            ipath = source + r'superRuns/' + "infc-{:.3f}.dat".format(t)
             with open(spath,'r') as csvfile:
                 data  = csv.reader(csvfile,delimiter = ' ')
                 i = 0
@@ -74,7 +74,8 @@ if __name__ == '__main__':
             print("loaded:",t)
             sdat = [sx,sy,sr]
             idat = [ix,iy,inx,iny]
-            save = source + r'pScript/2DEvolve/' + "skeleplt-{:03d}.png".format(j)
+            #save = source + r'pScript/2DEvolve/' + "skeleplt-{:03d}.png".format(j)
+            save = r'2DEvolve/' + "skeleplt-{:03d}.png".format(j)
             t = round(t,2)
             #find focus
             focus[0] = min(idat[0])
