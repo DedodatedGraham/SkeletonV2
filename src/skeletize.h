@@ -253,6 +253,7 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,d
         //now we itterate until convergence
         while(completeCase){
             //fprintf(stdout,"calculating:%d\n",index+1);
+            //get timestep centerpoint and ignore point(not completely nessicary)
             if(*dim == 2){
                 double x = points[i][0] - points[i][2] * radius[index];
                 double y = points[i][1] - points[i][3] * radius[index];
