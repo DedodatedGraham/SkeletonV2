@@ -1,5 +1,5 @@
 Starting at /data/ling_shared/garciag/SkeletonV2/runs/pScript
-node file /var/spool/pbs/aux/1245685.batch
+node file /var/spool/pbs/aux/1246056.batch
 loaded: 0.0
 plotted: 0
 loaded: 0.01
@@ -182,6 +182,24 @@ loaded: 0.89
 plotted: 89
 loaded: 0.9
 plotted: 90
+loaded: 0.91
+plotted: 91
+loaded: 0.92
+plotted: 92
+loaded: 0.93
+plotted: 93
+loaded: 0.9400000000000001
+plotted: 94
+loaded: 0.95
+plotted: 95
+loaded: 0.96
+plotted: 96
+loaded: 0.97
+plotted: 97
+loaded: 0.98
+plotted: 98
+loaded: 0.99
+plotted: 99
 done
 
-Job finished at Tue Feb 21 10:24:00 CST 2023
+Job finished at Tue Feb 21 22:56:28 CST 2023

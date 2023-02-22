@@ -11,10 +11,10 @@
 
 #define LARGE 1e36
 
-double max_level = 8;
-double L = 4.;
+double max_level = 9;
+double L = 8.;
 double t_out = 0.01;       
-double t_end = 2;    
+double t_end = 1;    
 
 /** dimensionless properties, normalized by scaling variables rhol, D, sigma
  */
