@@ -16,6 +16,8 @@ def plotmirror(sdat,idat,mirroraxi,mirrorval,save,t,focus):
     yt = focus[3]
     plt.xlim(xb,xt)
     plt.ylim(yb,yt)
+    title = "Time:{:.2f}".format(t/100)
+    plt.title(title)
     vmin = 0
     vmax = 0.5
     plt.rcParams['figure.dpi'] = 1000
@@ -45,6 +47,8 @@ if __name__ == '__main__':
     fleng = 0;
     while(case):
         try:
+            if t == 1.62:
+                break
             sx = []
             sy = []
             sr = []

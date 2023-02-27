@@ -26,9 +26,9 @@ mpiexec -n $num drop 1>tmpout 2>log
 #openMPI
 #mpiexec -n $num drop_mpi 1>tmpout 2>log
 
-#animate
-mpiexec -n 1 -machinefile $PBS_NODEFILE python3 ../pScript/skeleTrace.py
-mpiexec -n 1 -machinefile $PBS_NODEFILE ffmpeg -r 72 -y -threads 4 -i ../pScript/2DEvolve/skeleplt-%03d.png -pix_fmt yuv420p 2DEvolve.mp4
+#animate doesnt work right now from here?
+#mpiexec -n 1 -machinefile $PBS_NODEFILE python3 ../pScript/skeleTrace.py
+#mpiexec -n 1 -machinefile $PBS_NODEFILE ffmpeg -r 72 -y -threads 4 -i ../pScript/2DEvolve/skeleplt-%03d.png -pix_fmt yuv420p 2DEvolve.mp4
 
 echo
 echo "Job finished at `date`"

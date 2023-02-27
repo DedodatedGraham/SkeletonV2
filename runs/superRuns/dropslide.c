@@ -14,7 +14,7 @@
 double max_level = 9;
 double L = 8.;
 double t_out = 0.01;       
-double t_end = 1;    
+double t_end = 1.8;    
 
 /** dimensionless properties, normalized by scaling variables rhol, D, sigma
  */
@@ -103,22 +103,22 @@ event init (t = 0){
 
 //Function For Obtaining Skeleton
 //double calc_time = 0;
+double mindis = 0.001;
+int slevel = 0.;
 event skeleton(t+=t_out){
     //First find min grid distance    
     //clock_t begin = clock();
      
-    double mindis = 0.001;
-    //int slevel = 0.;
-    //if(slevel == 0 || slevel < max_level){
-    //    foreach(){
-    //        if(f[] > 0. && f[] < 1.)
-    //        if(Delta < mindis || mindis == 0.){
-    //            mindis = Delta;
-    //            slevel = max_level;
-    //        }
-    //    }
-    //}
-    
+    if(slevel == 0 || slevel < max_level){
+        foreach(){
+            if(f[] > 0. && f[] < 1.)
+            if(Delta < mindis || mindis == 0.){
+                mindis = Delta;
+                slevel = max_level;
+            }
+        }
+    }
+    fprintf(stdout,"thresh:%f\n",mindis); 
     fprintf(stdout,"Skeleton at %f\n",t);
     
     //setup
