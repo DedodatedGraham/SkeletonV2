@@ -32,17 +32,33 @@ double getDistance(double *point1,double *point2,int *dim){
     return distance;
 }
 
-double *getNearest(double *searchpoint,struct kdleaf *kdstruct, int *length,int *dim,double *ignorepoint,double *lowestdistance){
+double *getNearest(double *searchpoint,struct kdleaf *kdstruct, int *length,int *dim,double **ignorepoint,int *ileng,double *lowestdistance){
     double *retpoint;
     if(kdstruct->flag){
         //Lowest search level.
         double lowdis = 0.0;
         for(int i = 0; i < kdstruct->leng; i++){
             double tdis = getDistance(searchpoint,kdstruct->origin[i],dim);
-            if((lowdis == 0.0 || tdis < lowdis) && getDistance(ignorepoint,kdstruct->origin[i],dim) != 0.0){
-                lowdis = tdis;
-                retpoint = kdstruct->origin[i];
-                *lowestdistance = lowdis;
+            if(*ileng == 1){
+                if((lowdis == 0.0 || tdis < lowdis) && getDistance(ignorepoint[0],kdstruct->origin[i],dim) != 0.0){
+                    lowdis = tdis;
+                    retpoint = kdstruct->origin[i];
+                    *lowestdistance = lowdis;
+                }
+            }
+            else{
+                bool passes = true;
+                for(int j = 0; j < *ileng; j++){
+                    if(kdstruct->origin[i] == ignorepoint[j]){
+                        passes = false;
+                        break;
+                    }
+                }
+                if((lowdis == 0.0 || tdis < lowdis) && passes){
+                    lowdis = tdis;
+                    retpoint = kdstruct->origin[i];
+                    *lowestdistance = lowdis;
+                }
             }
         }
     }
@@ -50,10 +66,10 @@ double *getNearest(double *searchpoint,struct kdleaf *kdstruct, int *length,int 
         //can go deeper
         bool side = searchpoint[kdstruct->axis] < kdstruct->origin[0][kdstruct->axis] ;
         if(side){
-            retpoint = getNearest(searchpoint,kdstruct->left,length,dim,ignorepoint,lowestdistance);
+            retpoint = getNearest(searchpoint,kdstruct->left,length,dim,ignorepoint,ileng,lowestdistance);
         }
         else{
-            retpoint = getNearest(searchpoint,kdstruct->right,length,dim,ignorepoint,lowestdistance);   
+            retpoint = getNearest(searchpoint,kdstruct->right,length,dim,ignorepoint,ileng,lowestdistance);   
         }
         //next we will test if we need to go to the other side of the struct
         double axisnodedis = fabs(searchpoint[kdstruct->axis] - kdstruct->origin[0][kdstruct->axis]);//This only measure along one axis
@@ -61,10 +77,10 @@ double *getNearest(double *searchpoint,struct kdleaf *kdstruct, int *length,int 
             double *tempretpoint;
             double *templowdis = (double*)malloc(sizeof(double));
             if(side){
-                tempretpoint = getNearest(searchpoint,kdstruct->right,length,dim,ignorepoint,templowdis);
+                tempretpoint = getNearest(searchpoint,kdstruct->right,length,dim,ignorepoint,ileng,templowdis);
             }
             else{
-                tempretpoint = getNearest(searchpoint,kdstruct->left,length,dim,ignorepoint,templowdis);   
+                tempretpoint = getNearest(searchpoint,kdstruct->left,length,dim,ignorepoint,ileng,templowdis);   
             }
             if(*lowestdistance > *templowdis){
                 retpoint = tempretpoint;
@@ -74,9 +90,24 @@ double *getNearest(double *searchpoint,struct kdleaf *kdstruct, int *length,int 
         }
         //finally check the node
         double nodedis = getDistance(searchpoint,kdstruct->origin[0],dim);
-        if(getDistance(ignorepoint,kdstruct->origin[0],dim) != 0.0 && nodedis < *lowestdistance){
-            retpoint = kdstruct->origin[0];
-            *lowestdistance = nodedis;
+        if(*ileng == 1){
+            if(getDistance(ignorepoint[0],kdstruct->origin[0],dim) != 0.0 && nodedis < *lowestdistance){
+                retpoint = kdstruct->origin[0];
+                *lowestdistance = nodedis;
+            }
+        }
+        else{
+            bool passes = true;
+            for(int j = 0; j < *ileng; j++){
+                if(kdstruct->origin[0] == ignorepoint[j]){
+                    passes = false;
+                    break;
+                }
+            }
+            if(nodedis < *lowestdistance && passes){
+                retpoint = kdstruct->origin[0];
+                *lowestdistance = nodedis;
+            }
         }
     }
     return retpoint;
@@ -262,6 +293,7 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,d
         
         //we Grab our temp centerpoint and our ignore point
         double *ttpoint = (double*)malloc(*dim * sizeof(double));
+        double **ilist = (double**)malloc(sizeof(double*));
         double *ignorepoint = (double*)malloc(*dim * sizeof(double));
         if(*dim == 2){
             double x = points[i][0] - points[i][2] * guessr;
@@ -280,8 +312,6 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,d
             double ix = points[i][0];
             double iy = points[i][1];
             double iz = points[i][2];
-            double *ttpoint = (double*)malloc(*dim * sizeof(double));
-            double *ignorepoint = (double*)malloc(*dim * sizeof(double));
             ttpoint[0] = x;
             ttpoint[1] = y;
             ttpoint[2] = z;
@@ -289,11 +319,13 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,d
             ignorepoint[1] = iy;
             ignorepoint[2] = iz;
         }
+        ilist[0] = ignorepoint;
+        int ileng = 1;
         double lowestdistance = 0; 
         centerPoint[index] = ttpoint;//this gets overwritten first step, not sure if this plays a role, but this centerpoint will always be completely wrong
         
         //We calculate our starting furthest interface point
-        interfacePoint[index] = getNearest(ttpoint,kdstruct,length,dim,ignorepoint,&lowestdistance);
+        interfacePoint[index] = getNearest(ttpoint,kdstruct,length,dim,ilist,&ileng,&lowestdistance);
         
         //fprintf(stdout,"\nskeleton for point%d x:%f y:%f nx:%f ny:%f\n",i,points[i][0],points[i][1],points[i][2],points[i][3]);
         //fprintf(stdout,"center%d x:%f y:%f \n",index,ttpoint[0],ttpoint[1]);
@@ -325,8 +357,6 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,d
                 double ix = points[i][0];
                 double iy = points[i][1];
                 double iz = points[i][2];
-                double *ttpoint = (double*)malloc(*dim * sizeof(double));
-                double *ignorepoint = (double*)malloc(*dim * sizeof(double));
                 ttpoint[0] = x;
                 ttpoint[1] = y;
                 ttpoint[2] = z;
@@ -334,14 +364,15 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,d
                 ignorepoint[1] = iy;
                 ignorepoint[2] = iz;
             }
-
+            ilist[0] = ignorepoint;
+            int ileng = 1;
             //calculate our centerpoint
             centerPoint[index] = ttpoint;
             //fprintf(stdout,"center%d x:%f y:%f \n",index + 1,ttpoint[0],ttpoint[1]);
             
             //calculate our interface point closest to the last centerpoint
             lowestdistance = 0;
-            interfacePoint[index + 1] = getNearest(centerPoint[index],kdstruct,length,dim,ignorepoint,&lowestdistance);
+            interfacePoint[index + 1] = getNearest(centerPoint[index],kdstruct,length,dim,ilist,&ileng,&lowestdistance);
             //fprintf(stdout,"interface point%d x:%f y:%f\n",index + 1,interfacePoint[index + 1][0],interfacePoint[index + 1][1]); 
             
             //finds the radius of our point and interface point 
@@ -391,6 +422,7 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,d
         }
         free(ttpoint);
         free(ignorepoint);
+        free(ilist);
     }
     //free up needed values to prevent memory error
     free(radius);

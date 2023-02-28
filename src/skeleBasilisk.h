@@ -9,12 +9,20 @@ struct OutputXYNorm{
 //Method For ordering an interface, currently 2D only
 double** orderInterface(double **inputPoints,struct kdleaf *kdstruct,double *length,int *dim){
     //Inputs are unordered points which wont work for smoothing
-    double **newInterface;
+    double **newInterface;//We attach new ordered points here
+    double **visitedStack;//Holds the visisted points to send to kdtree
     //we will start at the first point and go on from there
     int i = 0;//index for current position of point
     bool runningloop = true;
     while(runningloop){
+        //running loop will complete when all points have been ordered in some way or decided to be forgotten if necessiary
+        if(i == 0){
+            //If first itteration then we will choose the first point
 
+        }
+        else{
+
+        }
     }
     return newInterface;
 }
