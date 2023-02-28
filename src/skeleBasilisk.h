@@ -63,3 +63,15 @@ double** output_points_xynorm(struct OutputXYNorm p, int *nrow,int *ndim){
     }
     return arr;
 }
+
+double** orderInterface(double **InputPoints,struct kdtree *kdstruct,double *length,double *dim){
+
+}
+double** smooth(struct OutputXYNorm p,double **originalInterface){
+    //For our smoothing function we are input the VOF points
+    //We will first create a robust spline of our data
+    //From the robust spline we will place the amount of original points all equally spaced along the spline
+    //Resulting in similar quality skeletons for given data input
+    //However there will be an ability to hard set the amount of points if a higher/lower resolution is desired
+
+}

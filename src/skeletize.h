@@ -82,6 +82,60 @@ double *getNearest(double *searchpoint,struct kdleaf *kdstruct, int *length,int 
     return retpoint;
 }
 
+////Here we have the Regional serach implemented for a kdtree
+////Input the tree, output points inside - ignore points(multiple from stack if wanted)
+//double** findBox(struct kdleaf *kdstruct,double *length,double *dim,double **box,double **ignorePoints){
+//    double **returnPts; 
+//    if(kdstruct->flag){
+//        //Lowest search level.
+//        //double lowdis = 0.0;
+//        for(int i = 0; i < kdstruct->leng; i++){
+//            //double tdis = getDistance(searchpoint,kdstruct->origin[i],dim);
+//            //if((lowdis == 0.0 || tdis < lowdis) && getDistance(ignorepoint,kdstruct->origin[i],dim) != 0.0){
+//            //    lowdis = tdis;
+//            //    retpoint = kdstruct->origin[i];
+//            //    *lowestdistance = lowdis;
+//            //}
+//            
+//        }
+//    }
+//    else{
+//        //can go deeper
+//        bool side = searchpoint[kdstruct->axis] < kdstruct->origin[0][kdstruct->axis] ;
+//        if(side){
+//            retpoint = getNearest(searchpoint,kdstruct->left,length,dim,ignorepoint,lowestdistance);
+//        }
+//        else{
+//            retpoint = getNearest(searchpoint,kdstruct->right,length,dim,ignorepoint,lowestdistance);   
+//        }
+//        //next we will test if we need to go to the other side of the struct
+//        double axisnodedis = fabs(searchpoint[kdstruct->axis] - kdstruct->origin[0][kdstruct->axis]);//This only measure along one axis
+//        if(axisnodedis < *lowestdistance){
+//            double *tempretpoint;
+//            double *templowdis = (double*)malloc(sizeof(double));
+//            if(side){
+//                tempretpoint = getNearest(searchpoint,kdstruct->right,length,dim,ignorepoint,templowdis);
+//            }
+//            else{
+//                tempretpoint = getNearest(searchpoint,kdstruct->left,length,dim,ignorepoint,templowdis);   
+//            }
+//            if(*lowestdistance > *templowdis){
+//                retpoint = tempretpoint;
+//                *lowestdistance = *templowdis;
+//            }
+//            free(templowdis);
+//        }
+//        //finally check the node
+//        double nodedis = getDistance(searchpoint,kdstruct->origin[0],dim);
+//        if(getDistance(ignorepoint,kdstruct->origin[0],dim) != 0.0 && nodedis < *lowestdistance){
+//            retpoint = kdstruct->origin[0];
+//            *lowestdistance = nodedis;
+//        }
+//    }
+//
+//}
+
+
 
 //Destroy tree
 void kdDestroy(struct kdleaf *kdstruct){
