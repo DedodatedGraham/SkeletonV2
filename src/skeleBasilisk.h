@@ -6,7 +6,45 @@ struct OutputXYNorm{
     face vector s;
     int level;
 };
+//Method For ordering an interface, currently 2D only
+double** orderInterface(double **inputPoints,struct kdleaf *kdstruct,double *length,int *dim){
+    //Inputs are unordered points which wont work for smoothing
+    double **newInterface;
+    //we will start at the first point and go on from there
+    int i = 0;//index for current position of point
+    bool runningloop = true;
+    while(runningloop){
 
+    }
+    return newInterface;
+}
+double **smooth(double **originalInterface,double *length, int *dim){
+    //For our smoothing function we are input the VOF points
+    //We will first create a robust spline of our data
+    //From the robust spline we will place the amount of original points all equally spaced along the spline
+    //Resulting in similar quality skeletons for given data input
+    //However there will be an ability to hard set the amount of points if a higher/lower resolution is desired
+    //first we will create a kdtree and order the points
+    
+    //first create tree
+    struct kdleaf *kdstruct;
+    CreateStructure(originalInterface,&kdstruct,0,dim,0,*length);//make kd-struct
+     
+    //order the points
+    double **newpoints;
+    newpoints = orderInterface(originalInterface,kdstruct,length,dim);
+
+    //Apply Spline to points
+    double **splinepoints;
+    
+    //clean up
+    kdDestroy(kdstruct);
+
+    //return final points
+    return splinepoints;
+}
+
+//outputs 2D x,y,norm data
 double** output_points_xynorm(struct OutputXYNorm p, int *nrow,int *ndim){
     *ndim = 2;
     scalar c = p.c;
@@ -64,14 +102,3 @@ double** output_points_xynorm(struct OutputXYNorm p, int *nrow,int *ndim){
     return arr;
 }
 
-double** orderInterface(double **InputPoints,struct kdtree *kdstruct,double *length,double *dim){
-
-}
-double** smooth(struct OutputXYNorm p,double **originalInterface){
-    //For our smoothing function we are input the VOF points
-    //We will first create a robust spline of our data
-    //From the robust spline we will place the amount of original points all equally spaced along the spline
-    //Resulting in similar quality skeletons for given data input
-    //However there will be an ability to hard set the amount of points if a higher/lower resolution is desired
-
-}
