@@ -127,9 +127,9 @@ event skeleton(t+=t_out){
     sprintf (sname, "skeleton-%5.3f.dat", t);
     struct OutputXYNorm sP; sP.c = f; sP.level = max_level;
     int snr;int snd;
-    
     //run
     double **sinterface = output_points_xynorm(sP,&snr,&snd);
+    smooth(sinterface,&snr,&snd,t);
     skeletize(sinterface,&snr,&snd,sname,&mindis);
     //clock_t end = clock();
     //calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for skeleton 
