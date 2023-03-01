@@ -15,7 +15,7 @@ double max_level = 9;
 double L = 8.;
 double t_out = 0.01;       
 //double t_end = 1.8;    
-double t_end = 0.01;    
+double t_end = 0.1;    
 
 /** dimensionless properties, normalized by scaling variables rhol, D, sigma
  */
@@ -28,8 +28,8 @@ double femax = 0.001;
 double uemax = 0.001;
 double maxruntime = 60;
 
-u.n[left] = dirichlet(u0);
 
+u.n[left] = dirichlet(u0);
 u.n[right] = neumann(0);
 p[right] = dirichlet(0);
 pf[right] = dirichlet(0);
@@ -154,6 +154,7 @@ void output_points_norm(struct OutputPoints p){
     if(!s.x.i) s.x.i = -1;
 
     //fprintf(p.fp, "#1:x y\n");
+    int j = 0;
     foreach_level_or_leaf(p.level){
         if(c[] > 1e-7 && c[] < 1.-1e-7){
 	    coord n = facet_normal(point, c, s);
@@ -163,10 +164,11 @@ void output_points_norm(struct OutputPoints p){
 	    if(area==0){
 	        fprintf(stdout,"Area=Null\n");// This statement is just to make some use of the area info. otherwise compiler throws warning!!
 	    }
-	    fprintf(p.fp, "%g %g %g %g\n",x+Delta*pc.x, y+Delta*pc.y, n.x, n.y);
-	    fprintf(p.fp, "%g %g %g %g\n",x+Delta*pc.x, -(y+Delta*pc.y), n.x, -n.y);
+	    fprintf(p.fp, "%g %g %g %g %d\n",x+Delta*pc.x, y+Delta*pc.y, n.x, n.y,j);
+	    //fprintf(p.fp, "%g %g %g %g\n",x+Delta*pc.x, -(y+Delta*pc.y), n.x, -n.y);
 	    //fprintf(p.fp, "%g %g %g %g\n",x+Delta*pc.x, -y-Delta*pc.y, n.x,-n.y);
-	}
+        j++;
+	    }
     }
     fflush(p.fp);
 }
