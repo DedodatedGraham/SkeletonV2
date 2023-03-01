@@ -11,10 +11,11 @@
 
 #define LARGE 1e36
 
-double max_level = 8;
-double L = 4.;
+double max_level = 9;
+double L = 8.;
 double t_out = 0.01;       
-double t_end = 2;    
+//double t_end = 1.8;    
+double t_end = 0.1;    
 
 /** dimensionless properties, normalized by scaling variables rhol, D, sigma
  */
@@ -27,8 +28,8 @@ double femax = 0.001;
 double uemax = 0.001;
 double maxruntime = 60;
 
-u.n[left] = dirichlet(u0);
 
+u.n[left] = dirichlet(u0);
 u.n[right] = neumann(0);
 p[right] = dirichlet(0);
 pf[right] = dirichlet(0);
@@ -101,96 +102,14 @@ event init (t = 0){
     }
 }
 
-//double calc_time = 0;
-//event logfile (i++){
-//    scalar posy[],posx[],posx_y0[],udrop[],xdrop[];
-//    position (f,posx,{1,0});
-//    position (f,posy,{0,1});
-//    position (f,posx_y0,{1,0});
-//
-//    double area=0.,vol=0.,ke=0.,ud=0.,xd=0.,R_avg=0.;
-//    //fprintf(stdout,"i=%d\n",i); 
-//    foreach(reduction(+:area) reduction(+:vol) reduction(+:ke)
-//          reduction(+:ud) reduction(+:xd)) {
-//        #if 1 
-//        if ( f[] <= 1e-6 || f[] >= 1. - 1e-6 ) {
-//            posx[] = nodata;
-//            posy[] = nodata;
-//            posx_y0[] = nodata;
-//        }
-//        #endif 
-//        if ( y<-Delta || y > Delta ) {
-//            posx_y0[] = nodata;
-//        }
-//
-//        /** statistics in axisymmetric geometry */
-//        if (f[] > 1e-6 && f[] < 1. - 1e-6) {
-//            /** interfacial area */
-//            coord n = interface_normal (point, f), p;
-//            double alpha = plane_alpha (f[], n);
-//            area += pow(Delta, 1.)*plane_area_center (n, alpha, &p)*2.*pi*posy[];
-//        }
-//    
-//        double dv_axi = pow(Delta, 2.)*2.*pi*y;
-//
-//        /** Volume */
-//        if (f[] > 1e-6 ) {
-//            vol += dv_axi*f[];
-//
-//            /** kinetic energy  */
-//            foreach_dimension() {
-//                ke += dv_axi*sq(u.x[]);
-//            }
-//
-//            /** mean velocity*/
-//            ud += dv_axi*f[]*u.x[];
-//
-//            /** centroid */
-//            xd += dv_axi*f[]*x;
-//        }
-//    }
-//    ke /= 2.;
-//    ud /= vol;
-//    xd /= vol;
-//    R_avg = cbrt(3*vol/(4*pi));
-//    //fprintf(stdout,"DEBUG:vol = %g R_av=%g\n",vol,R_avg);
-//
-//    //stats sx = statsf (posx);
-//    //stats sy = statsf (posy);
-//    //stats sx_y0 = statsf (posx_y0);
-// 
-//    //fprintf(stdout,"DEBUG:maxruntime=%g\n",maxruntime);
-//    //Extract interfacial points and corresponding angle 
-//    clock_t begin = clock();
-//    // Centroid should not be smaller than the initial centroid 
-//    xd = (xd < x0)? x0 : xd;
-//    //fprintf(stdout,"xd=%g\n",xd);    
-//    //fprintf(stdout,"DEBUG:Lets print the array xy\n");
-//    //Display(Arr,nr,3);
-//    
-//    //Calculate Fourier-legendre coefficient
-//    clock_t end = clock();
-//    calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for calculating the mode coefficients
-//    //if ( i == 0 ){
-//    //    //Print the colum title for the log
-//    //    fprintf(ferr,
-//    //    "#1: t; 2: dt; 3: xc; 4, uc; 5:y_max; 6:x_max; 7: x_min; 8: x_y0_max; 9: x_y0_min; 10: vol; 11: KE; 12: n_grid; 13: cput; 14: speed;  15:C0;  16:C1;  17:C2;  18:C3;  19:C4;  20:C5;  21:C6;  22:C7;  23:C8;  24:C9;  25:C10 26: calc_time\n");
-//    //}
-//    //if ( i % 10 == 0){
-//    //    fprintf (ferr, "%g %g %g %g %g %g %g %g %g %g %g %ld %g %g %g\n",t, dt, xd, ud, sy.max, sx.max, sx.min, sx_y0.max, sx_y0.min, vol, ke, grid->tn, perf.t, perf.speed, calc_time);
-//    //}
-//
-////fprintf(stdout,"DEBUG:\n");
-//fflush(ferr);
-//}
-
 //Function For Obtaining Skeleton
-int slevel = 0.;
-double mindis = 0.;
 //double calc_time = 0;
+double mindis = 0.001;
+int slevel = 0.;
 event skeleton(t+=t_out){
     //First find min grid distance    
     //clock_t begin = clock();
+     
     if(slevel == 0 || slevel < max_level){
         foreach(){
             if(f[] > 0. && f[] < 1.)
@@ -200,7 +119,7 @@ event skeleton(t+=t_out){
             }
         }
     }
-    
+    fprintf(stdout,"thresh:%f\n",mindis); 
     fprintf(stdout,"Skeleton at %f\n",t);
     
     //setup
@@ -208,9 +127,9 @@ event skeleton(t+=t_out){
     sprintf (sname, "skeleton-%5.3f.dat", t);
     struct OutputXYNorm sP; sP.c = f; sP.level = max_level;
     int snr;int snd;
-    
     //run
     double **sinterface = output_points_xynorm(sP,&snr,&snd);
+    smooth(sinterface,&snr,&snd,t);
     skeletize(sinterface,&snr,&snd,sname,&mindis);
     //clock_t end = clock();
     //calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for skeleton 
@@ -235,6 +154,7 @@ void output_points_norm(struct OutputPoints p){
     if(!s.x.i) s.x.i = -1;
 
     //fprintf(p.fp, "#1:x y\n");
+    int j = 0;
     foreach_level_or_leaf(p.level){
         if(c[] > 1e-7 && c[] < 1.-1e-7){
 	    coord n = facet_normal(point, c, s);
@@ -244,10 +164,11 @@ void output_points_norm(struct OutputPoints p){
 	    if(area==0){
 	        fprintf(stdout,"Area=Null\n");// This statement is just to make some use of the area info. otherwise compiler throws warning!!
 	    }
-	    fprintf(p.fp, "%g %g %g %g\n",x+Delta*pc.x, y+Delta*pc.y, n.x, n.y);
-	    fprintf(p.fp, "%g %g %g %g\n",x+Delta*pc.x, -(y+Delta*pc.y), n.x, -n.y);
+	    fprintf(p.fp, "%g %g %g %g %d\n",x+Delta*pc.x, y+Delta*pc.y, n.x, n.y,j);
+	    //fprintf(p.fp, "%g %g %g %g\n",x+Delta*pc.x, -(y+Delta*pc.y), n.x, -n.y);
 	    //fprintf(p.fp, "%g %g %g %g\n",x+Delta*pc.x, -y-Delta*pc.y, n.x,-n.y);
-	}
+        j++;
+	    }
     }
     fflush(p.fp);
 }
@@ -283,44 +204,44 @@ event snapshot (t += t_out; t<=t_end ) {
 }
 
 
-int fov1 =22;
-double tx1=-0.5;
-double ty1=-0.5;
-double vmax=9.129;
-double pmax=0.5;
-int image_width=600;
-int image_height=600;
-
-scalar vm[],vml[];
-
-event images(t+=t_out){
-    
-    foreach(){
-        vm[] = (1-f[])*sqrt(u.x[]*u.x[]+u.y[]*u.y[]);
-	vml[]= f[]*sqrt(u.x[]*u.x[]+u.y[]*u.y[]);
-    }boundary({vm,vml});
-    scalar Omega[];
-    vorticity(u,Omega);
-    clear();
-    char name[80];
-    view(fov = fov1, tx = tx1, ty = ty1, width = image_width, height =image_height);
-    box();
-    cells();
-    draw_vof("f");
-    squares("vm",min = 0, max = vmax);
-    sprintf(name,"vof_velmag-%5.3f.png",t);
-    save(file = name);
-    clear();
-	
-    view(fov = fov1, tx = tx1, ty = ty1, width = image_width, height =image_height);
-    //cells();
-    box();
-    draw_vof("f");
-    squares("f", min = 0, max = 1);
-    sprintf(name, "vof-%5.3f.png",t);
-    save(file = name);
-    clear();
-}
+//int fov1 =22;
+//double tx1=-0.5;
+//double ty1=-0.5;
+//double vmax=9.129;
+//double pmax=0.5;
+//int image_width=600;
+//int image_height=600;
+//
+//scalar vm[],vml[];
+//
+//event images(t+=t_out){
+//    
+//    foreach(){
+//        vm[] = (1-f[])*sqrt(u.x[]*u.x[]+u.y[]*u.y[]);
+//	vml[]= f[]*sqrt(u.x[]*u.x[]+u.y[]*u.y[]);
+//    }boundary({vm,vml});
+//    scalar Omega[];
+//    vorticity(u,Omega);
+//    clear();
+//    char name[80];
+//    view(fov = fov1, tx = tx1, ty = ty1, width = image_width, height =image_height);
+//    box();
+//    cells();
+//    draw_vof("f");
+//    squares("vm",min = 0, max = vmax);
+//    sprintf(name,"vof_velmag-%5.3f.png",t);
+//    save(file = name);
+//    clear();
+//	
+//    view(fov = fov1, tx = tx1, ty = ty1, width = image_width, height =image_height);
+//    //cells();
+//    box();
+//    draw_vof("f");
+//    squares("f", min = 0, max = 1);
+//    sprintf(name, "vof-%5.3f.png",t);
+//    save(file = name);
+//    clear();
+//}
 
 /**
 Adapt mesh based on the volume fraction. 

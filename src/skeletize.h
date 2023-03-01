@@ -64,7 +64,9 @@ double *getNearest(double *searchpoint,struct kdleaf *kdstruct, int *length,int 
     }
     else{
         //can go deeper
-        bool side = searchpoint[kdstruct->axis] < kdstruct->origin[0][kdstruct->axis] ;
+        //fprintf(stdout,"axis:%d\n",kdstruct->axis);
+        //fprintf(stdout,"search %f,%f\n",searchpoint[kdstruct->axis],kdstruct->origin[0][kdstruct->axis]);
+        bool side = searchpoint[kdstruct->axis] < kdstruct->origin[0][kdstruct->axis];
         if(side){
             retpoint = getNearest(searchpoint,kdstruct->left,length,dim,ignorepoint,ileng,lowestdistance);
         }
@@ -73,7 +75,7 @@ double *getNearest(double *searchpoint,struct kdleaf *kdstruct, int *length,int 
         }
         //next we will test if we need to go to the other side of the struct
         double axisnodedis = fabs(searchpoint[kdstruct->axis] - kdstruct->origin[0][kdstruct->axis]);//This only measure along one axis
-        if(axisnodedis < *lowestdistance){
+        if(axisnodedis < *lowestdistance || *lowestdistance == 0.0){
             double *tempretpoint;
             double *templowdis = (double*)malloc(sizeof(double));
             if(side){
@@ -82,7 +84,7 @@ double *getNearest(double *searchpoint,struct kdleaf *kdstruct, int *length,int 
             else{
                 tempretpoint = getNearest(searchpoint,kdstruct->left,length,dim,ignorepoint,ileng,templowdis);   
             }
-            if(*lowestdistance > *templowdis){
+            if(*lowestdistance > *templowdis|| *lowestdistance == 0.0){
                 retpoint = tempretpoint;
                 *lowestdistance = *templowdis;
             }
@@ -104,7 +106,7 @@ double *getNearest(double *searchpoint,struct kdleaf *kdstruct, int *length,int 
                     break;
                 }
             }
-            if(nodedis < *lowestdistance && passes){
+            if((nodedis < *lowestdistance || *lowestdistance == 0.0) && passes){
                 retpoint = kdstruct->origin[0];
                 *lowestdistance = nodedis;
             }

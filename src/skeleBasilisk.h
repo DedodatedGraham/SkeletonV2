@@ -11,13 +11,13 @@ double** orderInterface(double **inputPoints,struct kdleaf *kdstruct,int *length
     fprintf(stdout,"starting process\n");
     //Inputs are unordered points which wont work for smoothing
     double **newInterface = (double **)malloc(*length * sizeof(double*));//We attach new ordered points here
+    double **visitedStack = (double **)malloc(*length * sizeof(double*));//Holds the visisted points to send to kdtree
     int j = 0;
-    while(j < *dim){
-        newInterface[j] = (double*)malloc(sizeof(double));
+    while(j < *length){
+        newInterface[j] = (double*)malloc(*dim * sizeof(double));
         j ++;
     }
     fprintf(stdout,"alloc\n");
-    double **visitedStack;//Holds the visisted points to send to kdtree
     
     //loop var
     //we will start at the first point and go on from there
@@ -40,8 +40,11 @@ double** orderInterface(double **inputPoints,struct kdleaf *kdstruct,int *length
             i++;
         }
         else{
-            double *lowestdistance;
-            double *temppoint = getNearest(currentpoint,kdstruct,length,dim,visitedStack,&i,lowestdistance);
+            double lowestdistance = 0.;
+            int tempi = i + 1;
+            fprintf(stdout,"searching point : [%f, %f]\n",currentpoint[0],currentpoint[1]);
+            double *temppoint = getNearest(currentpoint,kdstruct,length,dim,visitedStack,&tempi,&lowestdistance);
+            fprintf(stdout,"found point : [%f, %f]\n",temppoint[0],temppoint[1]);
             if(lowestdistance != 0){
                 //When we have conclusive results as there is a close point which has been uncounted
                 currentpoint = temppoint;//set new value
