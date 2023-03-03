@@ -130,6 +130,8 @@ event skeleton(t+=t_out){
     //run
     double **sinterface = output_points_xynorm(sP,&snr,&snd);
     smooth(sinterface,&snr,&snd,t);
+    fprintf(stdout,"length:%d\n",snr);
+    fprintf(stdout,"dim:%d\n",snd);
     skeletize(sinterface,&snr,&snd,sname,&mindis);
     //clock_t end = clock();
     //calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for skeleton 
@@ -164,8 +166,8 @@ void output_points_norm(struct OutputPoints p){
 	    if(area==0){
 	        fprintf(stdout,"Area=Null\n");// This statement is just to make some use of the area info. otherwise compiler throws warning!!
 	    }
-	    fprintf(p.fp, "%g %g %g %g %d\n",x+Delta*pc.x, y+Delta*pc.y, n.x, n.y,j);
-	    //fprintf(p.fp, "%g %g %g %g\n",x+Delta*pc.x, -(y+Delta*pc.y), n.x, -n.y);
+	    fprintf(p.fp, "%g %g %g %g\n",x+Delta*pc.x, y+Delta*pc.y, n.x, n.y);
+	    fprintf(p.fp, "%g %g %g %g\n",x+Delta*pc.x, -(y+Delta*pc.y), n.x, -n.y);
 	    //fprintf(p.fp, "%g %g %g %g\n",x+Delta*pc.x, -y-Delta*pc.y, n.x,-n.y);
         j++;
 	    }

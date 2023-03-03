@@ -35,9 +35,12 @@ double getDistance(double *point1,double *point2,int *dim){
 double *getNearest(double *searchpoint,struct kdleaf *kdstruct, int *length,int *dim,double **ignorepoint,int *ileng,double *lowestdistance){
     double *retpoint;
     if(kdstruct->flag){
+        //fprintf(stdout,"lowest level\n");
         //Lowest search level.
         double lowdis = 0.0;
         for(int i = 0; i < kdstruct->leng; i++){
+            //fprintf(stdout,"\n");
+            //fprintf(stdout,"leng kdpoints = %d\n",kdstruct->leng);
             double tdis = getDistance(searchpoint,kdstruct->origin[i],dim);
             if(*ileng == 1){
                 if((lowdis == 0.0 || tdis < lowdis) && getDistance(ignorepoint[0],kdstruct->origin[i],dim) != 0.0){
@@ -49,23 +52,39 @@ double *getNearest(double *searchpoint,struct kdleaf *kdstruct, int *length,int 
             else{
                 bool passes = true;
                 for(int j = 0; j < *ileng; j++){
+                    //fprintf(stdout,"\n(%d,%d)\n",j,*ileng - 1);
+                    //fprintf(stdout,"[%f,%f]\n",kdstruct->origin[i][0],kdstruct->origin[i][1]);
+                    //fprintf(stdout,"[%f,%f]\n",ignorepoint[j][0],ignorepoint[j][1]);
                     if(kdstruct->origin[i] == ignorepoint[j]){
+                        //fprintf(stdout,"broken\n");
                         passes = false;
                         break;
                     }
                 }
                 if((lowdis == 0.0 || tdis < lowdis) && passes){
+                    //fprintf(stdout,"(%d/%d)passed\n",i,kdstruct->leng - 1);
                     lowdis = tdis;
                     retpoint = kdstruct->origin[i];
                     *lowestdistance = lowdis;
+                    //fprintf(stdout,"distance = %f from point [%f,%f]\n",*lowestdistance,retpoint[0],retpoint[1]);
                 }
+                //else{
+                //    //fprintf(stdout,"(%d/%d)didnt pass\n",i,kdstruct->leng - 1);
+                //}
             }
+            //fprintf(stdout,"got:%f\n",*lowestdistance);
         }
+        //if(retpoint != NULL){
+        //    //Here we double check the retpoint isnt bad
+        //    if(getDistance(searchpoint,retpoint,dim) != *lowestdistance){
+        //        fprintf(stdout,"bad point!\n");
+        //        retpoint = NULL;
+        //        *lowestdistance = 0.0;
+        //    }
+        //}
     }
     else{
         //can go deeper
-        //fprintf(stdout,"axis:%d\n",kdstruct->axis);
-        //fprintf(stdout,"search %f,%f\n",searchpoint[kdstruct->axis],kdstruct->origin[0][kdstruct->axis]);
         bool side = searchpoint[kdstruct->axis] < kdstruct->origin[0][kdstruct->axis];
         if(side){
             retpoint = getNearest(searchpoint,kdstruct->left,length,dim,ignorepoint,ileng,lowestdistance);
@@ -77,23 +96,26 @@ double *getNearest(double *searchpoint,struct kdleaf *kdstruct, int *length,int 
         double axisnodedis = fabs(searchpoint[kdstruct->axis] - kdstruct->origin[0][kdstruct->axis]);//This only measure along one axis
         if(axisnodedis < *lowestdistance || *lowestdistance == 0.0){
             double *tempretpoint;
-            double *templowdis = (double*)malloc(sizeof(double));
+            //double *templowdis = (double*)malloc(sizeof(double));
+            double templowdis = 0.0;
             if(side){
-                tempretpoint = getNearest(searchpoint,kdstruct->right,length,dim,ignorepoint,ileng,templowdis);
+                tempretpoint = getNearest(searchpoint,kdstruct->right,length,dim,ignorepoint,ileng,&templowdis);
             }
             else{
-                tempretpoint = getNearest(searchpoint,kdstruct->left,length,dim,ignorepoint,ileng,templowdis);   
+                tempretpoint = getNearest(searchpoint,kdstruct->left,length,dim,ignorepoint,ileng,&templowdis);   
             }
-            if(*lowestdistance > *templowdis|| *lowestdistance == 0.0){
+            //fprintf(stdout,"temp dist %f\n",templowdis);
+            //fprintf(stdout,"temp point -> [%f,%f]\n",tempretpoint[0],tempretpoint[1]);
+            if((*lowestdistance > templowdis|| *lowestdistance == 0.0) && templowdis != 0.0){
                 retpoint = tempretpoint;
-                *lowestdistance = *templowdis;
+                *lowestdistance = templowdis;
             }
-            free(templowdis);
+            //free(templowdis);
         }
         //finally check the node
         double nodedis = getDistance(searchpoint,kdstruct->origin[0],dim);
         if(*ileng == 1){
-            if(getDistance(ignorepoint[0],kdstruct->origin[0],dim) != 0.0 && nodedis < *lowestdistance){
+            if(getDistance(ignorepoint[0],kdstruct->origin[0],dim) != 0.0 && (nodedis < *lowestdistance || *lowestdistance == 0.0)){
                 retpoint = kdstruct->origin[0];
                 *lowestdistance = nodedis;
             }
@@ -109,9 +131,13 @@ double *getNearest(double *searchpoint,struct kdleaf *kdstruct, int *length,int 
             if((nodedis < *lowestdistance || *lowestdistance == 0.0) && passes){
                 retpoint = kdstruct->origin[0];
                 *lowestdistance = nodedis;
+                //fprintf(stdout,"set distance:%f\n",*lowestdistance);
             }
         }
     }
+    //if(*lowestdistance != 0){
+    //    fprintf(stdout,"lowest distance:%f\n",*lowestdistance);
+    //}
     return retpoint;
 }
 

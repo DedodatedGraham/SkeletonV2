@@ -26,7 +26,7 @@ double** orderInterface(double **inputPoints,struct kdleaf *kdstruct,int *length
     bool runningloop = true;
     fprintf(stdout,"starting loop\n");
     while(runningloop){
-        fprintf(stdout,"on point:%d \n",i);
+        fprintf(stdout,"\non point:%d/%d \n",i,*length);
         //running loop will complete when all points have been ordered in some way or decided to be forgotten if necessiary
         if(i == 0){
             //If first itteration then we will choose the first point, add it to stack and move on
@@ -41,23 +41,30 @@ double** orderInterface(double **inputPoints,struct kdleaf *kdstruct,int *length
         }
         else{
             double lowestdistance = 0.;
-            int tempi = i + 1;
-            fprintf(stdout,"searching point : [%f, %f]\n",currentpoint[0],currentpoint[1]);
+            int tempi = i;
             double *temppoint = getNearest(currentpoint,kdstruct,length,dim,visitedStack,&tempi,&lowestdistance);
-            fprintf(stdout,"found point : [%f, %f]\n",temppoint[0],temppoint[1]);
-            if(lowestdistance != 0){
+            fprintf(stdout,"final dist %f\n",lowestdistance);
+            if(lowestdistance != 0.0){
                 //When we have conclusive results as there is a close point which has been uncounted
                 currentpoint = temppoint;//set new value
                 visitedStack[i] = temppoint;//assins old value into stack
-                newInterface[i][0] = inputPoints[i][0];
-                newInterface[i][1] = inputPoints[i][1];
+                newInterface[i][0] = currentpoint[0];
+                newInterface[i][1] = currentpoint[1];
                 if(*dim == 3){
-                    newInterface[i][2] = inputPoints[i][2];
+                    newInterface[i][2] = currentpoint[2];
                 }
                 i++;//increments as were moving on
             }
             else{
-                fprintf(stdout,"caution empty return");
+                fprintf(stdout,"caution empty return\n");
+                fprintf(stdout,"unfound point:[%f,%f]\n",currentpoint[0],currentpoint[1]);
+                for(int j = 0; j < i; j++){
+                    fprintf(stdout,"ignoring point:[%f,%f]\n",visitedStack[j][0],visitedStack[j][1]);
+                }
+                for(int j = 0; j < i; j++){
+                    fprintf(stdout,"new:[%f,%f]\n",newInterface[j][0],newInterface[j][1]);
+                }
+                break;
             }
         }
         if(i == *length){
