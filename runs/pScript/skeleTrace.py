@@ -25,13 +25,13 @@ def plotmirror(sdat,idat,mirroraxi,mirrorval,save,t,focus):
         plt.scatter(idat[0],idat[1],color='black',s=5,vmin=vmin,vmax=vmax)
         p = plt.scatter(sdat[0],sdat[1],c=sdat[2],cmap='rainbow',s=5,vmin=vmin,vmax=vmax)
         plt.colorbar(p)
-        plt.savefig(save)
+        plt.savefig(save,dpi=1000)
         print("plotted:",t)
     else:
         plt.scatter(idat[0],idat[1],color='black',s=5,vmin=vmin,vmax=vmax)
         p = plt.scatter(sdat[0],sdat[1],c=sdat[2],cmap='rainbow',s=5,vmin=vmin,vmax=vmax)
         plt.colorbar(p)
-        plt.savefig(save)
+        plt.savefig(save,dpi=1000)
         print("plotted:",t)
 
 
