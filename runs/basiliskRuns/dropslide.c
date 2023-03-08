@@ -14,15 +14,17 @@
 double max_level = 9;
 double L = 8.;
 double t_out = 0.01;       
-//double t_end = 1.8;    
-double t_end = 0.1;    
+//double t_end = 0.38;    
+double t_end = 0.1;
+//double t_end = 0.01;    
 
 /** dimensionless properties, normalized by scaling variables rhol, D, sigma
  */
 double rhog=1.297e-3;
 double mul=5.275e-3;
 double mug=9.077e-5;
-double u0 = 78.54;        //free stream velocity
+//double u0 = 78.54;        //free stream velocity
+double u0 = 107.5;
 double h   = 0.2;          //initial gap between drop and inlet
 double femax = 0.001;
 double uemax = 0.001;
@@ -128,11 +130,9 @@ event skeleton(t+=t_out){
     struct OutputXYNorm sP; sP.c = f; sP.level = max_level;
     int snr;int snd;
     //run
-    double **sinterface = output_points_xynorm(sP,&snr,&snd);
-    smooth(sinterface,&snr,&snd,t);
-    fprintf(stdout,"length:%d\n",snr);
-    fprintf(stdout,"dim:%d\n",snd);
-    skeletize(sinterface,&snr,&snd,sname,&mindis);
+    double **sinterface = output_points_2smooth(sP,&snr,&snd);
+    //smooth(sinterface,&snr,&snd,t);
+    //skeletize(sinterface,&snr,&snd,sname,&mindis);
     //clock_t end = clock();
     //calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for skeleton 
     
