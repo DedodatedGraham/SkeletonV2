@@ -14,8 +14,9 @@
 double max_level = 9;
 double L = 8.;
 double t_out = 0.01;       
-double t_end = 0.38;    
-//double t_end = 0.1;    
+//double t_end = 0.38;    
+double t_end = 0.1;
+//double t_end = 0.01;    
 
 /** dimensionless properties, normalized by scaling variables rhol, D, sigma
  */
@@ -129,9 +130,9 @@ event skeleton(t+=t_out){
     struct OutputXYNorm sP; sP.c = f; sP.level = max_level;
     int snr;int snd;
     //run
-    double **sinterface = output_points_xynorm(sP,&snr,&snd);
+    double **sinterface = output_points_2smooth(sP,&snr,&snd);
     //smooth(sinterface,&snr,&snd,t);
-    skeletize(sinterface,&snr,&snd,sname,&mindis);
+    //skeletize(sinterface,&snr,&snd,sname,&mindis);
     //clock_t end = clock();
     //calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for skeleton 
     
