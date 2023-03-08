@@ -251,7 +251,7 @@ double** output_points_2smooth(struct OutputXYNorm p, int *nrow,int *ndim){
                             
                         }
                         else{
-                            fprintf(stdout,"(%d,%d) error point = [%f,%f]\n",i,j,localSpline[indx][0],localSpline[indx][1]);
+                            fprintf(stdout,"(%d,%d) error point = [%f,%f]\n",i,j,vofx[i,j],vofy[i,j]);
                         }
                     }
                     else{
