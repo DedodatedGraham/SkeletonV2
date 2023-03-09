@@ -118,8 +118,37 @@ struct OutputXYNorm{
 //}
 
 //Gets spline
-double* getSpline(){
+double* getCoeffGE(int row, int col, double **a, double *x){
+    int i,j,k;
+    for(i = 0; i < row - 1; i++){
+        //swap
+        for(k = i + 1; k < row; k++){
+            if(fabs(a[i][i])<fabs(a[k][i])){
+                for(j = 0; j < col; j++){
+                    double temp;
+                    temp = a[i][j];
+                    a[i][j] = a[k][j];
+                    a[k][j] = temp;
+                }
+            }
+        }
+        //Gauss
+        for(k = i + 1; k <row;k++){
+            double term = a[k][i] / a[i][i];
+            for(j = 0; j < col; j++){
+                a[k][j] = a[k][j] - term*a[i][j];
+            }
+        }
+    }
 
+    //sub
+    for(i = row - 1; i >= 0; i--){
+        x[i]=a[i][col-1];
+        for(j  = i + 1; j < col - 1; j++){
+            x[i] = x[i] - a[i][j]*x[j];
+        }
+        x[i] = x[i]/a[i][i];
+    }
 }
 
 //outputs 2D x,y,norm data
@@ -218,10 +247,10 @@ double** output_points_2smooth(struct OutputXYNorm p, int *nrow,int *ndim){
             pj++;
 	    }
     }
+    fprintf(stdout,"Boundaries = x:[%f,%f] y:[%f,%f]",xmin,xmax,ymin,ymax);
     int nr = pj; int nc = 4;// nc is the number of column, we initialize it with 4 because we will stor x,y norm data in those columns
     int nrp = 2*nr - 1;
     *nrow = nrp;
-    int j = 0;
     double **arr = (double**)malloc((nrp+1)*sizeof(double*));
     for(int k = 0; k < nrp+1; k++){
         arr[k] = (double*)malloc(nc*sizeof(double));
@@ -246,21 +275,59 @@ double** output_points_2smooth(struct OutputXYNorm p, int *nrow,int *ndim){
                             localSpline[indx][0] = vofx[i,j];
                             localSpline[indx][1] = vofy[i,j];
                             fprintf(stdout,"(%d,%d)captured point = [%f,%f]\n",i,j,localSpline[indx][0],localSpline[indx][1]);
-                            double *splineElements = getSpline(localSpline);
                             indx++;
                             
                         }
                         else{
+                            //outof bounds point
                             fprintf(stdout,"(%d,%d) error point = [%f,%f]\n",i,j,vofx[i,j],vofy[i,j]);
                         }
                     }
                     else{
+                        //non valid vof %
                         fprintf(stdout,"(%d,%d) skipped point\n",i,j);
                     }
                 }
             }
-            //Now we have all the points we want, so we next find our spline function
+            //Now we have all the points we want, so we next find our approx valuesj
+            int n = 2;
+            //allocate
+            double *X = (double*)malloc((2*n+1) * sizeof(double));
+            double *Y = (double*)malloc((n + 1) * sizeof(double));
+            double **B = (double**)malloc((n+1) * sizeof(double*));
+            double *A = (double*)malloc((n + 1) * sizeof(double));
+            for(int i = 0; i < n+1; i++){
+                B[i] = (double*)malloc((n+2) * sizeof(double));
+            }
+            //calc arrays
+            for(int i = 0; i < 2*n; i++){
+                X[i] = 0;
+                for(int j = 0; j < indx + 1; j++){
+                    X[i] = X[i] + pow(localSpline[indx][0],i);
+                }
+            }
+            for(int i = 0; i = n; i++){
+                Y[i] = 0;
+                for(int j = 0; j < indx + 1; j ++){
+                    Y[i] = Y[i] + pow(localSpline[indx][1],i);
+                }
+            }
+            //make B
+            for(int i = 0; i < n; i++){
+                for(int j = 0; j < n; j++){
+                    B[i][j] = X[i+j];
+                }
+            }
+            for(int i = 0; i <= n; i++){
+                B[i][n+1] = Y[i];
+            }
+            getCoeffGE(n+1,n+2,B,A);
+            fprintf(stdout,"got coeff: %f + %f * x + %f * x^2 + %f * x^3",A[0],A[1],A[2],A[3]);
             free(localSpline);
+            free(A);
+            free(B);
+            free(X);
+            free(Y);
         }
     }
     return arr;
