@@ -118,7 +118,7 @@ struct OutputXYNorm{
 //}
 
 //Gets spline
-double* getCoeffGE(int row, int col, double **a, double *x){
+void getCoeffGE(int row, int col, double **a, double *x){
     int i,j,k;
     for(i = 0; i < row - 1; i++){
         //swap
@@ -302,13 +302,13 @@ double** output_points_2smooth(struct OutputXYNorm p, int *nrow,int *ndim){
             //calc arrays
             for(int i = 0; i < 2*n; i++){
                 X[i] = 0;
-                for(int j = 0; j < indx + 1; j++){
+                for(int j = 0; j < indx; j++){
                     X[i] = X[i] + pow(localSpline[indx][0],i);
                 }
             }
             for(int i = 0; i = n; i++){
                 Y[i] = 0;
-                for(int j = 0; j < indx + 1; j ++){
+                for(int j = 0; j < indx; j ++){
                     Y[i] = Y[i] + pow(localSpline[indx][1],i);
                 }
             }
@@ -321,8 +321,9 @@ double** output_points_2smooth(struct OutputXYNorm p, int *nrow,int *ndim){
             for(int i = 0; i <= n; i++){
                 B[i][n+1] = Y[i];
             }
+            fprintf(stdout,"trying for coeff\n");
             getCoeffGE(n+1,n+2,B,A);
-            fprintf(stdout,"got coeff: %f + %f * x + %f * x^2 + %f * x^3",A[0],A[1],A[2],A[3]);
+            fprintf(stdout,"got coeff: %f + %f * x + %f * x^2 + %f * x^3\n",A[0],A[1],A[2],A[3]);
             free(localSpline);
             free(A);
             free(B);
