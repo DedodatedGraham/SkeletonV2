@@ -11,7 +11,7 @@
 
 #define LARGE 1e36
 
-double max_level = 8;
+double max_level = 9;
 double L = 8.;
 double t_out = 0.01;       
 //double t_end = 0.38;    
@@ -103,6 +103,17 @@ event init (t = 0){
         boundary ({f,u.x});
     }
 }
+void output_skeleinterface(char name[80],double **list,int length){
+    FILE *fp = fopen(name,"w");
+    for(int i = 0; i < length; i++){
+        fprintf(stdout,"(%d / %d)\n",i,length);
+        fprintf(stdout,"Outputting [%f,%f]\n",list[i][0],list[i][1]);
+        fprintf(stdout,"[%f,%f]\n",list[i][2],list[i][3]);
+        fprintf(fp,"%f %f %f %f\n",list[i][0],list[i][1],list[i][2],list[i][3]);
+    }
+    fflush(fp);
+    fclose(fp);
+}
 
 //Function For Obtaining Skeleton
 //double calc_time = 0;
@@ -131,6 +142,9 @@ event skeleton(t+=t_out){
     int snr;int snd;
     //run
     double **sinterface = output_points_2smooth(sP,&snr,&snd);
+    char sintname[80];
+    sprintf (sintname, "intsmooth-%5.3f.dat", t);
+    output_skeleinterface(sintname,sinterface,snr);
     //smooth(sinterface,&snr,&snd,t);
     //skeletize(sinterface,&snr,&snd,sname,&mindis);
     //clock_t end = clock();
@@ -147,6 +161,7 @@ struct OutputPoints{
     face vector s;
     int level;
 };
+
 
 void output_points_norm(struct OutputPoints p){
     scalar c = p.c;
@@ -166,8 +181,11 @@ void output_points_norm(struct OutputPoints p){
 	    if(area==0){
 	        fprintf(stdout,"Area=Null\n");// This statement is just to make some use of the area info. otherwise compiler throws warning!!
 	    }
-	    fprintf(p.fp, "%g %g %g %g\n",x+Delta*pc.x, y+Delta*pc.y, n.x, n.y);
-	    fprintf(p.fp, "%g %g %g %g\n",x+Delta*pc.x, -(y+Delta*pc.y), n.x, -n.y);
+	    double abs = sqrt(pow(n.x,2)+pow(n.y,2));
+        double tx = n.x/abs;
+        double ty = n.y/abs;
+	    fprintf(p.fp, "%g %g %g %g\n",x+Delta*pc.x, y+Delta*pc.y, tx, ty);
+	    fprintf(p.fp, "%g %g %g %g\n",x+Delta*pc.x, -(y+Delta*pc.y), tx, -ty);
 	    //fprintf(p.fp, "%g %g %g %g\n",x+Delta*pc.x, -y-Delta*pc.y, n.x,-n.y);
         j++;
 	    }

@@ -120,6 +120,13 @@ struct OutputXYNorm{
 //Gets spline
 void getCoeffGE(int row, int col, double **a, double *x){
     int i,j,k;
+    //fprintf(stdout,"INPUT MATRIX:\n");
+    //for(i = 0; i < row;i++){
+    //    fprintf(stdout,"\n");
+    //    for(j = 0; j < col; j++){
+    //        fprintf(stdout," [%d,%d]=%f ",i,j,a[i][j]);
+    //    }
+    //}
     for(i = 0; i < row - 1; i++){
         //swap
         for(k = i + 1; k < row; k++){
@@ -140,7 +147,14 @@ void getCoeffGE(int row, int col, double **a, double *x){
             }
         }
     }
-
+    //Print our new matrix
+    //fprintf(stdout,"\nADJUSTED MATRIX:\n");
+    //for(i = 0; i < row;i++){
+    //    fprintf(stdout,"\n");
+    //    for(j = 0; j < col; j++){
+    //        fprintf(stdout," [%d,%d]=%f ",i,j,a[i][j]);
+    //    }
+    //}
     //sub
     for(i = row - 1; i >= 0; i--){
         x[i]=a[i][col-1];
@@ -257,6 +271,8 @@ double** output_points_2smooth(struct OutputXYNorm p, int *nrow,int *ndim){
     }
     int grabarea = 5;//Odd number, the amount of area we want to scan around a point. Eg. if 5 we get -2,+2 from cell in each dim
     //Calculate the interface data
+    int arrindx = 0;
+
     foreach_level_or_leaf(p.level){
         if(c[] > 1e-6 && c[] < 1.-1e-6){
             //Here we know we are currently located at an interface point we want. 
@@ -278,15 +294,15 @@ double** output_points_2smooth(struct OutputXYNorm p, int *nrow,int *ndim){
                             indx++;
                             
                         }
-                        else{
-                            //outof bounds point
-                            fprintf(stdout,"(%d,%d) error point = [%f,%f]\n",i,j,vofx[i,j],vofy[i,j]);
-                        }
+                        //else{
+                        //    //outof bounds point
+                        //    fprintf(stdout,"(%d,%d) error point = [%f,%f]\n",i,j,vofx[i,j],vofy[i,j]);
+                        //}
                     }
-                    else{
-                        //non valid vof %
-                        fprintf(stdout,"(%d,%d) skipped point\n",i,j);
-                    }
+                    //else{
+                    //    //non valid vof %
+                    //    fprintf(stdout,"(%d,%d) skipped point\n",i,j);
+                    //}
                 }
             }
             //Now we have all the points we want, so we next find our approx valuesj
@@ -300,30 +316,89 @@ double** output_points_2smooth(struct OutputXYNorm p, int *nrow,int *ndim){
                 B[i] = (double*)malloc((n+2) * sizeof(double));
             }
             //calc arrays
-            for(int i = 0; i < 2*n; i++){
+            fprintf(stdout,"starting matrix\n");
+            //fprintf(stdout,"X\n");
+            for(int i = 0; i <= 2*n; i++){
                 X[i] = 0;
                 for(int j = 0; j < indx; j++){
-                    X[i] = X[i] + pow(localSpline[indx][0],i);
+                    X[i] = X[i] + pow(localSpline[j][0],i);
                 }
+                //fprintf(stdout, " %d-%f ",i,X[i]);
             }
-            for(int i = 0; i = n; i++){
+            //fprintf(stdout,"\n");
+            //fprintf(stdout,"X matrix made\n");
+            //fprintf(stdout,"Y\n");
+            for(int i = 0; i <= n; i++){
                 Y[i] = 0;
                 for(int j = 0; j < indx; j ++){
-                    Y[i] = Y[i] + pow(localSpline[indx][1],i);
+                    Y[i] = Y[i] + pow(localSpline[j][0],i)*localSpline[j][1];
                 }
+                //fprintf(stdout, " %d-%f ",i,Y[i]);
             }
+            //fprintf(stdout,"\n");
+            //fprintf(stdout,"Created x&y matrix\n");
             //make B
-            for(int i = 0; i < n; i++){
-                for(int j = 0; j < n; j++){
+            for(int i = 0; i <= n; i++){
+                for(int j = 0; j <= n; j++){
+                    //fprintf(stdout,"B(%d,%d) = %f\n",i,j,X[i+j]);
                     B[i][j] = X[i+j];
                 }
             }
             for(int i = 0; i <= n; i++){
+                //fprintf(stdout,"B(%d,%d) = %f\n",i,n+1,Y[i]);
                 B[i][n+1] = Y[i];
             }
-            fprintf(stdout,"trying for coeff\n");
+            //fprintf(stdout,"trying for coeff\n");
             getCoeffGE(n+1,n+2,B,A);
-            fprintf(stdout,"got coeff: %f + %f * x + %f * x^2 + %f * x^3\n",A[0],A[1],A[2],A[3]);
+            //fprintf(stdout,"got coeff: %f + %f * x + %f * x^2 \n",A[0],A[1],A[2]);
+            //Finally we will Get our current point
+            arr[arrindx][0] = x;
+            arr[arrindx][1] = 0;
+            double *AP = (double*)malloc(n*sizeof(double));
+            for(int i = 0; i <= n; i++){
+                arr[arrindx][1] = arr[arrindx][1] + pow(x,i) * A[i];
+                AP[i] = A[i] * i;
+            }
+            //fprintf(stdout,"got prime: %f + %f * x\n",AP[1],AP[2]);
+            //and then calculate the norms using the prime
+            //First we calculate the tangent m at our point
+            double m = 0;
+            for(int i = 0; i <= n; i++){
+                if(i != 0){
+                    m = m + AP[i] * pow(x,i-1);
+                }
+            }
+            fprintf(stdout,"first m:%f\n",m);
+            //normal m = -1/m
+            m = -1 * (1/m);
+            fprintf(stdout,"new m:%f\n",m);
+            double b = (-1 * m * arr[arrindx][0]) + arr[arrindx][1];
+            //Calculate temp
+            //If were to the right side of the x center, we will calculate with x-1
+            //left side calculate with x+1?
+            double tx;
+            if(arr[arrindx][0] > xmin + (xmax - xmin)/2){
+                tx = arr[arrindx][0] - 1;
+            }
+            else{
+                tx = arr[arrindx][0] + 1;
+            }
+            double ty = m * tx + b;
+            fprintf(stdout,"temppoint = [%f,%f]\n",tx,ty);
+            //Find direction vector to make
+            double normx = tx - arr[arrindx][0];
+            double normy = ty - arr[arrindx][1];
+            //finally we normalize
+            double bottom = sqrt(pow(normx,2)+pow(normy,2));
+            arr[arrindx][2] = normx / bottom;
+            arr[arrindx][3] = normy / bottom;
+            fprintf(stdout,"output point [%f,%f][%f,%f]\n",arr[arrindx][0],arr[arrindx][1],arr[arrindx][2],arr[arrindx][3]);
+            arr[arrindx + 1][0] = arr[arrindx][0];
+            arr[arrindx + 1][1] = -1 * arr[arrindx][1];
+            arr[arrindx + 1][2] = arr[arrindx][2];
+            arr[arrindx + 1][3] = -1 * arr[arrindx][3];
+            arrindx = arrindx + 2;
+            //freeup variables
             free(localSpline);
             free(A);
             free(B);
