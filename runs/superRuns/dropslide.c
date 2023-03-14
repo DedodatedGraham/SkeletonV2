@@ -14,9 +14,9 @@
 double max_level = 9;
 double L = 8.;
 double t_out = 0.01;       
-//double t_end = 0.38;    
+double t_end = 0.38;    
 //double t_end = 0.1;
-double t_end = 0.01;    
+//double t_end = 0.01;    
 
 /** dimensionless properties, normalized by scaling variables rhol, D, sigma
  */
@@ -89,8 +89,8 @@ double x0 = 2.; double Rd = 0.5;
 
 event init (t = 0){
     if (!restore (file = "dump")) {
-        refine (  sq(y)+sq(x-x0) < sq(1.2*Rd) && sq(y)+sq(x-x0) > sq(0.8*Rd) && level < max_level);
-        fraction (f, -sq(y)-sq(x-x0)+sq(Rd));
+        refine (  sq(y-(L/2))+sq(x-x0) < sq(1.2*Rd) && sq(y-(L/2))+sq(x-x0) > sq(0.8*Rd) && level < max_level);
+        fraction (f, -sq(y-(L/2))-sq(x-x0)+sq(Rd));
 
         /** It is important to initialize the flow field. If u.x=0, Poisson
         solver crahses. If u.x=u0*(1-f[]), the interface velocity is too large
@@ -102,6 +102,17 @@ event init (t = 0){
         }
         boundary ({f,u.x});
     }
+}
+void output_skeleinterface(char name[80],double **list,int length){
+    FILE *fp = fopen(name,"w");
+    for(int i = 0; i < length; i++){
+        //fprintf(stdout,"\n(%d / %d)\n",i,length);
+        //fprintf(stdout,"Outputting [%f,%f]\n",list[i][0],list[i][1]);
+        //fprintf(stdout,"[%f,%f]\n",list[i][2],list[i][3]);
+        fprintf(fp,"%f %f %f %f\n",list[i][0],list[i][1],list[i][2],list[i][3]);
+    }
+    fflush(fp);
+    fclose(fp);
 }
 
 //Function For Obtaining Skeleton
@@ -131,8 +142,11 @@ event skeleton(t+=t_out){
     int snr;int snd;
     //run
     double **sinterface = output_points_2smooth(sP,&snr,&snd);
+    char sintname[80];
+    sprintf (sintname, "intsmooth-%5.3f.dat", t);
+    output_skeleinterface(sintname,sinterface,snr);
     //smooth(sinterface,&snr,&snd,t);
-    //skeletize(sinterface,&snr,&snd,sname,&mindis);
+    skeletize(sinterface,&snr,&snd,sname,&mindis);
     //clock_t end = clock();
     //calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for skeleton 
     
@@ -147,6 +161,7 @@ struct OutputPoints{
     face vector s;
     int level;
 };
+
 
 void output_points_norm(struct OutputPoints p){
     scalar c = p.c;
@@ -166,8 +181,11 @@ void output_points_norm(struct OutputPoints p){
 	    if(area==0){
 	        fprintf(stdout,"Area=Null\n");// This statement is just to make some use of the area info. otherwise compiler throws warning!!
 	    }
-	    fprintf(p.fp, "%g %g %g %g\n",x+Delta*pc.x, y+Delta*pc.y, n.x, n.y);
-	    fprintf(p.fp, "%g %g %g %g\n",x+Delta*pc.x, -(y+Delta*pc.y), n.x, -n.y);
+	    double abs = sqrt(pow(n.x,2)+pow(n.y,2));
+        double tx = n.x/abs;
+        double ty = n.y/abs;
+	    fprintf(p.fp, "%g %g %g %g\n",x+Delta*pc.x, y+Delta*pc.y, tx, ty);
+	    //fprintf(p.fp, "%g %g %g %g\n",x+Delta*pc.x, -(y+Delta*pc.y), tx, -ty);
 	    //fprintf(p.fp, "%g %g %g %g\n",x+Delta*pc.x, -y-Delta*pc.y, n.x,-n.y);
         j++;
 	    }
