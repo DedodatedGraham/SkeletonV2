@@ -472,6 +472,9 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,d
     free(radius);
     free(centerPoint);
     free(interfacePoint);
+    for(int i = 0; i < *length+1;i++){
+        free(skeleton[i]);
+    }
     free(skeleton);
     radius = NULL;
     centerPoint = NULL;
