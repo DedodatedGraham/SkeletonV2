@@ -89,8 +89,8 @@ double x0 = 2.; double Rd = 0.5;
 
 event init (t = 0){
     if (!restore (file = "dump")) {
-        refine (  sq(y)+sq(x-x0) < sq(1.2*Rd) && sq(y)+sq(x-x0) > sq(0.8*Rd) && level < max_level);
-        fraction (f, -sq(y)-sq(x-x0)+sq(Rd));
+        refine (  sq(y-(L/2))+sq(x-x0) < sq(1.2*Rd) && sq(y-(L/2))+sq(x-x0) > sq(0.8*Rd) && level < max_level);
+        fraction (f, -sq(y-(L/2))-sq(x-x0)+sq(Rd));
 
         /** It is important to initialize the flow field. If u.x=0, Poisson
         solver crahses. If u.x=u0*(1-f[]), the interface velocity is too large
@@ -106,9 +106,9 @@ event init (t = 0){
 void output_skeleinterface(char name[80],double **list,int length){
     FILE *fp = fopen(name,"w");
     for(int i = 0; i < length; i++){
-        fprintf(stdout,"(%d / %d)\n",i,length);
-        fprintf(stdout,"Outputting [%f,%f]\n",list[i][0],list[i][1]);
-        fprintf(stdout,"[%f,%f]\n",list[i][2],list[i][3]);
+        //fprintf(stdout,"\n(%d / %d)\n",i,length);
+        //fprintf(stdout,"Outputting [%f,%f]\n",list[i][0],list[i][1]);
+        //fprintf(stdout,"[%f,%f]\n",list[i][2],list[i][3]);
         fprintf(fp,"%f %f %f %f\n",list[i][0],list[i][1],list[i][2],list[i][3]);
     }
     fflush(fp);
@@ -146,7 +146,7 @@ event skeleton(t+=t_out){
     sprintf (sintname, "intsmooth-%5.3f.dat", t);
     output_skeleinterface(sintname,sinterface,snr);
     //smooth(sinterface,&snr,&snd,t);
-    //skeletize(sinterface,&snr,&snd,sname,&mindis);
+    skeletize(sinterface,&snr,&snd,sname,&mindis);
     //clock_t end = clock();
     //calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for skeleton 
     
@@ -185,7 +185,7 @@ void output_points_norm(struct OutputPoints p){
         double tx = n.x/abs;
         double ty = n.y/abs;
 	    fprintf(p.fp, "%g %g %g %g\n",x+Delta*pc.x, y+Delta*pc.y, tx, ty);
-	    fprintf(p.fp, "%g %g %g %g\n",x+Delta*pc.x, -(y+Delta*pc.y), tx, -ty);
+	    //fprintf(p.fp, "%g %g %g %g\n",x+Delta*pc.x, -(y+Delta*pc.y), tx, -ty);
 	    //fprintf(p.fp, "%g %g %g %g\n",x+Delta*pc.x, -y-Delta*pc.y, n.x,-n.y);
         j++;
 	    }

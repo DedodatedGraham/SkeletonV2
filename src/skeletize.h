@@ -310,6 +310,12 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,d
     //allocate needed space
     double guessr = *length;
     double **skeleton = (double**)malloc((*length + 1) * sizeof(double*));
+    for(int i = 0; i < *length+1;i++){
+        skeleton[i] = (double*)malloc((*dim + 1)*sizeof(double));
+        for(int j = 0; j < *dim + 1; j ++){
+            skeleton[i][j] = 0.;
+        }
+    }
     double **centerPoint = (double**)malloc(MAXCYCLES * sizeof(double*));
     double *radius = (double*)malloc(MAXCYCLES * sizeof(double));
     double **interfacePoint = (double**)malloc(MAXCYCLES * sizeof(double*));
@@ -414,7 +420,9 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,d
             if(radius[index] != 0. && fabs(radius[index] - radius[index + 1]) < *mindis){
                 //convergance conditions
                 //our center point should remain the same
-                skeleton[i] = centerPoint[index];
+                for(int ii = 0; ii < *dim;ii++){
+                    skeleton[i][ii] = centerPoint[index][ii];
+                }
                 skeleton[i][*dim] = radius[index + 1];
                 //fprintf(stdout,"converge skelept %d:[x=%f,y=%f,r=%f]\n",index+1,skeleton[i][0],skeleton[i][1],skeleton[i][2]);
                 //fprintf(stdout,"point : [x=%f,y=%f]\n",points[i][0],points[i][1]);
@@ -424,20 +432,28 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,d
             }
             else if(index > 0 && distancecomp < radius[index + 1]){
                 //distance of point->interface point is less than our radius, so we want to backstep
-                skeleton[i] = centerPoint[index-1];
+                for(int ii = 0; ii < *dim;ii++){
+                    skeleton[i][ii] = centerPoint[index-1][ii];
+                }
+                //fprintf(stdout,"\ndiscomp skelept %d:[x=%f,y=%f,r=%f]\n",index+1,skeleton[i][0],skeleton[i][1],skeleton[i][2]);
                 skeleton[i][*dim] = radius[index];
-                //fprintf(stdout,"discomp skelept %d:[x=%f,y=%f,r=%f]\n",index+1,skeleton[i][0],skeleton[i][1],skeleton[i][2]);
-                //fprintf(stdout,"point : [x=%f,y=%f]\n",points[i][0],points[i][1]);
+                //fprintf(stdout,"discomp skelept %d:[x=%f,y=%f,r=%f]\n\n",index+1,skeleton[i][0],skeleton[i][1],skeleton[i][2]);
                 //fprintf(stdout,"interfacepoint : [x=%f,y=%f]\n",interfacePoint[index + 1][0],interfacePoint[index + 1][1]);
                 outputskeleton(skeleton[i],dim,path);
                 completeCase = false;
             }
-            else if(radius[index + 1] < *mindis){
+            else if(index > 0 && radius[index + 1] < *mindis){
+                //fprintf(stdout,"index = %d\n",index);
+                //fprintf(stdout,"[%f,%f]\n",centerPoint[index-1][0],centerPoint[index-1][1]);
                 //distance of point->interface point is less than our radius, so we want to backstep
-                skeleton[i] = centerPoint[index-1];
+                for(int ii = 0; ii < *dim;ii++){
+                    skeleton[i][ii] = centerPoint[index-1][ii];
+                }
+                //skeleton[i] = centerPoint[index-1];
+                //fprintf(stdout,"point : [x=%f,y=%f], r=%f\n",points[i][0],points[i][1],radius[index]);
+                //fprintf(stdout,"\nsmallrad skelept %d:[x=%f,y=%f,r=%f]\n",index+1,skeleton[i][0],skeleton[i][1],skeleton[i][2]);
                 skeleton[i][*dim] = radius[index];
-                //fprintf(stdout,"smallrad skelept %d:[x=%f,y=%f,r=%f]\n",index+1,skeleton[i][0],skeleton[i][1],skeleton[i][2]);
-                //fprintf(stdout,"point : [x=%f,y=%f]\n",points[i][0],points[i][1]);
+                //fprintf(stdout,"smallrad skelept %d:[x=%f,y=%f,r=%f]\n\n",index+1,skeleton[i][0],skeleton[i][1],skeleton[i][2]);
                 //fprintf(stdout,"interfacepoint : [x=%f,y=%f]\n",interfacePoint[index + 1][0],interfacePoint[index + 1][1]);
                 outputskeleton(skeleton[i],dim,path);
                 completeCase = false;
