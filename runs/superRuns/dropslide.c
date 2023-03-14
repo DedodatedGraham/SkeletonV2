@@ -116,12 +116,12 @@ void output_skeleinterface(char name[80],double **list,int length){
 }
 
 //Function For Obtaining Skeleton
-//double calc_time = 0;
 double mindis = 0.001;
 int slevel = 0.;
 event skeleton(t+=t_out){
     //First find min grid distance    
-    //clock_t begin = clock();
+    double calc_time = 0;
+    clock_t begin = clock();
      
     if(slevel == 0 || slevel < max_level){
         foreach(){
@@ -147,10 +147,9 @@ event skeleton(t+=t_out){
     output_skeleinterface(sintname,sinterface,snr);
     //smooth(sinterface,&snr,&snd,t);
     skeletize(sinterface,&snr,&snd,sname,&mindis);
-    //clock_t end = clock();
-    //calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for skeleton 
-    
-    //fprintf(stdout,"time took for skeleton: %f\n",calc_time);
+    clock_t end = clock();
+    calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for skeleton  
+    fprintf(stdout,"time took for skeleton: %f\n",calc_time);
     fflush(ferr);
 }
 

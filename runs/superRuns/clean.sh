@@ -8,6 +8,7 @@ rm -r _dropslide.c 2> /dev/null
 rm -r drop_mpi 2> /dev/null
 rm -r .qcc* 2> /dev/null
 rm -r infc* 2> /dev/null
+rm -r intsmooth* 2> /dev/null
 rm -r log* 2> /dev/null
 rm -r tmpout* 2> /dev/null
 rm -r mtrace* 2> /dev/null
