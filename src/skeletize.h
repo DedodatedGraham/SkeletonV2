@@ -361,18 +361,12 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,d
         //We calculate our starting furthest interface point
         interfacePoint[index] = getNearest(ttpoint,kdstruct,length,dim,ilist,&ileng,&lowestdistance);
         
-        //fprintf(stdout,"\nskeleton for point%d x:%f y:%f nx:%f ny:%f\n",i,points[i][0],points[i][1],points[i][2],points[i][3]);
-        //fprintf(stdout,"center%d x:%f y:%f \n",index,ttpoint[0],ttpoint[1]);
-        //fprintf(stdout,"interface point%d x:%f y:%f\n",index,interfacePoint[index][0],interfacePoint[index][1]); 
-        
         //find starting radius for our starting interface point
         double *sendpoint = points[i];
         radius[index] = getRadius(sendpoint,interfacePoint[index],dim);
-        //fprintf(stdout,"rad (%d,%d) = %f\n",i,index,radius[index]);
         
         //now we itterate until convergence
         while(completeCase){
-            //fprintf(stdout,"calculating:%d\n",index+1);
             //get timestep centerpoint and ignore point(not completely nessicary)
             if(*dim == 2){
                 double x = points[i][0] - points[i][2] * radius[index];
@@ -402,16 +396,13 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,d
             int ileng = 1;
             //calculate our centerpoint
             centerPoint[index] = ttpoint;
-            //fprintf(stdout,"center%d x:%f y:%f \n",index + 1,ttpoint[0],ttpoint[1]);
             
             //calculate our interface point closest to the last centerpoint
             lowestdistance = 0;
             interfacePoint[index + 1] = getNearest(centerPoint[index],kdstruct,length,dim,ilist,&ileng,&lowestdistance);
-            //fprintf(stdout,"interface point%d x:%f y:%f\n",index + 1,interfacePoint[index + 1][0],interfacePoint[index + 1][1]); 
             
             //finds the radius of our point and interface point 
             radius[index + 1] = getRadius(points[i],interfacePoint[index + 1],dim);
-            //fprintf(stdout,"rad (%d,%d) = %f\n",i,index+1,radius[index+1]);
             
             //get distance comp, abs distance from point->interface point, for converge check
             double distancecomp = getDistance(interfacePoint[index + 1],points[i],dim);
@@ -424,9 +415,6 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,d
                     skeleton[i][ii] = centerPoint[index][ii];
                 }
                 skeleton[i][*dim] = radius[index + 1];
-                //fprintf(stdout,"converge skelept %d:[x=%f,y=%f,r=%f]\n",index+1,skeleton[i][0],skeleton[i][1],skeleton[i][2]);
-                //fprintf(stdout,"point : [x=%f,y=%f]\n",points[i][0],points[i][1]);
-                //fprintf(stdout,"interfacepoint : [x=%f,y=%f]\n",interfacePoint[index + 1][0],interfacePoint[index + 1][1]);
                 outputskeleton(skeleton[i],dim,path);
                 completeCase = false;
             }
@@ -435,26 +423,17 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,d
                 for(int ii = 0; ii < *dim;ii++){
                     skeleton[i][ii] = centerPoint[index-1][ii];
                 }
-                //fprintf(stdout,"\ndiscomp skelept %d:[x=%f,y=%f,r=%f]\n",index+1,skeleton[i][0],skeleton[i][1],skeleton[i][2]);
                 skeleton[i][*dim] = radius[index];
-                //fprintf(stdout,"discomp skelept %d:[x=%f,y=%f,r=%f]\n\n",index+1,skeleton[i][0],skeleton[i][1],skeleton[i][2]);
-                //fprintf(stdout,"interfacepoint : [x=%f,y=%f]\n",interfacePoint[index + 1][0],interfacePoint[index + 1][1]);
                 outputskeleton(skeleton[i],dim,path);
                 completeCase = false;
             }
             else if(index > 0 && radius[index + 1] < *mindis){
-                //fprintf(stdout,"index = %d\n",index);
-                //fprintf(stdout,"[%f,%f]\n",centerPoint[index-1][0],centerPoint[index-1][1]);
                 //distance of point->interface point is less than our radius, so we want to backstep
                 for(int ii = 0; ii < *dim;ii++){
                     skeleton[i][ii] = centerPoint[index-1][ii];
                 }
                 //skeleton[i] = centerPoint[index-1];
-                //fprintf(stdout,"point : [x=%f,y=%f], r=%f\n",points[i][0],points[i][1],radius[index]);
-                //fprintf(stdout,"\nsmallrad skelept %d:[x=%f,y=%f,r=%f]\n",index+1,skeleton[i][0],skeleton[i][1],skeleton[i][2]);
                 skeleton[i][*dim] = radius[index];
-                //fprintf(stdout,"smallrad skelept %d:[x=%f,y=%f,r=%f]\n\n",index+1,skeleton[i][0],skeleton[i][1],skeleton[i][2]);
-                //fprintf(stdout,"interfacepoint : [x=%f,y=%f]\n",interfacePoint[index + 1][0],interfacePoint[index + 1][1]);
                 outputskeleton(skeleton[i],dim,path);
                 completeCase = false;
             }

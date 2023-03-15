@@ -57,7 +57,8 @@ if __name__ == '__main__':
             inx = []
             iny = []
             spath = source + r'superRuns/' + "skeleton-{:.3f}.dat".format(t)
-            ipath = source + r'superRuns/' + "infc-{:.3f}.dat".format(t)
+            ipath = source + r'superRuns/' + "intsmooth-{:.3f}.dat".format(t)
+            #ipath = source + r'superRuns/' + "infc-{:.3f}.dat".format(t)
             with open(spath,'r') as csvfile:
                 data  = csv.reader(csvfile,delimiter = ' ')
                 i = 0
