@@ -343,6 +343,19 @@ double** output_points_2smooth(struct OutputXYNorm p, int *nrow,int *ndim){
                 double bottom = sqrt(pow(tnormx,2)+pow(tnormy,2));
                 arr[arrindx][2] = tnormx / bottom;
                 arr[arrindx][3] = tnormy / bottom;
+                //ensure norms are correct direction before outputting
+                if(arr[arrindx][2] > 0. && !(normx[] > 0.)){
+                    arr[arrindx][2] = -1 * arr[arrindx][2];
+                }
+                else if(arr[arrindx][2] < 0. && !(normx[] < 0.)){
+                    arr[arrindx][2] = -1 * arr[arrindx][2];
+                }
+                if(arr[arrindx][3] > 0. && !(normy[] > 0.)){
+                    arr[arrindx][3] = -1 * arr[arrindx][3];
+                }
+                else if(arr[arrindx][3] < 0. && !(normy[] < 0.)){
+                    arr[arrindx][3] = -1 * arr[arrindx][3];
+                }
                 free(A);
                 free(AP);
             }
@@ -406,6 +419,19 @@ double** output_points_2smooth(struct OutputXYNorm p, int *nrow,int *ndim){
                 double bottom = sqrt(pow(tnormx,2)+pow(tnormy,2));
                 arr[arrindx][2] = tnormx / bottom;
                 arr[arrindx][3] = tnormy / bottom;
+                //ensure normals are pointing in correct direction
+                if(arr[arrindx][2] > 0. && !(normx[] > 0.)){
+                    arr[arrindx][2] = -1 * arr[arrindx][2];
+                }
+                else if(arr[arrindx][2] < 0. && !(normx[] < 0.)){
+                    arr[arrindx][2] = -1 * arr[arrindx][2];
+                }
+                if(arr[arrindx][3] > 0. && !(normy[] > 0.)){
+                    arr[arrindx][3] = -1 * arr[arrindx][3];
+                }
+                else if(arr[arrindx][3] < 0. && !(normy[] < 0.)){
+                    arr[arrindx][3] = -1 * arr[arrindx][3];
+                }
                 free(A);
                 free(AP);
             }

@@ -427,7 +427,7 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,d
                 outputskeleton(skeleton[i],dim,path);
                 completeCase = false;
             }
-            else if(index > 0 && radius[index + 1] < *mindis){
+            else if(radius[index + 1] < *mindis){
                 //distance of point->interface point is less than our radius, so we want to backstep
                 for(int ii = 0; ii < *dim;ii++){
                     skeleton[i][ii] = centerPoint[index-1][ii];
