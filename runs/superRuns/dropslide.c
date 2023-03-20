@@ -14,8 +14,8 @@
 double max_level = 9;
 double L = 8.;
 double t_out = 0.01;       
-double t_end = 0.38;    
-//double t_end = 0.1;
+//double t_end = 0.38;    
+double t_end = 0.1;
 //double t_end = 0.01;    
 
 /** dimensionless properties, normalized by scaling variables rhol, D, sigma
@@ -116,7 +116,7 @@ void output_skeleinterface(char name[80],double **list,int length){
 }
 
 //Function For Obtaining Skeleton
-double mindis = 0.001;
+double mindis = 0.0;
 int slevel = 0.;
 event skeleton(t+=t_out){
     //First find min grid distance    
@@ -125,7 +125,7 @@ event skeleton(t+=t_out){
      
     if(slevel == 0 || slevel < max_level){
         foreach(){
-            if(f[] > 0. && f[] < 1.)
+            if(f[] > 1e-6 && f[] < 1-1e-6)
             if(Delta < mindis || mindis == 0.){
                 mindis = Delta;
                 slevel = max_level;
@@ -141,7 +141,7 @@ event skeleton(t+=t_out){
     struct OutputXYNorm sP; sP.c = f; sP.level = max_level;
     int snr;int snd;
     //run
-    double **sinterface = output_points_2smooth(sP,&snr,&snd);
+    double **sinterface = output_points_2smooth(sP,&snr,&snd,t);
     char sintname[80];
     sprintf (sintname, "intsmooth-%5.3f.dat", t);
     output_skeleinterface(sintname,sinterface,snr);

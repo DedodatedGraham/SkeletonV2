@@ -199,7 +199,7 @@ double** output_points_xynorm(struct OutputXYNorm p, int *nrow,int *ndim){
     return arr;
 }
 
-double** output_points_2smooth(struct OutputXYNorm p, int *nrow,int *ndim){
+double** output_points_2smooth(struct OutputXYNorm p, int *nrow,int *ndim, double t){
     *ndim = 2;
     scalar c = p.c;
     restriction({c});
@@ -337,7 +337,7 @@ double** output_points_2smooth(struct OutputXYNorm p, int *nrow,int *ndim){
                 }
                 double ty = m * tx + b;
                 //Find direction vector to make
-                double tnormx = tx - arr[arrindx][0];
+                double tnormx = tx arr[arrin - arr[arrindx][0];
                 double tnormy = ty - arr[arrindx][1];
                 //finally we normalize
                 double bottom = sqrt(pow(tnormx,2)+pow(tnormy,2));
@@ -435,6 +435,20 @@ double** output_points_2smooth(struct OutputXYNorm p, int *nrow,int *ndim){
                 free(A);
                 free(AP);
             }
+            
+            //Here we save data for each individual point
+            //First will be VOF
+            //[x,y]  [nx,ny]
+            //then smooth
+            //[sx,sy] [snx,sny]
+            //in [x y nx ny sx sy snx sny]
+            char tempfile[80];
+            sprintf (tempfile, "intdata-%5.3f.dat", t);
+            FILE *fp1 = fopen(tempfile,"a");
+            double tempnormabs = sqrt(pow(normx[],2)+pow(normy[],2));
+            fprintf(fp1,"%f %f %f %f %f %f %f %f\n",vofx[],vofy[],normx[]/tempnormabs,normy[]/tempnormabs,arr[arrindx][0],arr[arrindx][1],arr[arrindx][2],arr[arrindx][3]);
+            fflush(fp1);
+            fclose(fp1);
             arrindx = arrindx + 1;
             //freeup variables
             for(int i = 0;i < grabarea * grabarea; i++){
