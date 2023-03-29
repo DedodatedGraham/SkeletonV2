@@ -304,7 +304,7 @@ void outputskeleton(double *points, int *dim, char path[80]){
     fclose(fp);
 }
 
-void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,double *mindis,char path[80]){
+void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,double *mindis,char path[80],bool isvofactive){
     int MAXCYCLES = 50;
 
     //allocate needed space
@@ -418,24 +418,28 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,d
                 outputskeleton(skeleton[i],dim,path);
                 completeCase = false;
             }
-            else if(index > 0 && distancecomp < radius[index + 1]){
-                //distance of point->interface point is less than our radius, so we want to backstep
-                for(int ii = 0; ii < *dim;ii++){
-                    skeleton[i][ii] = centerPoint[index-1][ii];
+            //temp out for smooth 
+            if(isvofactive){
+                if(index > 0 && distancecomp < radius[index + 1]){
+                    //distance of point->interface point is less than our radius, so we want to backstep
+                    for(int ii = 0; ii < *dim;ii++){
+                        skeleton[i][ii] = centerPoint[index-1][ii];
+                    }
+                    skeleton[i][*dim] = radius[index];
+                    outputskeleton(skeleton[i],dim,path);
+                    completeCase = false;
                 }
-                skeleton[i][*dim] = radius[index];
-                outputskeleton(skeleton[i],dim,path);
-                completeCase = false;
-            }
-            else if(radius[index + 1] < *mindis){
-                //distance of point->interface point is less than our radius, so we want to backstep
-                for(int ii = 0; ii < *dim;ii++){
-                    skeleton[i][ii] = centerPoint[index-1][ii];
+                else if(radius[index + 1] < *mindis){
+                    //distance of point->interface point is less than our radius, so we want to backstep
+                    for(int ii = 0; ii < *dim;ii++){
+                        skeleton[i][ii] = centerPoint[index-1][ii];
+                    }
+                    //skeleton[i] = centerPoint[index-1];
+                    skeleton[i][*dim] = radius[index];
+                    outputskeleton(skeleton[i],dim,path);
+                    completeCase = false;
                 }
-                //skeleton[i] = centerPoint[index-1];
-                skeleton[i][*dim] = radius[index];
-                outputskeleton(skeleton[i],dim,path);
-                completeCase = false;
+
             }
             index += 1;
             if(index >= MAXCYCLES){
@@ -460,14 +464,14 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,d
     interfacePoint = NULL;
     skeleton = NULL;
 }
-void skeletize(double **points,int *length,int *dim,char path[80],double *mindis){
+void skeletize(double **points,int *length,int *dim,char path[80],double *mindis,bool isvofactive){
     
     //Create our kd tree for calculation
     struct kdleaf *kdstruct;
     CreateStructure(points,&kdstruct,0,dim,0,*length);//make kd-struct
     
     //Next our skeleton will be calculated
-    makeSkeleton(points,kdstruct,dim,length,mindis,path);
+    makeSkeleton(points,kdstruct,dim,length,mindis,path,isvofactive);
     
     //Finally clean up to prevent memeory error
     for(int i = 0;i < *length + 1; i++){

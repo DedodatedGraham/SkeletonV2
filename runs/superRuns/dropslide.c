@@ -8,14 +8,16 @@
 #include "tension.h"
 #include "view.h"
 #include "../../src/skeleBasilisk.h"
+#include "01_vaporization/evap_include.h"
+
 
 #define LARGE 1e36
 
 double max_level = 9;
 double L = 8.;
 double t_out = 0.01;       
-//double t_end = 0.38;    
-double t_end = 0.1;
+double t_end = 0.38;    
+//double t_end = 0.1;
 //double t_end = 0.01;    
 
 /** dimensionless properties, normalized by scaling variables rhol, D, sigma
@@ -120,8 +122,6 @@ double mindis = 0.0;
 int slevel = 0.;
 event skeleton(t+=t_out){
     //First find min grid distance    
-    double calc_time = 0;
-    clock_t begin = clock();
      
     if(slevel == 0 || slevel < max_level){
         foreach(){
@@ -135,21 +135,37 @@ event skeleton(t+=t_out){
     fprintf(stdout,"thresh:%f\n",mindis); 
     fprintf(stdout,"Skeleton at %f\n",t);
     
-    //setup
-    char sname[80];
-    sprintf (sname, "skeleton-%5.3f.dat", t);
+    //setup smooth
     struct OutputXYNorm sP; sP.c = f; sP.level = max_level;
     int snr;int snd;
-    //run
+    
+    //run smooth
+    char sname[80];
+    sprintf (sname, "smoothskeleton-%5.3f.dat", t);
+    double calc_time = 0;
+    clock_t begin = clock();
     double **sinterface = output_points_2smooth(sP,&snr,&snd,t);
-    char sintname[80];
-    sprintf (sintname, "intsmooth-%5.3f.dat", t);
-    output_skeleinterface(sintname,sinterface,snr);
-    //smooth(sinterface,&snr,&snd,t);
-    skeletize(sinterface,&snr,&snd,sname,&mindis);
+    //char sintname[80];
+    //sprintf (sintname, "intsmooth-%5.3f.dat", t);
+    //output_skeleinterface(sintname,sinterface,snr);
+    skeletize(sinterface,&snr,&snd,sname,&mindis,false);
+    
     clock_t end = clock();
     calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for skeleton  
-    fprintf(stdout,"time took for skeleton: %f\n",calc_time);
+    fprintf(stdout,"time took for smooth skeleton: %f\n",calc_time);
+    
+    //run VOF
+    char vsname[80];
+    sprintf (vsname, "vofskeleton-%5.3f.dat", t);
+    calc_time = 0;
+    begin = clock();
+    double **vsinterface = output_points_xynorm(sP,&snr,&snd);
+    skeletize(vsinterface,&snr,&snd,vsname,&mindis,true);
+    
+    end = clock();
+    calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for skeleton  
+    fprintf(stdout,"time took for vof skeleton: %f\n",calc_time);
+    
     fflush(ferr);
 }
 
@@ -171,7 +187,7 @@ void output_points_norm(struct OutputPoints p){
 
     //fprintf(p.fp, "#1:x y\n");
     int j = 0;
-    foreach_level_or_leaf(p.level){
+    foreach(){
         if(c[] > 1e-7 && c[] < 1.-1e-7){
 	    coord n = facet_normal(point, c, s);
 	    double alpha = plane_alpha(c[],n);
@@ -195,18 +211,18 @@ void output_points_norm(struct OutputPoints p){
 
 //#if !_MPI
 // output snapshot of simulation 
-event interface (t += t_out) {
-
-    char name[80];
-    sprintf (name, "infc-%5.3f.dat", t);
-    FILE * fp1 = fopen (name, "w");
-  
-    output_points_norm(f,fp1,level=max_level);
-  
-    //output_facets (f,fp1);
-    fflush(fp1);
-    fclose(fp1);
-}
+//event interface (t += t_out) {
+//
+//    char name[80];
+//    sprintf (name, "infc-%5.3f.dat", t);
+//    FILE * fp1 = fopen (name, "w");
+//  
+//    output_points_norm(f,fp1,level=max_level);
+//  
+//    //output_facets (f,fp1);
+//    fflush(fp1);
+//    fclose(fp1);
+//}
 
 //#endif 
  

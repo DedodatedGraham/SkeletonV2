@@ -56,8 +56,8 @@ if __name__ == '__main__':
             iy = []
             inx = []
             iny = []
-            spath = source + r'superRuns/' + "skeleton-{:.3f}.dat".format(t)
-            ipath = source + r'superRuns/' + "intsmooth-{:.3f}.dat".format(t)
+            spath = source + r'superRuns/' + "smoothskeleton-{:.3f}.dat".format(t)
+            ipath = source + r'superRuns/' + "intdata-{:.3f}.dat".format(t)
             #ipath = source + r'superRuns/' + "infc-{:.3f}.dat".format(t)
             with open(spath,'r') as csvfile:
                 data  = csv.reader(csvfile,delimiter = ' ')
@@ -71,10 +71,10 @@ if __name__ == '__main__':
                 data  = csv.reader(csvfile,delimiter = ' ')
                 i = 0
                 for row in data:
-                    ix.append(float(row[0]))
-                    iy.append(float(row[1]))
-                    inx.append(float(row[2]))
-                    iny.append(float(row[3]))
+                    ix.append(float(row[4]))
+                    iy.append(float(row[5]))
+                    inx.append(float(row[6]))
+                    iny.append(float(row[7]))
                     i += 1
             print("loaded:",t)
             sdat = [sx,sy,sr]
