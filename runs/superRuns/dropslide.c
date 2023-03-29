@@ -1,30 +1,30 @@
 /** aerobreakup of a drop 
  */
-#include "axi.h"
-#include "navier-stokes/centered.h"
-#include "./two-phase_nofilter.h"
+//#include "axi.h"
+//#include "navier-stokes/centered.h"
+//#include "./two-phase_nofilter.h"
 //#include "two-phase.h"
-#include "navier-stokes/conserving.h"
-#include "tension.h"
+//#include "navier-stokes/conserving.h"
+//#include "tension.h"
 #include "view.h"
 #include "../../src/skeleBasilisk.h"
-#include "01_vaporization/evap_include.h"
 
-
+#define T_ADAPT_OFF 1
 #define LARGE 1e36
-
+#define EVAP_OFF 1
 double max_level = 9;
 double L = 8.;
 double t_out = 0.01;       
-double t_end = 0.38;    
-//double t_end = 0.1;
-//double t_end = 0.01;    
+//double T_END = 0.38;    
+//double T_END = 0.1;
+double T_END = 0.01;    
 
 /** dimensionless properties, normalized by scaling variables rhol, D, sigma
  */
-double rhog=1.297e-3;
-double mul=5.275e-3;
-double mug=9.077e-5;
+double rho_L=1;
+double rho_V=1.297e-3;
+double mu_L=5.275e-3;
+double mu_V=9.077e-5;
 double u0 = 78.54;        //free stream velocity
 //double u0 = 107.5;
 double h   = 0.2;          //initial gap between drop and inlet
@@ -32,6 +32,7 @@ double femax = 0.001;
 double uemax = 0.001;
 double maxruntime = 60;
 
+#include "01_vaporization/evap_include.h"
 
 u.n[left] = dirichlet(u0);
 u.n[right] = neumann(0);
@@ -51,13 +52,13 @@ int main(int argc, char * argv[])
   if (argc > 4)
     t_out     = atof (argv[4]);
   if (argc > 5)
-    t_end     = atof (argv[5]);
+    T_END     = atof (argv[5]);
   if (argc > 6)
-    rhog      = atof (argv[6]);
+    rho_V      = atof (argv[6]);
   if (argc > 7)
-    mul       = atof (argv[7]);
+    mu_L       = atof (argv[7]);
   if (argc > 8)
-    mug       = atof (argv[8]);
+    mu_V      = atof (argv[8]);
   if (argc > 9)
     femax     = atof (argv[9]);
   if (argc > 10)
@@ -73,8 +74,8 @@ int main(int argc, char * argv[])
   The dimensionless parameters can then be computed based on 
   rho_l, sigma, and D. */
 
-  rho1 = 1., rho2 = rhog; 
-  mu1 = mul, mu2 = mug;
+  rho1 = 1., rho2 = rho_V; 
+  mu1 = mu_L, mu2 = mu_V;
   f.sigma = 1.;
  
 
@@ -92,7 +93,7 @@ double x0 = 2.; double Rd = 0.5;
 event init (t = 0){
     if (!restore (file = "dump")) {
         refine (  sq(y-(L/2))+sq(x-x0) < sq(1.2*Rd) && sq(y-(L/2))+sq(x-x0) > sq(0.8*Rd) && level < max_level);
-        fraction (f, -sq(y-(L/2))-sq(x-x0)+sq(Rd));
+        fraction_LS (f, -sq(y-(L/2))-sq(x-x0)+sq(Rd));
 
         /** It is important to initialize the flow field. If u.x=0, Poisson
         solver crahses. If u.x=u0*(1-f[]), the interface velocity is too large
@@ -117,6 +118,7 @@ void output_skeleinterface(char name[80],double **list,int length){
     fclose(fp);
 }
 
+#include "01_vaporization/adapt_evap.h"
 //Function For Obtaining Skeleton
 double mindis = 0.0;
 int slevel = 0.;
@@ -144,10 +146,8 @@ event skeleton(t+=t_out){
     sprintf (sname, "smoothskeleton-%5.3f.dat", t);
     double calc_time = 0;
     clock_t begin = clock();
+    
     double **sinterface = output_points_2smooth(sP,&snr,&snd,t);
-    //char sintname[80];
-    //sprintf (sintname, "intsmooth-%5.3f.dat", t);
-    //output_skeleinterface(sintname,sinterface,snr);
     skeletize(sinterface,&snr,&snd,sname,&mindis,false);
     
     clock_t end = clock();
@@ -159,12 +159,24 @@ event skeleton(t+=t_out){
     sprintf (vsname, "vofskeleton-%5.3f.dat", t);
     calc_time = 0;
     begin = clock();
+    
     double **vsinterface = output_points_xynorm(sP,&snr,&snd);
     skeletize(vsinterface,&snr,&snd,vsname,&mindis,true);
     
     end = clock();
     calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for skeleton  
     fprintf(stdout,"time took for vof skeleton: %f\n",calc_time);
+    
+    //Finally run Level Set Method
+    char lsname[80];
+    sprintf (lsname, "LSskeleton-%5.3f.dat", t);
+    calc_time = 0;
+    begin = clock();
+    
+    //reinit_LS(f);
+    end = clock();
+    calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for skeleton  
+    fprintf(stdout,"time took for ls skeleton: %f\n",calc_time);
     
     fflush(ferr);
 }
@@ -226,7 +238,7 @@ void output_points_norm(struct OutputPoints p){
 
 //#endif 
  
-event snapshot (t += t_out; t<=t_end ) {
+event snapshot (t += t_out; t<=T_END) {
     char name[80];
 #if 1
     sprintf (name, "snapshot-%5.3f.gfs", t);
