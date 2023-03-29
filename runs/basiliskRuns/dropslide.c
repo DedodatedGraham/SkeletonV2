@@ -9,9 +9,9 @@
 #include "view.h"
 #include "../../src/skeleBasilisk.h"
 
-
+#define T_ADAPT_OFF 1
 #define LARGE 1e36
-
+#define EVAP_OFF 1
 double max_level = 9;
 double L = 8.;
 double t_out = 0.01;       
@@ -173,7 +173,7 @@ event skeleton(t+=t_out){
     calc_time = 0;
     begin = clock();
     
-    reinit_LS(f);
+    //reinit_LS(f);
     end = clock();
     calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for skeleton  
     fprintf(stdout,"time took for ls skeleton: %f\n",calc_time);
