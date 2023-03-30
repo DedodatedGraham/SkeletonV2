@@ -294,6 +294,14 @@ double getRadius(double *point,double *interface,int *dim){
 void outputskeleton(double *points, int *dim, char path[80]){
     //we save each point when it gets finished to help prevent memory error
     FILE *fp = fopen(path,"a");
+    fprintf(stdout,"output path: %s\n",path);
+    char cwd[256];
+    if(getcwd(cwd,sizeof(cwd)) == NULL){
+        fprintf(stdout,"working dir error!!!\n");
+    }
+    else{
+        fprintf(stdout,"working dir: %s\n",cwd);
+    }
     if(*dim == 2){
         fprintf(fp,"%f %f %f\n",points[0],points[1],points[2]);
     }

@@ -159,7 +159,7 @@ double** output_points_xynorm(struct OutputXYNorm p, int *nrow,int *ndim){
     //if(!p.fp) p.fp = stdout;
     if(!s.x.i) s.x.i = -1;
     int j = 0;// number of interfacial cells 
-    foreach(){
+    foreach(serial){
         if(c[] > 1e-6 && c[] < 1.-1e-6){
             j++;
 	    }
@@ -173,7 +173,7 @@ double** output_points_xynorm(struct OutputXYNorm p, int *nrow,int *ndim){
         arr[k] = (double*)malloc(nc*sizeof(double));
     }
     //Calculate the interface data
-    foreach(){
+    foreach(serial){
         if(c[] > 1e-6 && c[] < 1.-1e-6){
             coord n = facet_normal(point, c, s);
 	        double alpha = plane_alpha(c[], n);
@@ -208,7 +208,7 @@ double** output_points_2smooth(struct OutputXYNorm p, int *nrow,int *ndim, doubl
     int pj = 0;// number of interfacial cells
     scalar vofx[],vofy[],normx[],normy[];
     double xmax = 0.,xmin = 0.,ymax = 0.,ymin = 0.;
-    foreach(){
+    foreach(serial){
         if(c[] > 1e-6 && c[] < 1.-1e-6){
             coord n = facet_normal(point, c, s);
 	        double alpha = plane_alpha(c[], n);
@@ -248,7 +248,7 @@ double** output_points_2smooth(struct OutputXYNorm p, int *nrow,int *ndim, doubl
     //Calculate the interface data
     int arrindx = 0;
 
-    foreach(){
+    foreach(serial){
         if(c[] > 1e-6 && c[] < 1.-1e-6){
             //Here we know we are currently located at an interface point we want. 
             double **localSpline = (double**)malloc((grabarea * grabarea)*sizeof(double*));//allocated max amount of points

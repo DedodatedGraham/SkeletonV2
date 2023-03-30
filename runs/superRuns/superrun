@@ -1,3 +1,7 @@
+#Serial
 qsub -l nodes=1:ppn=1 -q ling run.sh
 qsub -l nodes=1:ppn=1 -q ling2 run.sh
 qsub -l nodes=1:ppn=1 run.sh
+
+#OpenMP
+qsub -l nodes=1:ppn=8 -q ling2 runomp.sh

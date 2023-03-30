@@ -1,11 +1,11 @@
 /** aerobreakup of a drop 
  */
 //#include "axi.h"
-//#include "navier-stokes/centered.h"
+#include "navier-stokes/centered.h"
 //#include "./two-phase_nofilter.h"
-//#include "two-phase.h"
-//#include "navier-stokes/conserving.h"
-//#include "tension.h"
+#include "two-phase.h"
+#include "navier-stokes/conserving.h"
+#include "tension.h"
 #include "view.h"
 #include "../../src/skeleBasilisk.h"
 
@@ -15,9 +15,9 @@
 double max_level = 9;
 double L = 8.;
 double t_out = 0.01;       
-//double T_END = 0.38;    
+double T_END = 0.38;    
 //double T_END = 0.1;
-double T_END = 0.01;    
+//double T_END = 0.01;    
 
 /** dimensionless properties, normalized by scaling variables rhol, D, sigma
  */
@@ -32,7 +32,7 @@ double femax = 0.001;
 double uemax = 0.001;
 double maxruntime = 60;
 
-#include "01_vaporization/evap_include.h"
+//#include "01_vaporization/evap_include.h"
 
 u.n[left] = dirichlet(u0);
 u.n[right] = neumann(0);
@@ -93,7 +93,8 @@ double x0 = 2.; double Rd = 0.5;
 event init (t = 0){
     if (!restore (file = "dump")) {
         refine (  sq(y-(L/2))+sq(x-x0) < sq(1.2*Rd) && sq(y-(L/2))+sq(x-x0) > sq(0.8*Rd) && level < max_level);
-        fraction_LS (f, -sq(y-(L/2))-sq(x-x0)+sq(Rd));
+        fraction (f, -sq(y-(L/2))-sq(x-x0)+sq(Rd));
+        //fraction_LS (f, -sq(y-(L/2))-sq(x-x0)+sq(Rd));
 
         /** It is important to initialize the flow field. If u.x=0, Poisson
         solver crahses. If u.x=u0*(1-f[]), the interface velocity is too large
@@ -118,15 +119,16 @@ void output_skeleinterface(char name[80],double **list,int length){
     fclose(fp);
 }
 
-#include "01_vaporization/adapt_evap.h"
+//#include "01_vaporization/adapt_evap.h"
 //Function For Obtaining Skeleton
 double mindis = 0.0;
 int slevel = 0.;
 event skeleton(t+=t_out){
-    //First find min grid distance    
-     
+    #pragma omp single
+    {
+    //First find min grid distance     
     if(slevel == 0 || slevel < max_level){
-        foreach(){
+        foreach(serial){
             if(f[] > 1e-6 && f[] < 1-1e-6)
             if(Delta < mindis || mindis == 0.){
                 mindis = Delta;
@@ -146,7 +148,7 @@ event skeleton(t+=t_out){
     sprintf (sname, "smoothskeleton-%5.3f.dat", t);
     double calc_time = 0;
     clock_t begin = clock();
-    
+     
     double **sinterface = output_points_2smooth(sP,&snr,&snd,t);
     skeletize(sinterface,&snr,&snd,sname,&mindis,false);
     
@@ -168,17 +170,19 @@ event skeleton(t+=t_out){
     fprintf(stdout,"time took for vof skeleton: %f\n",calc_time);
     
     //Finally run Level Set Method
-    char lsname[80];
-    sprintf (lsname, "LSskeleton-%5.3f.dat", t);
-    calc_time = 0;
-    begin = clock();
-    
-    //reinit_LS(f);
-    end = clock();
-    calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for skeleton  
-    fprintf(stdout,"time took for ls skeleton: %f\n",calc_time);
+    //char lsname[80];
+    //sprintf (lsname, "LSskeleton-%5.3f.dat", t);
+    //calc_time = 0;
+    //begin = clock();
+    //
+    ////reinit_LS(f);
+    //end = clock();
+    //calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for skeleton  
+    //fprintf(stdout,"time took for ls skeleton: %f\n",calc_time);
     
     fflush(ferr);
+    
+    }
 }
 
 //Function for extracting the interfacial points: cut-surface center
@@ -199,7 +203,7 @@ void output_points_norm(struct OutputPoints p){
 
     //fprintf(p.fp, "#1:x y\n");
     int j = 0;
-    foreach(){
+    foreach(serial){
         if(c[] > 1e-7 && c[] < 1.-1e-7){
 	    coord n = facet_normal(point, c, s);
 	    double alpha = plane_alpha(c[],n);
