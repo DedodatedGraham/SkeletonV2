@@ -15,9 +15,9 @@
 double max_level = 9;
 double L = 8.;
 double t_out = 0.01;       
-double T_END = 0.38;    
+//double T_END = 0.38;    
 //double T_END = 0.1;
-//double T_END = 0.01;    
+double T_END = 0.01;    
 
 /** dimensionless properties, normalized by scaling variables rhol, D, sigma
  */
@@ -124,9 +124,8 @@ void output_skeleinterface(char name[80],double **list,int length){
 double mindis = 0.0;
 int slevel = 0.;
 event skeleton(t+=t_out){
-    #pragma omp single
-    {
     //First find min grid distance     
+    fprintf(stdout,"Talking from %d\n",pid());
     if(slevel == 0 || slevel < max_level){
         foreach(serial){
             if(f[] > 1e-6 && f[] < 1-1e-6)
@@ -182,7 +181,7 @@ event skeleton(t+=t_out){
     
     fflush(ferr);
     
-    }
+    
 }
 
 //Function for extracting the interfacial points: cut-surface center
