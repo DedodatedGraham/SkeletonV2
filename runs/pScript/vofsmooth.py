@@ -22,8 +22,14 @@ def plotmirror(smoothdat,vofdat,save,t,focussmooth,focusvof,mode):
     yt1 = focusvof[3]
     ax1.set_xlim([xb,xt])
     ax1.set_ylim([yb,yt])
+    #mid = (xb + xt) / 2
+    #ax1.set_xlim([mid-0.3,mid+0.3])
+    #ax1.set_ylim([4.2,4.8])
     ax2.set_xlim([xb1,xt1])
     ax2.set_ylim([yb1,yt1])
+    #mid1 = (xb1 + xt1) / 2
+    #ax2.set_xlim([mid1-0.3,mid1+0.3])
+    #ax2.set_ylim([4.2,4.8])
     ax1.set_box_aspect(1)
     ax2.set_box_aspect(1)
     stitle = "smooth:{:.2f}".format(t/100)
@@ -85,6 +91,8 @@ if __name__ == '__main__':
     fleng1 = 0;
     focus2 = [0,0,0,0]
     fleng2 = 0;
+    #target = r'superRuns/'
+    target = r'basiliskRuns/'
     while(case):
         #try:
         smoothx = []
@@ -101,9 +109,9 @@ if __name__ == '__main__':
         vofiy = []
         vofinx = []
         vofiny = []
-        smoothpath = source + r'superRuns/' + "smoothskeleton-{:.3f}.dat".format(t)
-        vofpath = source + r'superRuns/' + "vofskeleton-{:.3f}.dat".format(t)
-        intpath = source + r'superRuns/' + "intdata-{:.3f}.dat".format(t)
+        smoothpath = source + target + "smoothskeleton-{:.3f}.dat".format(t)
+        vofpath = source + target + "vofskeleton-{:.3f}.dat".format(t)
+        intpath = source + target + "intdata-{:.3f}.dat".format(t)
         #ipath = source + r'superRuns/' + "infc-{:.3f}.dat".format(t)
         with open(smoothpath,'r') as csvfile:
             data  = csv.reader(csvfile,delimiter = ' ')

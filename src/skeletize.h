@@ -449,6 +449,19 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,d
                 }
 
             }
+            else{
+                if(radius[index + 1] < *mindis * 4){
+                    //distance of point->interface point is less than our radius, so we want to backstep
+                    for(int ii = 0; ii < *dim;ii++){
+                        skeleton[i][ii] = centerPoint[index-1][ii];
+                    }
+                    //skeleton[i] = centerPoint[index-1];
+                    skeleton[i][*dim] = radius[index];
+                    outputskeleton(skeleton[i],dim,path);
+                    completeCase = false;
+                }
+
+            }
             index += 1;
             if(index >= MAXCYCLES){
                 fprintf(stdout,"broken\n");
