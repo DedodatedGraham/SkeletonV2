@@ -64,7 +64,7 @@ if __name__ == '__main__':
                 iy.append(float(row[4]))
                 inx.append(float(row[5]))
                 iny.append(float(row[6]))
-                col.append(float(row[7]))
+                col.append(float(i))
                 i += 1
         print("loaded:",t)
         sdat = [sx,sy,sr,col]
