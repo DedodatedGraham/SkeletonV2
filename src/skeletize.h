@@ -291,7 +291,7 @@ double getRadius(double *point,double *interface,int *dim){
     }
 }
 
-void outputskeleton(double *points, int *dim, char path[80]){
+void outputskeleton(double *points, double *interf, int *dim, int indx,char path[80]){
     //we save each point when it gets finished to help prevent memory error
     FILE *fp = fopen(path,"a");
     //fprintf(stdout,"output path: %s\n",path);
@@ -302,11 +302,22 @@ void outputskeleton(double *points, int *dim, char path[80]){
     //else{
     //    fprintf(stdout,"working dir: %s\n",cwd);
     //}
-    if(*dim == 2){
-        fprintf(fp,"%f %f %f\n",points[0],points[1],points[2]);
+    int mode = 1;
+    if(mode == 0){
+        if(*dim == 2){
+            fprintf(fp,"%f %f %f %d\n",points[0],points[1],points[2],indx);
+        }
+        else{
+            fprintf(fp,"%f %f %f %f %d\n",points[0],points[1],points[2],points[3],indx);
+        }
     }
     else{
-        fprintf(fp,"%f %f %f %f\n",points[0],points[1],points[2],points[3]);
+        if(*dim == 2){
+            fprintf(fp,"%f %f %f %f %f %f %f %d\n",points[0],points[1],points[2],interf[0],interf[1],interf[2],interf[3],indx);
+        }
+        else{
+            fprintf(fp,"%f %f %f %f %f %f %f %f %f %f %d\n",points[0],points[1],points[2],points[3],interf[0],interf[1],interf[2],interf[3],interf[4],interf[5],indx);
+        }
     }
     fflush(fp);
     fclose(fp);
@@ -423,7 +434,7 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,d
                     skeleton[i][ii] = centerPoint[index][ii];
                 }
                 skeleton[i][*dim] = radius[index + 1];
-                outputskeleton(skeleton[i],dim,path);
+                outputskeleton(skeleton[i],points[i],dim,0,path);
                 completeCase = false;
             }
             //temp out for smooth 
@@ -434,7 +445,7 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,d
                         skeleton[i][ii] = centerPoint[index-1][ii];
                     }
                     skeleton[i][*dim] = radius[index];
-                    outputskeleton(skeleton[i],dim,path);
+                    outputskeleton(skeleton[i],points[i],dim,i,path);
                     completeCase = false;
                 }
                 else if(radius[index + 1] < *mindis){
@@ -444,7 +455,7 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,d
                     }
                     //skeleton[i] = centerPoint[index-1];
                     skeleton[i][*dim] = radius[index];
-                    outputskeleton(skeleton[i],dim,path);
+                    outputskeleton(skeleton[i],points[i],dim,i,path);
                     completeCase = false;
                 }
 
@@ -457,7 +468,7 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,d
                     }
                     //skeleton[i] = centerPoint[index-1];
                     skeleton[i][*dim] = radius[index];
-                    outputskeleton(skeleton[i],dim,path);
+                    outputskeleton(skeleton[i],points[i],dim,i,path);
                     completeCase = false;
                 }
 
