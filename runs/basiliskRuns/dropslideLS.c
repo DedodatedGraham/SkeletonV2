@@ -6,12 +6,15 @@
 //#include "two-phase.h"
 //#include "navier-stokes/conserving.h"
 //#include "tension.h"
+//
+//#define AXI 0
 #include "view.h"
 #include "../../src/skeleBasilisk.h"
 
-#define T_ADAPT_OFF 1
+#define DEBUG 0
+//#define T_ADAPT_OFF 1
 #define LARGE 1e36
-#define EVAP_OFF 1
+//#define EVAP_OFF 1
 double max_level = 10;
 double L = 8.;
 double t_out = 0.01;       
@@ -21,10 +24,10 @@ double T_END = 0.1;
 
 /** dimensionless properties, normalized by scaling variables rhol, D, sigma
  */
-double rho_L=1;
-double rho_V=1.297e-3;
-double mu_L=5.275e-3;
-double mu_V=9.077e-5;
+//double rho_L=1;
+//double rho_V=1.297e-3;
+//double mu_L=5.275e-3;
+//double mu_V=9.077e-5;
 double u0 = 78.54;        //free stream velocity
 //double u0 = 107.5;
 double h   = 0.2;          //initial gap between drop and inlet
@@ -32,6 +35,8 @@ double femax = 0.001;
 double uemax = 0.001;
 double maxruntime = 60;
 
+#include "properties/liq_gas.h"
+double T_sat = 1.0;
 #include "01_vaporization/evap_include.h"
 
 u.n[left] = dirichlet(u0);
@@ -42,29 +47,29 @@ pf[right] = dirichlet(0);
 
 int main(int argc, char * argv[])
 {
-
-  if (argc > 1)
-    max_level = atoi (argv[1]);
-  if (argc > 2)
-    L         = atof (argv[2]);
-  if (argc > 3)
-    u0        = atof (argv[3]);
-  if (argc > 4)
-    t_out     = atof (argv[4]);
-  if (argc > 5)
-    T_END     = atof (argv[5]);
-  if (argc > 6)
-    rho_V      = atof (argv[6]);
-  if (argc > 7)
-    mu_L       = atof (argv[7]);
-  if (argc > 8)
-    mu_V      = atof (argv[8]);
-  if (argc > 9)
-    femax     = atof (argv[9]);
-  if (argc > 10)
-    uemax     = atof (argv[10]);
-  if (argc > 11)
-    maxruntime = atof (argv[11]);
+  #include "01_vaporization/main_evap_setup.h"
+  //if (argc > 1)
+  //  max_level = atoi (argv[1]);
+  //if (argc > 2)
+  //  L         = atof (argv[2]);
+  //if (argc > 3)
+  //  u0        = atof (argv[3]);
+  //if (argc > 4)
+  //  t_out     = atof (argv[4]);
+  //if (argc > 5)
+  //  T_END     = atof (argv[5]);
+  //if (argc > 6)
+  //  rho_V      = atof (argv[6]);
+  //if (argc > 7)
+  //  mu_L       = atof (argv[7]);
+  //if (argc > 8)
+  //  mu_V      = atof (argv[8]);
+  //if (argc > 9)
+  //  femax     = atof (argv[9]);
+  //if (argc > 10)
+  //  uemax     = atof (argv[10]);
+  //if (argc > 11)
+  //  maxruntime = atof (argv[11]);
 
   size (L);
   origin(0,0);

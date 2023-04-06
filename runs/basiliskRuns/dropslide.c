@@ -1,17 +1,17 @@
 /** aerobreakup of a drop 
  */
-//#include "axi.h"
-#include "navier-stokes/centered.h"
-//#include "./two-phase_nofilter.h"
-#include "two-phase.h"
-#include "navier-stokes/conserving.h"
-#include "tension.h"
+////#include "axi.h"
+//#include "navier-stokes/centered.h"
+////#include "./two-phase_nofilter.h"
+//#include "two-phase.h"
+//#include "navier-stokes/conserving.h"
+//#include "tension.h"
 #include "view.h"
 #include "../../src/skeleBasilisk.h"
 
-#define T_ADAPT_OFF 1
+//#define T_ADAPT_OFF 1
 #define LARGE 1e36
-#define EVAP_OFF 1
+//#define EVAP_OFF 1
 double max_level = 10;
 double L = 8.;
 double t_out = 0.01;       
@@ -32,7 +32,7 @@ double femax = 0.001;
 double uemax = 0.001;
 double maxruntime = 60;
 
-//#include "01_vaporization/evap_include.h"
+#include "01_vaporization/evap_include.h"
 
 u.n[left] = dirichlet(u0);
 u.n[right] = neumann(0);
@@ -93,8 +93,8 @@ double x0 = 2.; double Rd = 0.5;
 event init (t = 0){
     if (!restore (file = "dump")) {
         refine (  sq(y-(L/2))+sq(x-x0) < sq(1.2*Rd) && sq(y-(L/2))+sq(x-x0) > sq(0.8*Rd) && level < max_level);
-        fraction (f, -sq(y-(L/2))-sq(x-x0)+sq(Rd));
-        //fraction_LS (f, -sq(y-(L/2))-sq(x-x0)+sq(Rd));
+        //fraction (f, -sq(y-(L/2))-sq(x-x0)+sq(Rd));
+        fraction_LS (f, -sq(y-(L/2))-sq(x-x0)+sq(Rd));
 
         /** It is important to initialize the flow field. If u.x=0, Poisson
         solver crahses. If u.x=u0*(1-f[]), the interface velocity is too large
