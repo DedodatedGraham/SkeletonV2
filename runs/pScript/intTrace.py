@@ -35,7 +35,7 @@ def plotmirror(sdat,idat,ndat,bdat,mirroraxi,mirrorval,save,t,focus):
     plt.rcParams['figure.dpi'] = 1000
     if mirroraxi == 0:
         plt.scatter(idat[0],idat[1],c='black',s=5)
-        #plt.scatter(sdat[0],sdat[1],c='black',s=5)
+        plt.scatter(sdat[0],sdat[1],c='black',s=5)
         p = plt.scatter(ndat[0],ndat[1],c=ndat[2],cmap='rainbow',s=5,vmin=vmin,vmax=vmax)
         i = 0
         plt.colorbar(p)

@@ -525,10 +525,14 @@ void skeleReduce(double **skeleton,double *minblen,int *length,int *dim,struct s
         if(x + Delta / 2 > sd.xmin && x - Delta / 2 < sd.xmax){
             if(y + Delta / 2 > sd.ymin && y - Delta / 2 < sd.ymax){
                 //Here we are inside our relative bounds, now we will assign/count points 
-                tcount++;
+                bool tcounted = false;
                 for(int i = 0; i < *length; i++){
                     if(skeleton[i][0] > x - Delta / 2 && skeleton[i][0] < x + Delta / 2){
                         if(skeleton[i][1] > y - Delta / 2 && skeleton[i][1] < y + Delta / 2){
+                            if(!tcounted){
+                                tcount++;
+                                tcounted = true;
+                            }
                             sd.lpt.x[0,0,sd.npt[]] = skeleton[i][0];
                             sd.lpt.y[0,0,sd.npt[]] = skeleton[i][1];
                             sd.rpt[0,0,sd.npt[]] = skeleton[i][2];
@@ -566,7 +570,7 @@ void skeleReduce(double **skeleton,double *minblen,int *length,int *dim,struct s
                     }
                 }
             }
-            if(allowthrough || nearcount == 1){
+            if((allowthrough && nearcount != 0)|| nearcount == 1){
                 //We dont have enough to have a true local max, so we can just make a node point everywhere
                 double ax = 0.;
                 double ay = 0.;
@@ -583,12 +587,11 @@ void skeleReduce(double **skeleton,double *minblen,int *length,int *dim,struct s
                 nodePoints[npcount][1] = ay;
                 nodePoints[npcount][2] = ar;
                 npcount++;
+
+            
             }
         }
     }
-    //for(int i = 0; i < npcount; i ++){
-    //    fprintf(stdout,"node point @ [%f,%f],%f\n",nodePoints[i][0],nodePoints[i][1],nodePoints[i][2]);
-    //}
     char npname[80];
     sprintf (npname, "nodePoint-%5.3f.dat", t);
     FILE * fpnp = fopen (npname, "w");
