@@ -7,7 +7,7 @@
 #qcc -Wall -O2 drop.c -o drop -I$HOME -L$HOME/gl -lglutils -lfb_osmesa -lGLU -lOSMesa -lm
 
 #openmp
-qcc -g -Wall -fopenmp -grid=quadtree -std=c99 -DFILTERED=1 -D_UNREFINE=1 -O2 dropslideLS.c -o drop -I$BASILISK -L$BASILISK/gl -lglutils -lfb_osmesa -lGLU -lOSMesa -lm
+qcc -g -Wall -fopenmp -grid=quadtree -std=c99 -DFILTERED=1 -D_UNREFINE=1 -O2 dropslide.c -o drop -I$BASILISK -L$BASILISK/gl -lglutils -lfb_osmesa -lGLU -lOSMesa -lm
 
 #mpi
 #qcc -source -grid=quadtree -D_MPI=1 drop.c

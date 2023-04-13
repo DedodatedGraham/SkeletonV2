@@ -1,4 +1,6 @@
+#ifndef _skeleB_
 #include "skeletize.h"
+#include "../basiliskfunctions/adapt2.h"
 //Extract the interfacial points. here we are extracting the center of the cut surface
 struct OutputXYNorm{
     scalar c;
@@ -466,3 +468,154 @@ double** output_points_2smooth(struct OutputXYNorm p, int *nrow,int *ndim, doubl
     return arr;
 }
 
+struct skeleDensity{
+    scalar sd;
+    vector lpt;
+    scalar npt;
+    scalar rpt;
+    double xmax;
+    double xmin;
+    double ymax;
+    double ymin;
+    double zmax;
+    double zmin;
+    int level;
+};
+
+void makeNodePoint(struct skeleDensity sd,double **pointlist,int *position, int *dim){
+    //NOTE already in a foreach_leaf_or_level
+}
+void skeleReduce(double **skeleton,double *minblen,int *length,int *dim,struct skeleDensity sd,int *mxpt,double t){
+    //first assign all points of skeleton
+    //We will have to brute force our data, however we will target area of data max & mins
+    sd.xmax = -HUGE;
+    sd.xmin = HUGE;
+    sd.ymax = -HUGE;
+    sd.ymin = HUGE;
+    for(int i = 0; i < *length; i++){
+        if(skeleton[i][0] < sd.xmin){
+            sd.xmin = skeleton[i][0];
+        }
+        if(skeleton[i][0] > sd.xmax){
+            sd.xmax = skeleton[i][0];
+        }
+        if(skeleton[i][1] < sd.ymin){
+            sd.ymin = skeleton[i][1];
+        }
+        if(skeleton[i][1] > sd.ymax){
+            sd.ymax = skeleton[i][1];
+        }
+    }
+    
+    scalar hsd[] = sd.sd;
+    scalar hnpt[] = sd.npt;
+    scalar hrpt[] = sd.rpt;
+    vector hlpt[] = sd.lpt;
+    double tolerance = 1e-3;
+    //adapt_wavelet({hsd,hnpt,hlpt,hrpt},(double[]) {tolerance,tolerance,tolerance,tolerance}, sd.level,sd.level);
+    adapt_wavelet2({hsd,hnpt,hlpt,hrpt},(double[]) {tolerance,tolerance,tolerance,tolerance}, sd.level+1,sd.level+1);
+    sd.sd = hsd; 
+    sd.npt = hnpt;
+    sd.lpt = hlpt;
+    sd.rpt = hrpt;
+    int tcount = 0; 
+    foreach_level_or_leaf(sd.level){
+        sd.sd[] = 0.0;
+        sd.npt[] = 0;
+        if(x + Delta / 2 > sd.xmin && x - Delta / 2 < sd.xmax){
+            if(y + Delta / 2 > sd.ymin && y - Delta / 2 < sd.ymax){
+                //Here we are inside our relative bounds, now we will assign/count points 
+                tcount++;
+                for(int i = 0; i < *length; i++){
+                    if(skeleton[i][0] > x - Delta / 2 && skeleton[i][0] < x + Delta / 2){
+                        if(skeleton[i][1] > y - Delta / 2 && skeleton[i][1] < y + Delta / 2){
+                            sd.lpt.x[0,0,sd.npt[]] = skeleton[i][0];
+                            sd.lpt.y[0,0,sd.npt[]] = skeleton[i][1];
+                            sd.rpt[0,0,sd.npt[]] = skeleton[i][2];
+                            sd.npt[] = sd.npt[] + 1;
+                        }
+                    }
+                }
+                //Next we calculate density for each inside
+                double area = Delta * Delta;
+                //fprintf(stdout,"area=%f\n",area);
+                sd.sd[] = sd.npt[] / area;
+            }
+        }
+    }
+    //next we will find local maximums for density  and create root points where we think they should be
+    double **nodePoints = (double**)malloc(tcount * sizeof(double*));
+    for(int tempi = 0; tempi < tcount; tempi++){
+        nodePoints[tempi] = (double*)malloc((*dim + 1) * sizeof(double));
+    }
+    int npcount = 0;
+    foreach_level_or_leaf(sd.level){
+        if (sd.npt[] > 0){
+            //here we know we have points
+            bool allowthrough = true;
+            int nearcount = 0;
+            if(tcount >=9){
+                for(int q = -1; q <= 1;q++){    
+                    for(int p = -1; p <= 1;p++){
+                        if(sd.sd[] < sd.sd[q,p]){
+                            allowthrough = false;
+                        }
+                        if(sd.npt[q,p] > 0 && q != 0 && p != 0){
+                            nearcount++;
+                        }
+                    }
+                }
+            }
+            if(allowthrough || nearcount == 1){
+                //We dont have enough to have a true local max, so we can just make a node point everywhere
+                double ax = 0.;
+                double ay = 0.;
+                double ar = 0.;
+                for(int i = 0; i < sd.npt[]; i++){
+                    ax += sd.lpt.x[0,0,i]; 
+                    ay += sd.lpt.y[0,0,i]; 
+                    ar += sd.rpt[0,0,i];
+                }
+                ax = ax / sd.npt[];
+                ay = ay / sd.npt[];
+                ar = ar / sd.npt[];
+                nodePoints[npcount][0] = ax;
+                nodePoints[npcount][1] = ay;
+                nodePoints[npcount][2] = ar;
+                npcount++;
+            }
+        }
+    }
+    //for(int i = 0; i < npcount; i ++){
+    //    fprintf(stdout,"node point @ [%f,%f],%f\n",nodePoints[i][0],nodePoints[i][1],nodePoints[i][2]);
+    //}
+    char npname[80];
+    sprintf (npname, "nodePoint-%5.3f.dat", t);
+    FILE * fpnp = fopen (npname, "w");
+    for(int i = 0; i < npcount; i++){
+        fprintf(fpnp,"%f %f %f\n",nodePoints[i][0],nodePoints[i][1],nodePoints[i][2]);
+    }
+    fflush(fpnp);
+    fclose(fpnp);
+
+    char boxname[80];
+    sprintf (boxname, "boxDat-%5.3f.dat", t);
+    FILE * fpbox = fopen (boxname, "w");
+    foreach_level_or_leaf(sd.level){
+        if(x + Delta / 2 > sd.xmin && x - Delta / 2 < sd.xmax){
+            if(y + Delta / 2 > sd.ymin && y - Delta / 2 < sd.ymax){
+                //outputs --point, and ++point
+                fprintf(fpbox,"%f %f %f %f\n",x - Delta/2, y - Delta/2, x + Delta/2, y + Delta/2);
+            }
+        }
+    }
+    fflush(fpbox);
+    fclose(fpbox);
+
+    for(int i = 0; i < tcount; i++){
+        free(nodePoints[i]);
+    }
+    free(nodePoints);
+    nodePoints = NULL;
+}
+#endif
