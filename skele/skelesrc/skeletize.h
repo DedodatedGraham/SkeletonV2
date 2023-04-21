@@ -40,7 +40,6 @@ double *getNearest(double *searchpoint,struct kdleaf *kdstruct, int *length,int 
         double lowdis = 0.0;
         for(int i = 0; i < kdstruct->leng; i++){
             //fprintf(stdout,"\n");
-            //fprintf(stdout,"leng kdpoints = %d\n",kdstruct->leng);
             double tdis = getDistance(searchpoint,kdstruct->origin[i],dim);
             if(*ileng == 1){
                 if((lowdis == 0.0 || tdis < lowdis) && getDistance(ignorepoint[0],kdstruct->origin[i],dim) != 0.0){
@@ -236,7 +235,6 @@ struct kdleaf *CreateStructure(double **points,struct kdleaf **headkdstruct,int 
         currentkdstruct = createLeaf(axis,nodepoint);
         bool flag = false;
         currentkdstruct->flag = flag; 
-        
         //points now sorted, Next applying our node point and split the list to the appropiate list
 
         currentkdstruct->left = CreateStructure(points,&currentkdstruct->left,axis + 1,length,lower,nodeindex - 1);

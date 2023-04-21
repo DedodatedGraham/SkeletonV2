@@ -513,13 +513,14 @@ void skeleReduce(double **skeleton,double *minblen,int *length,int *dim,struct s
     vector hlpt[] = sd.lpt;
     double tolerance = 1e-3;
     //adapt_wavelet({hsd,hnpt,hlpt,hrpt},(double[]) {tolerance,tolerance,tolerance,tolerance}, sd.level,sd.level);
-    adapt_wavelet2({hsd,hnpt,hlpt,hrpt},(double[]) {tolerance,tolerance,tolerance,tolerance}, sd.level+1,sd.level+1);
+    int calclevel = sd.level - 2;
+    adapt_wavelet2({hsd,hnpt,hlpt,hrpt},(double[]) {tolerance,tolerance,tolerance,tolerance},calclevel,calclevel);
     sd.sd = hsd; 
     sd.npt = hnpt;
     sd.lpt = hlpt;
     sd.rpt = hrpt;
     int tcount = 0; 
-    foreach_level_or_leaf(sd.level){
+    foreach_level_or_leaf(calclevel){
         sd.sd[] = 0.0;
         sd.npt[] = 0;
         if(x + Delta / 2 > sd.xmin && x - Delta / 2 < sd.xmax){
@@ -549,16 +550,18 @@ void skeleReduce(double **skeleton,double *minblen,int *length,int *dim,struct s
     }
     //next we will find local maximums for density  and create root points where we think they should be
     double **nodePoints = (double**)malloc(tcount * sizeof(double*));
+    fprintf(stdout,"\ndim=%d\n\n",*dim);
     for(int tempi = 0; tempi < tcount; tempi++){
         nodePoints[tempi] = (double*)malloc((*dim + 1) * sizeof(double));
     }
     int npcount = 0;
-    foreach_level_or_leaf(sd.level){
+    foreach_level_or_leaf(calclevel){
         if (sd.npt[] > 0){
             //here we know we have points
             bool allowthrough = true;
             int nearcount = 0;
-            if(tcount >=9){
+            bool skip = false;
+            if(tcount > 9){
                 for(int q = -1; q <= 1;q++){    
                     for(int p = -1; p <= 1;p++){
                         if(sd.sd[] < sd.sd[q,p]){
@@ -570,7 +573,10 @@ void skeleReduce(double **skeleton,double *minblen,int *length,int *dim,struct s
                     }
                 }
             }
-            if((allowthrough && nearcount != 0)|| nearcount == 1){
+            else{
+                skip = true;
+            }
+            if((allowthrough && nearcount != 0)|| nearcount == 1 || skip){
                 //We dont have enough to have a true local max, so we can just make a node point everywhere
                 double ax = 0.;
                 double ay = 0.;
@@ -587,11 +593,11 @@ void skeleReduce(double **skeleton,double *minblen,int *length,int *dim,struct s
                 nodePoints[npcount][1] = ay;
                 nodePoints[npcount][2] = ar;
                 npcount++;
-
-            
             }
         }
     }
+    
+    //Output variables
     char npname[80];
     sprintf (npname, "nodePoint-%5.3f.dat", t);
     FILE * fpnp = fopen (npname, "w");
@@ -604,7 +610,7 @@ void skeleReduce(double **skeleton,double *minblen,int *length,int *dim,struct s
     char boxname[80];
     sprintf (boxname, "boxDat-%5.3f.dat", t);
     FILE * fpbox = fopen (boxname, "w");
-    foreach_level_or_leaf(sd.level){
+    foreach_level_or_leaf(calclevel){
         if(x + Delta / 2 > sd.xmin && x - Delta / 2 < sd.xmax){
             if(y + Delta / 2 > sd.ymin && y - Delta / 2 < sd.ymax){
                 //outputs --point, and ++point
@@ -614,7 +620,8 @@ void skeleReduce(double **skeleton,double *minblen,int *length,int *dim,struct s
     }
     fflush(fpbox);
     fclose(fpbox);
-
+    
+    //cleanup var
     for(int i = 0; i < tcount; i++){
         free(nodePoints[i]);
     }

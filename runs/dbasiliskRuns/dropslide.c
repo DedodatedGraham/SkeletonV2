@@ -29,8 +29,11 @@ double femax = 0.001;
 double uemax = 0.001;
 double maxruntime = 60;
 //time var
-double i_start = 0.;
-double i_end = 39.;
+
+//double i_start = 0.;
+double i_start = 18.;
+double i_end = 18.;
+//double i_end = 39.;
 double i_gap = 1.;
 int i = 0.;
 double mindis = 0.0;
@@ -79,7 +82,7 @@ void runSkeleton(double ti){
     fprintf(stdout,"Skeleton at %f\n",ti);
     
     //setup smooth
-    double alpha = 25 * PI / 180;/////INPUT ANGLE TO SKELETON 
+    double alpha = 1``5 * PI / 180;/////INPUT ANGLE TO SKELETON 
     double **skeleton;
     struct OutputXYNorm sP; sP.c = f; sP.level = max_level;
     int snr;int snd;
