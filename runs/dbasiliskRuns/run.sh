@@ -3,5 +3,6 @@ cd "$parent_path"
 clear
 ./clean.sh
 ./compile.sh
-./drop
+valgrind  ./drop
+#./drop
 ./../pScript/run.sh

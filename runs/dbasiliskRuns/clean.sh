@@ -5,6 +5,7 @@ rm -r vof* 2> /dev/null
 rm -r skeleton-* 2> /dev/null
 rm -r intdata-* 2> /dev/null
 rm -r smoothskeleton-* 2> /dev/null
+rm -r reducedskeleton-* 2> /dev/null
 rm -r nodePoint-* 2> /dev/null
 rm -r boxDat-* 2> /dev/null
 rm -r .qcc* 2> /dev/null

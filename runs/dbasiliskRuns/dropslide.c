@@ -30,10 +30,10 @@ double uemax = 0.001;
 double maxruntime = 60;
 //time var
 
-//double i_start = 0.;
-double i_start = 18.;
-double i_end = 18.;
-//double i_end = 39.;
+double i_start = 0.;
+//double i_start = 18.;
+//double i_end = 1.;
+double i_end = 39.;
 double i_gap = 1.;
 int i = 0.;
 double mindis = 0.0;
@@ -57,9 +57,6 @@ int main(int argc, char * argv[])
 void output_skeleinterface(char name[80],double **list,int length){
     FILE *fp = fopen(name,"w");
     for(int i = 0; i < length; i++){
-        fprintf(stdout,"\n(%d / %d)\n",i,length);
-        fprintf(stdout,"Outputting [%f,%f]\n",list[i][0],list[i][1]);
-        fprintf(stdout,"[%f,%f]\n",list[i][2],list[i][3]);
         fprintf(fp,"%f %f %f %f\n",list[i][0],list[i][1],list[i][2],list[i][3]);
     }
     fflush(fp);
@@ -82,7 +79,7 @@ void runSkeleton(double ti){
     fprintf(stdout,"Skeleton at %f\n",ti);
     
     //setup smooth
-    double alpha = 1``5 * PI / 180;/////INPUT ANGLE TO SKELETON 
+    double alpha = 25 * PI / 180;/////INPUT ANGLE TO SKELETON 
     double **skeleton;
     struct OutputXYNorm sP; sP.c = f; sP.level = max_level;
     int snr;int snd;
@@ -100,38 +97,29 @@ void runSkeleton(double ti){
     calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for skeleton  
     fprintf(stdout,"time took for smooth skeleton: %f\n",calc_time);
     
-    
-    
+    skeleton = thinSkeleton(skeleton,&snr,&alpha);
+    char redname[80];
+    sprintf(redname, "reducedskeleton-%5.3f.dat", ti);
+    output_skeleinterface(redname,skeleton,snr);
     calc_time = 0;
     begin = clock();
     //setup reduce
-    scalar sd[],npt[];
-    int mxpt = 100;
-    scalar rpt = new scalar[mxpt];
-    vector lpt = new vector[mxpt];
-    struct skeleDensity sD; sD.sd = sd; sD.lpt = lpt; sD.npt = npt; sD.rpt = rpt;sD.level = max_level; 
     double minbranchlength = 0.01;
-    
+    int mxpt = 100; 
     //run reduce
-    skeleReduce(skeleton,&minbranchlength,&snr,&snd,sD,&mxpt,ti);
-    sd = sD.sd;
-    npt = sD.npt;
-    lpt = sD.lpt;
-    rpt = sD.rpt;
+    skeleReduce(skeleton,0.05,&minbranchlength,&snr,&snd,&mxpt,ti);
     
     end = clock();
     calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for skeleton  
     fprintf(stdout,"time took for reduced skeleton: %f\n",calc_time);
     //cleanup data
-    delete({sd ,npt,rpt,lpt});
-    for(int i = 0; i < snr+1;i++){
+    for(int i = 0; i < snr;i++){
         free(skeleton[i]);
     }
     free(skeleton);
     skeleton = NULL;
 
-    fflush(ferr);
-    
+    fflush(ferr); 
 }
 
 
