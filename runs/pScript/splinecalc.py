@@ -11,7 +11,7 @@ import csv
 
 
 
-def plotmirror(fig,sdat,idat,ndat,bdat,mirroraxi,mirrorval,save,t,focus):
+def plotmirror(fig,scdat,idat,ndat,bdat,mirroraxi,mirrorval,save,t,focus):
     #We will mirror results here
     #First find focus box
     plt.clf()
@@ -19,7 +19,7 @@ def plotmirror(fig,sdat,idat,ndat,bdat,mirroraxi,mirrorval,save,t,focus):
     xt = focus[1]
     yb = focus[2]
     yt = focus[3]
-    ax = fig.add_axes([0.1,0.1,0.9,0.9])
+    ax = fig.add_axes([0.1,0.1,0.85,0.85])
     ax.set_xlim(xb,xt)
     ax.set_ylim(yb,yt)
 
@@ -40,26 +40,64 @@ def plotmirror(fig,sdat,idat,ndat,bdat,mirroraxi,mirrorval,save,t,focus):
     #    dplotboxy.append([bdat[1][i],bdat[3][i]])
     #    dplot.append(bdat[8][i])
         i+=1
-    #cmap = matplotlib.cm.get_cmap('rainbow')
-    #dvmax = max(dplot)
+    i = 0
+    ids = []
+    scidx = []
+    scidy = []
+    scidw = []
+    scidh = []
+    scidd = []
+    while i < len(scdat[0]):
+        #We decompose needed
+        j = 0
+        idpass = False
+        while j < len(ids):
+            if(ids[j] == scdat[5][i]):
+                idpass = True
+                scidx[j].append(scdat[0][i])
+                scidy[j].append(scdat[1][i])
+                scidw[j].append(scdat[2][i])
+                scidh[j].append(scdat[3][i])
+                scidd[j].append(scdat[4][i])
+            j += 1
+        if not idpass:
+            ids.append(scdat[5][i])
+            scidx.append([])
+            scidy.append([])
+            scidw.append([])
+            scidh.append([])
+            scidd.append([])
+            scidx[len(ids) - 1].append(scdat[0][i])
+            scidy[len(ids) - 1].append(scdat[1][i])
+            scidw[len(ids) - 1].append(scdat[2][i])
+            scidh[len(ids) - 1].append(scdat[3][i])
+            scidd[len(ids) - 1].append(scdat[4][i])
+        i += 1
+    cmap = matplotlib.cm.get_cmap('rainbow')
+    #dvmax = max(scdat[4])
+    dvmax = len(scidx)
+    if(dvmax == 0):
+        dvmax = 1
     #img = plt.imshow(np.array([[0,1]]), cmap="rainbow",vmin=0,vmax=dvmax)
     #img.set_visible(False)
 
-    #i = 0
-    #patches = []
-    #clist = []
-    #while i < len(plotboxx):
-    #    w = dplotboxx[i][1] - dplotboxx[i][0]
-    #    h = dplotboxy[i][1] - dplotboxy[i][0]
-    #    rgba = cmap(dplot[i]/dvmax)
-    #    r = Rectangle((dplotboxx[i][0],dplotboxy[i][0]),w,h)
-    #    patches.append(r)
-    #    clist.append(rgba)
-    #    i += 1
-    #ourcmap = ListedColormap(clist)
-    #patches_collection = PatchCollection(patches,cmap=ourcmap)
-    #patches_collection.set_array(np.arange(len(patches)))
-    #ax.add_collection(patches_collection)
+    i = 0
+    patches = []
+    clist = []
+    while i < len(scidx):
+        j = 0
+        rgba = cmap(i/dvmax)
+        while j < len(scidx[i]):
+            #rgba = cmap(scidd[i][j]/dvmax)
+            r = Rectangle((scidx[i][j],scidy[i][j]),scidw[i][j],scidh[i][j])
+            patches.append(r)
+            clist.append(rgba)
+            j += 1
+        i += 1
+    ourcmap = ListedColormap(clist)
+    patches_collection = PatchCollection(patches,cmap=ourcmap)
+    patches_collection.set_array(np.arange(len(patches)))
+    ax.add_collection(patches_collection)
 
     i = 0
     while i < len(plotboxx):
@@ -75,11 +113,18 @@ def plotmirror(fig,sdat,idat,ndat,bdat,mirroraxi,mirrorval,save,t,focus):
     vmin = 0
     vmax = max(ndat[2])
     plt.rcParams['figure.dpi'] = 1000
+    ##ndat[0].append(10000000)
+    ##ndat[1].append(10000000)
+    ##ndat[3].append(2)
+    ##ndat[0].append(10000000)
+    ##ndat[1].append(10000000)
+    ##ndat[3].append(0)
+
     if mirroraxi == 0:
         ax.scatter(idat[0],idat[1],c='black',s=2)
-        ax.scatter(sdat[0],sdat[1],c='black',s=2)
-        #p = ax.scatter(ndat[0],ndat[1],c=ndat[3],cmap='rainbow',s=5)
-        p = ax.scatter(ndat[0],ndat[1],c='red',s=5)
+        #ax.scatter(sdat[0],sdat[1],c='black',s=2)
+        ax.scatter(ndat[0],ndat[1],c=ndat[3],cmap='Set1',s=5)
+        #ax.scatter(ndat[0],ndat[1],c='black',s=5)
         #plt.scatter(idat[0],idat[1],c=idat[4],cmap='rainbow',s=5)
         #p = plt.scatter(sdat[0],sdat[1],c=sdat[2],cmap='rainbow',s=5)
         #p = plt.scatter(ndat[0],ndat[1],c=ndat[2],cmap='rainbow',s=5,vmin=vmin,vmax=vmax)
@@ -87,8 +132,8 @@ def plotmirror(fig,sdat,idat,ndat,bdat,mirroraxi,mirrorval,save,t,focus):
         #plt.colorbar(p)
         #plt.show()
         #fig.show()
-        plt.colorbar(p)
-        plt.savefig(save,dpi=1000)
+        #plt.colorbar(p)
+        plt.savefig(save,dpi=1000,figsize=[12.8,9.6])
         print("plotted:",t)
 
 
@@ -104,9 +149,6 @@ if __name__ == '__main__':
     fleng = 0;
     while(case):
         #try:
-        sx = []
-        sy = []
-        sr = []
         ix = []
         iy = []
         inx = []
@@ -125,31 +167,18 @@ if __name__ == '__main__':
         rbpy = []
         bd = []
         hasn = []
-        alpha = []
         drow = 0
         dcol = 0
         sm = []
+        #our relavant close data
+        scx = []
+        scy = []
+        scw = []
+        sch = []
+        scd = []
+        scid = []
+
         angle = np.tan(30 * 3.141592 / 180)
-        #print("angle:",angle)
-        spath = source + r'dbasiliskRuns/' + "reducedskeleton-{:.3f}.dat".format(t)
-        with open(spath,'r') as csvfile:
-            data  = csv.reader(csvfile,delimiter = ' ')
-            i = 0
-            for row in data:
-                #if (float(row[7])) > angle:
-                sx.append(float(row[0]))
-                sy.append(float(row[1]))
-                sr.append(float(row[2]))
-                alpha.append(float(row[3]))
-                #else:
-                #    sx.append(float(row[0]))
-                #    sy.append(float(row[1]))
-                #    sr.append(0.0)
-                #ix.append(float(row[3]))
-                #iy.append(float(row[4]))
-                #inx.append(float(row[5]))
-                #iny.append(float(row[6]))
-                i += 1
         npath = source + r'dbasiliskRuns/' + "nodeDat-{:.3f}.dat".format(t)
         with open(npath,'r') as csvfile:
             data  = csv.reader(csvfile,delimiter = ' ')
@@ -189,12 +218,22 @@ if __name__ == '__main__':
                 inx.append(float(row[2]))
                 iny.append(float(row[3]))
                 i += 1
-        #print(alpha)
+        scpath = source + r'dbasiliskRuns/' + "splinecalcDat-{:.3f}.dat".format(t)
+        with open(scpath,'r') as csvfile:
+            data  = csv.reader(csvfile,delimiter = ' ')
+            i = 0
+            for row in data:
+                scx.append(float(row[0]))
+                scy.append(float(row[1]))
+                scw.append(float(row[2]))
+                sch.append(float(row[3]))
+                scd.append(int(row[4]))
+                scid.append([int(row[5]),int(row[6])])
+                i += 1
         print("loaded:",t)
-        sdat = [sx,sy,sr,alpha]
+        scdat = [scx,scy,scw,sch,scd,scid]
         idat = [ix,iy,inx,iny]
         ndat = [npx,npy,npr,sm]
-        #ndat = []
         bdat = [bnx,bny,bpx,bpy,rbnx,rbny,rbpx,rbpy,bd,drow,dcol,hasn]
         #bdat = []
         #save = source + r'pScript/2DEvolve/' + "skeleplt-{:03d}.png".format(j)
@@ -223,8 +262,8 @@ if __name__ == '__main__':
             focus[2] = my - fleng/2
             focus[3] = my + fleng/2
         #Plot results
-        if len(sdat[0]) != 0:
-            plotmirror(fig,sdat,idat,ndat,bdat,0,0,save,j,focus)
+        #if len(sdat[0]) != 0:
+        plotmirror(fig,scdat,idat,ndat,bdat,0,0,save,j,focus)
         #tries to open time step & plot
         j += 1
         t += dt

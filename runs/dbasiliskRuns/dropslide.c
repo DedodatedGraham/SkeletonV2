@@ -31,9 +31,9 @@ double maxruntime = 60;
 //time var
 
 double i_start = 0.;
-//double i_start = 18.;
-//double i_end = 1.;
 double i_end = 39.;
+//double i_start = 22.;
+//double i_end = 10.;
 double i_gap = 1.;
 int i = 0.;
 double mindis = 0.0;
@@ -65,6 +65,7 @@ void output_skeleinterface(char name[80],double **list,int length){
 
 void runSkeleton(double ti){
     //get minimumdistance
+    fprintf(stdout,"\n");
     if(slevel == 0 || slevel < max_level){
         foreach(){
             if(f[] > 1e-6 && f[] < 1-1e-6){
@@ -97,7 +98,7 @@ void runSkeleton(double ti){
     calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for skeleton  
     fprintf(stdout,"time took for smooth skeleton: %f\n",calc_time);
     
-    skeleton = thinSkeleton(skeleton,&snr,&alpha);
+    skeleton = thinSkeleton(skeleton,&snd,&snr,&alpha);
     char redname[80];
     sprintf(redname, "reducedskeleton-%5.3f.dat", ti);
     output_skeleinterface(redname,skeleton,snr);
@@ -107,7 +108,9 @@ void runSkeleton(double ti){
     double minbranchlength = 0.01;
     int mxpt = 100; 
     //run reduce
-    skeleReduce(skeleton,0.05,&minbranchlength,&snr,&snd,&mxpt,ti);
+    //double del = 0.05;
+    double del = 0.05/2;
+    skeleReduce(skeleton,del,&minbranchlength,&snr,&snd,&mxpt,ti);
     
     end = clock();
     calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for skeleton  
@@ -119,7 +122,8 @@ void runSkeleton(double ti){
     free(skeleton);
     skeleton = NULL;
 
-    fflush(ferr); 
+    fflush(ferr);
+    fprintf(stdout,"\n");
 }
 
 

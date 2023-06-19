@@ -400,10 +400,7 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
     int extra = 2;
     double **skeleton = malloc((*length + 1) * sizeof(double*));
     for(int i = 0; i < *length+1;i++){
-        skeleton[i] = malloc((*dim + extra) * sizeof(double));
-        for(int j = 0; j < *dim + extra; j ++){
-            skeleton[i][j] = 0.;
-        }
+        skeleton[i] = calloc((*dim + extra) , sizeof(double));
     }
     double **centerPoint = malloc(MAXCYCLES * sizeof(double*));
     double *radius = malloc(MAXCYCLES * sizeof(double));
@@ -459,6 +456,10 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
         
         //now we itterate until convergence
         while(completeCase){
+            if(index > MAXCYCLES - 2){
+                fprintf(stdout,"broken\n");
+                break;
+            }
             //get timestep centerpoint and ignore point(not completely nessicary)
             if(*dim == 2){
                 double x = points[i][0] - points[i][2] * radius[index];
@@ -565,11 +566,7 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
                 //    completeCase = false;
                 //}
             }
-            index += 1;
-            if(index > MAXCYCLES){
-                fprintf(stdout,"broken\n");
-                break;
-            }
+            index = index + 1;
         }
         free(ttpoint);
         free(ignorepoint);

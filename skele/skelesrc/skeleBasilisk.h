@@ -2,7 +2,7 @@
 #include "skeletize.h"
 #include "../basiliskfunctions/adapt2.h"
 //Extract the interfacial points. here we are extracting the center of the cut surface
-double** thinSkeleton(double **skeleton,int *length,double *alpha){
+double** thinSkeleton(double **skeleton,int *dim,int *length,double *alpha){
     fprintf(stdout,"oldL=%d\n",*length);
     //fprintf(stdout,"alpha=%f\n",*alpha);
     //fprintf(stdout,"b4:");
@@ -10,6 +10,7 @@ double** thinSkeleton(double **skeleton,int *length,double *alpha){
     //    fprintf(stdout,"[%f,%f][%f,%f] , ",skeleton[i][0],skeleton[i][1],skeleton[i][2],skeleton[i][3]);
     //}
     //fprintf(stdout,"\n");
+    int holdl = *length;
     bool addq = false;
     for(int i = *length - 1; i >=0; i--){
         //fprintf(stdout,"alpha%d=%f\n",i,skeleton[i][3]);
@@ -23,6 +24,9 @@ double** thinSkeleton(double **skeleton,int *length,double *alpha){
                 skeleton[j-1][1] = skeleton[j][1];
                 skeleton[j-1][2] = skeleton[j][2];
                 skeleton[j-1][3] = skeleton[j][3];
+                if(*dim == 3){
+                    skeleton[j-1][4] = skeleton[j][4];
+                }
                 //skeleton[j-1] = skeleton[j];
             }
             int L = *length - 1;
@@ -32,7 +36,21 @@ double** thinSkeleton(double **skeleton,int *length,double *alpha){
     if(addq){
         *length = *length + 1;
     }
-    double **newskeleton = realloc(skeleton,(*length) * sizeof(double*));
+    double **newskeleton = malloc((*length) * sizeof(double*));
+    for(int i = 0; i < *length; i++){
+        newskeleton[i] = calloc(*dim + 2,sizeof(double));
+        newskeleton[i][0] = skeleton[i][0];
+        newskeleton[i][1] = skeleton[i][1];
+        newskeleton[i][2] = skeleton[i][2];
+        newskeleton[i][3] = skeleton[i][3];
+        if(*dim == 3){
+            newskeleton[i][4] = skeleton[i][4];
+        }
+    }
+    for(int i = 0; i < holdl + 1; i++){
+        free(skeleton[i]);
+    }
+    free(skeleton);
     skeleton = newskeleton;
     fprintf(stdout,"newL=%d\n",*length);
     //fprintf(stdout,"af:");
@@ -510,7 +528,7 @@ double** output_points_2smooth(struct OutputXYNorm p, int *nrow,int *ndim, doubl
     return arr;
 }
 struct skeleBounds{
-    double *x;//By convention x,y is the Top left corner of the bounds;
+    double *x;//By convention x,y is the bottom left corner of the bounds;
     double *y;
     double *z;
     double **points;
@@ -518,6 +536,11 @@ struct skeleBounds{
     double *density;
     bool *hasNode;
     double *nodepoint;
+    double **roi;//Region of Interest [xmin,ymin,zmin],[xmax,ymax,zmax]
+    int *smode;//selection mode
+    int *connections;
+    int *closedis;//closest distance to node point
+    int *closeid;//closest node's id
 };
 struct skeleDensity{
     //overall struct, this holds relevant values needed to be calculated &
@@ -527,6 +550,8 @@ struct skeleDensity{
     int *row;
     int *col;
     int *dep;
+    int *ncount;
+    int *pcount;
     double *xmax;
     double *xmin;
     double *ymax;
@@ -543,7 +568,7 @@ void createSD(struct skeleDensity **sd,double **inpts,int *inleng,int *dim,doubl
     //x alloc & set
     double *txmax = malloc(sizeof(double)); 
     *txmax = xmax;
-    allocsd->xmax = txmax; 
+    allocsd->xmax = txmax;
     double *txmin = malloc(sizeof(double)); 
     *txmin = xmin;
     allocsd->xmin = txmin; 
@@ -563,6 +588,12 @@ void createSD(struct skeleDensity **sd,double **inpts,int *inleng,int *dim,doubl
         *tzmin = zmin;
         allocsd->zmin = tzmin; 
     }
+    int *tnc = malloc(sizeof(int));
+    *tnc = 0;
+    allocsd->ncount = tnc;
+    int *tpc = malloc(sizeof(int));
+    *tpc = 0;
+    allocsd->pcount = tpc;
     //finally we will allocate & calulate our matrix of grids
     //first is dim/offset calc 
     int row = 0; int col = 0;int dep = 0;
@@ -630,6 +661,22 @@ void createSD(struct skeleDensity **sd,double **inpts,int *inleng,int *dim,doubl
     for(int i = 0; i < row; i++){
         for(int j = 0; j < col; j++){
             for(int k = 0; k < dep; k++){
+                //set up ability for having node
+                bool *tb = malloc(sizeof(bool));
+                *tb = false;
+                allocsb[i][j][k].hasNode = tb;
+                int *tsm = malloc(sizeof(int));
+                *tsm = 0;
+                allocsb[i][j][k].smode = tsm;
+                int *tsc = malloc(sizeof(int));
+                *tsc = 0;
+                allocsb[i][j][k].connections = tsc;
+                //allocate for distances
+                int *tcd = malloc(sizeof(int));
+                *tcd = -1;
+                allocsb[i][j][k].closedis = tcd;
+                int *tci = calloc(3,sizeof(int));
+                allocsb[i][j][k].closeid = tci;
                 //set y from row
                 double *ty = malloc(sizeof (double));
                 *ty = ystart + (*dy * i);
@@ -661,19 +708,123 @@ void createSD(struct skeleDensity **sd,double **inpts,int *inleng,int *dim,doubl
                 }
                 allocsb[i][j][k].leng = tlen;//set length
                 allocsb[i][j][k].points = malloc(*tlen * sizeof(double*));
-                for(int q = 0; q < *tlen; q++){
-                    (allocsb[i][j][k].points)[q] = malloc(*dim * sizeof(double*));
-                    for(int p = 0; p < *dim; p++){
-                        (allocsb[i][j][k].points)[q][p] = holdpoint[q][p];
+                allocsb[i][j][k].roi = malloc(2 * sizeof(double*));
+                (allocsb[i][j][k].roi)[0] = calloc(3 , sizeof(double));
+                (allocsb[i][j][k].roi)[1] = calloc(3 , sizeof(double));
+                double *calcdensity = malloc(sizeof(double));
+                double extra = 1;
+                if(*tlen != 0){
+                    for(int q = 0; q < *dim; q++){
+                        (allocsb[i][j][k].roi)[0][q] = HUGE;
+                        (allocsb[i][j][k].roi)[1][q] = -HUGE;
                     }
+                    for(int q = 0; q < *tlen; q++){
+                        (allocsb[i][j][k].points)[q] = malloc((*dim + extra) * sizeof(double));
+                        for(int p = 0; p < *dim + extra; p++){
+                            (allocsb[i][j][k].points)[q][p] = holdpoint[q][p];
+                            if(holdpoint[q][p] < (allocsb[i][j][k].roi)[0][p]){
+                                (allocsb[i][j][k].roi)[0][p] = holdpoint[q][p];
+                            }
+                            if(holdpoint[q][p] > (allocsb[i][j][k].roi)[1][p]){
+                                (allocsb[i][j][k].roi)[1][p] = holdpoint[q][p];
+                            }
+                        }
+                    }
+                    //adjust x
+                    if((allocsb[i][j][k].roi)[0][0] - *dx / 10 > *(allocsb[i][j][k]).x){
+                        (allocsb[i][j][k].roi)[0][0] = (allocsb[i][j][k].roi)[0][0] - *dx / 10;
+                    }
+                    else{
+                        (allocsb[i][j][k].roi)[0][0] = *(allocsb[i][j][k]).x;
+                    }
+                    if((allocsb[i][j][k].roi)[1][0] + *dx / 10 < *(allocsb[i][j][k]).x + *dx){
+                        (allocsb[i][j][k].roi)[1][0] = (allocsb[i][j][k].roi)[1][0] + *dx / 10;
+                    }
+                    else{
+                        (allocsb[i][j][k].roi)[1][0] = *(allocsb[i][j][k]).x + *dx;
+                    }
+                    //adjust y
+                    if((allocsb[i][j][k].roi)[0][1] - *dy / 10 > *(allocsb[i][j][k]).y){
+                        (allocsb[i][j][k].roi)[0][1] = (allocsb[i][j][k].roi)[0][1] - ((*dy) / 10);
+                    }
+                    else{
+                        (allocsb[i][j][k].roi)[0][1] = *(allocsb[i][j][k]).y;
+                    }
+                    if((allocsb[i][j][k].roi)[1][1] + *dy / 10 < *(allocsb[i][j][k]).y + *dy){
+                        (allocsb[i][j][k].roi)[1][1] = (allocsb[i][j][k].roi)[1][1] + *dy / 10;
+                    }
+                    else{
+                        (allocsb[i][j][k].roi)[1][1] = *(allocsb[i][j][k]).y + *dy;
+                    }
+                    //adjust z
+                    if(*dim == 2){
+                        (allocsb[i][j][k].roi)[0][2] = 0;
+                        (allocsb[i][j][k].roi)[1][2] = 1;
+                    }
+                    else{
+                        if((allocsb[i][j][k].roi)[0][2] - *dz / 10 > *(allocsb[i][j][k]).z){
+                            (allocsb[i][j][k].roi)[0][2] = (allocsb[i][j][k].roi)[0][2] - *dz / 10;
+                        }
+                        else{
+                            (allocsb[i][j][k].roi)[0][2] = *(allocsb[i][j][k]).z;
+                        }
+                        if((allocsb[i][j][k].roi)[1][2] + *dz / 10 < *(allocsb[i][j][k]).z + *dz){
+                            (allocsb[i][j][k].roi)[1][2] = (allocsb[i][j][k].roi)[1][2] + *dz / 10;
+                        }
+                        else{
+                            (allocsb[i][j][k].roi)[1][2] = *(allocsb[i][j][k]).z + *dz;
+                        }
+                    }
+                    double ddx = ((allocsb[i][j][k].roi)[1][0] - (allocsb[i][j][k].roi)[0][0]);
+                    double ddy = ((allocsb[i][j][k].roi)[1][1] - (allocsb[i][j][k].roi)[0][1]);
+                    double ddz = ((allocsb[i][j][k].roi)[1][2] - (allocsb[i][j][k].roi)[0][2]);
+                    *calcdensity = *tlen / ((ddx) * (ddy) * (ddz));//points are our 'mass' 
+                    allocsb[i][j][k].density = calcdensity;
                 }
+                else{
+                    *calcdensity = 0.;
+                    allocsb[i][j][k].density = calcdensity;
+                }
+                //fprintf(stdout,"made?=%d\n",(allocsb[i][j][k].roi)[0] != NULL);
                 free(holdpoint);//frees the extra memeory we dont actually want to keep from our sort
                 //Finally we can calculate our density
-                double *calcdensity = malloc(sizeof(double));
-                *calcdensity = *tlen / (10000 * ((*dx) * (*dy) * (*dz)));//points are our 'mass' 
-                allocsb[i][j][k].density = calcdensity;
+                //we will correct roi to be +- delta/10 if it can
                 //fprintf(stdout,"grid [%f,%f,%f] / %d\n",*dx,*dy,*dz,*tlen);
-                fprintf(stdout,"grid [%d,%d,%d] = %f\n\n",i,j,k,*calcdensity);
+                //fprintf(stdout,"grid [%d,%d,%d] = %f\n\n",i,j,k,*calcdensity);
+            }
+        }
+    }
+    for(int i = 0; i < row; i++){
+        for(int j = 0; j < col; j++){
+            for(int k = 0; k < dep; k++){
+                if(*allocsb[i][j][k].leng > 0){
+                    //fprintf(stdout,"leng1=%d\n",*(sDmain->sB[i][j][k]).leng);
+                    //Here we will loop through all of our cells
+                    //We need to make sure we wont scan outofbound cells
+                    //So creating a check map will be beneficial
+                    int len = 0;
+                    for(int ic = -1; ic <= 1; ic++){
+                        for(int jc = -1; jc <= 1; jc++){
+                            for(int kc = -1; kc <= 1; kc++){
+                                int ti = i + ic;
+                                int tj = j + jc;
+                                int tk = k + kc;
+                                if(ti >= 0 && ti < row){
+                                    if(tj >= 0 && tj < col){
+                                        if(tk >= 0 && tk < dep){
+                                            if(!(ic == 0 && jc == 0 && kc == 0) ){// && passcheck(ic,jc,kc,dim)){
+                                                if(*(allocsb[ti][tj][tk]).leng != 0){
+                                                    len++; 
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    *(allocsb[i][j][k].connections) = len;
+                }
             }
         }
     }
@@ -689,6 +840,10 @@ void destroySD(struct skeleDensity **sd, int *dim){
             for(int j = 0; j < *(tsd->col);j++){
                 for(int k = 0; k < *(tsd->dep);k++){
                     struct skeleBounds *bounds = &(tsd->sB[i][j][k]);
+                    if(*(bounds->hasNode) == true){
+                        free(bounds->nodepoint);
+                    }
+                    free(bounds->hasNode);
                     free(bounds->x);
                     free(bounds->y);
                     free(bounds->z);
@@ -700,7 +855,14 @@ void destroySD(struct skeleDensity **sd, int *dim){
                         }
                         free(bounds->points);
                     }
+                    free(bounds->smode);
+                    free(bounds->connections);
                     free(bounds->leng);
+                    free(bounds->closedis);
+                    free(bounds->closeid);
+                    free(bounds->roi[0]);
+                    free(bounds->roi[1]);
+                    free(bounds->roi);
                 }
                 free(tsd->sB[i][j]);
             }
@@ -721,6 +883,8 @@ void destroySD(struct skeleDensity **sd, int *dim){
         free(tsd->dx);
         free(tsd->dy);
         free(tsd->dz);
+        free(tsd->ncount);
+        free(tsd->pcount);
         free(tsd);
         *sd = NULL;
     }
@@ -728,8 +892,742 @@ void destroySD(struct skeleDensity **sd, int *dim){
         fprintf(stdout,"error NULL\n");
     }
 }
-void makeNodePoint(struct skeleDensity **sd){
-    
+bool connectingROI(double **roi1,double**roi2,int *dim){
+    //roi is [xmin,ymin,zmin],[xmax,ymax,zmax]
+    //a connection has atleast one touching dimension
+    bool ret = false;
+    for(int i = 0; i < *dim; i++){
+        if(roi1[0][i] == roi2[0][i] || roi1[0][i] == roi2[1][i] || roi1[1][i] == roi2[0][i] || roi1[1][i] == roi2[1][i]){
+            ret = true;
+            break;
+        }
+    }
+    return ret;
+}
+//bool passcheck(int i, int j, int k, int *dim){
+//    if(*dim == 2){
+//        if((i == 0 && j != 0) || (i != 0 && j == 0)){
+//            return true;
+//        }
+//    }
+//    else{
+//        if((i == 0 && j == 0 && k != 0) || (i == 0 && j != 0 && k == 0) || (i != 0 && j == 0 && k == 0)){
+//            return true;
+//        }
+//    }
+//    return false;
+//}
+void makeNodePoint(struct skeleDensity **sd,int *dim){
+    struct skeleDensity *sDmain = *sd;
+    for(int i = 0; i < *sDmain->row; i++){
+        for(int j = 0; j < *sDmain->col; j++){
+            for(int k = 0; k < *sDmain->dep; k++){
+                if(*(sDmain->sB[i][j][k]).leng > 0){
+                    *(sDmain->pcount) = *(sDmain->pcount) + 1;
+                    //fprintf(stdout,"\n");
+                    //fprintf(stdout,"leng1=%d\n",*(sDmain->sB[i][j][k]).leng);
+                    //Here we will loop through all of our cells
+                    //We need to make sure we wont scan outofbound cells
+                    //So creating a check map will be beneficial
+                    int **searchid = malloc(26 * sizeof(int*));//allocate 26 potential cells of reach, if a full 3x3   
+                    for(int q = 0; q < 26; q++){
+                        searchid[q] = calloc(3 , sizeof(int));//initalize all as [0,0,0]
+                    }
+                    int len = 0;
+                    int nodecount = 0;
+                    for(int ic = -1; ic <= 1; ic++){
+                        for(int jc = -1; jc <= 1; jc++){
+                            for(int kc = -1; kc <= 1; kc++){
+                                int ti = i + ic;
+                                int tj = j + jc;
+                                int tk = k + kc;
+                                if(ti >= 0 && ti < *sDmain->row){
+                                    if(tj >= 0 && tj < *sDmain->col){
+                                        if(tk >= 0 && tk < *sDmain->dep){
+                                            //fprintf(stdout,"leng@look=%d,[%d,%d]\n",*(sDmain->sB[ti][tj][tk]).leng,ic,jc);
+                                            if(!(ic == 0 && jc == 0 && kc == 0) ){// && passcheck(ic,jc,kc,dim)){
+                                                if(*(sDmain->sB[ti][tj][tk]).leng != 0){
+                                                    //Finally we check if the roi is connecting:)
+                                                    //if(connectingROI((sDmain->sB[i][j][k]).roi,(sDmain->sB[ti][tj][tk]).roi,dim)){
+                                                        searchid[len][0] = ic;  
+                                                        searchid[len][1] = jc;  
+                                                        searchid[len][2] = kc;
+                                                        len++; 
+                                                    //}
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    //now we have created a list of spots we want to visit that is allowable
+                    bool localmax = false;
+                    bool endpoint = false;
+                    //double *dense = (sDmain->sB[i][j][k]).density;
+                    //for(int runi = 0; runi < len; runi++){
+                    //    //goes through all our wanted cells
+                    //    //fprintf(stdout,"going to look @ [%d,%d,%d]\n",i + searchid[runi][0],j + searchid[runi][1],k + searchid[runi][2]);
+                    //    if(*dense < *(sDmain->sB[i+searchid[runi][0]][j+searchid[runi][1]][k+searchid[runi][2]]).density){
+                    //        localmax = false;
+                    //        break;
+                    //    }
+                    //}
+                    //Here we calculate local maximum based on amount of connecting branches
+                    //if(localmax){
+                    //    for(int runi = 0; runi < len; runi++){
+                    //        //goes through all our wanted cells
+                    //        //fprintf(stdout,"going to look @ [%d,%d,%d]\n",i + searchid[runi][0],j + searchid[runi][1],k + searchid[runi][2]);
+                    //        if(len < *(sDmain->sB[i+searchid[runi][0]][j+searchid[runi][1]][k+searchid[runi][2]]).connections){
+                    //            localmax = false;
+                    //            break;
+                    //        }
+                    //    }
+                    //}
+                    //if(len <= 2){
+                    //    localmax = false;
+                    //}
+                    if(len == 1  || len == 0){
+                        endpoint = true;
+                    }
+                    else if(*dim == 2 && len == 2){
+                        //Here we check if the two are touching eachother 
+                        //we are also in 2D so it will be simpler
+                        int r1 = searchid[0][0];
+                        int r2 = searchid[1][0];
+                        int c1 = searchid[0][1];
+                        int c2 = searchid[1][1];
+                        if((r1 == r2 && (abs(c1-c2) == 1)) || (c1 == c2 && (abs(r1-r2) == 1))){
+                            endpoint = true;
+                        }
+                    }
+                    else if(*dim == 2 && len == 3){
+                        //Here we check if there is a corner, and the two neighboring cells
+                        int r1 = searchid[0][0];
+                        int r2 = searchid[1][0];
+                        int r3 = searchid[2][0];
+                        int c1 = searchid[0][1];
+                        int c2 = searchid[1][1];
+                        int c3 = searchid[2][1];
+                        //first check if one node is a corner
+                        int ccase = 0;
+                        if(r1 != 0 && c1 != 0){
+                            ccase += 1;
+                        }
+                        if(r2 != 0 && c2 != 0){
+                            ccase += 10;
+                        }
+                        if(r3 != 0 && c3 != 0){
+                            ccase += 100;
+                        }
+                        //Now we have a index of the corner
+                        //We need to check if the other two are each touching in opposite dimensions
+                        int nr1;
+                        int nr2;
+                        int nc1;
+                        int nc2;
+                        if(ccase == 1){
+                            nr1 = searchid[1][0];
+                            nr2 = searchid[2][0];
+                            nc1 = searchid[1][1];
+                            nc2 = searchid[2][1];
+                            ccase = 0;
+                            }
+                        else if(ccase == 10){
+                            nr1 = searchid[0][0];
+                            nr2 = searchid[2][0];
+                            nc1 = searchid[0][1];
+                            nc2 = searchid[2][1];
+                            ccase = 1;
+                        }
+                        else if(ccase == 100){
+                            nr1 = searchid[0][0];
+                            nr2 = searchid[1][0];
+                            nc1 = searchid[0][1];
+                            nc2 = searchid[1][1];
+                            ccase = 2;
+                        }
+                        else{
+                            ccase = -1;
+                        }
+                        if(ccase != -1){
+                            if((searchid[ccase][0] == nr1 && searchid[ccase][1] == nc2) || (searchid[ccase][0] == nr2 && searchid[ccase][1] == nc1)){
+                                endpoint = true;
+                            }
+                        }
+                        else{
+                            if((r1 == r2 && r1 == r3) || (c1 == c2 && c1 == c3)){
+                                endpoint = true;
+                            }
+                        }
+                    }
+                    if(!endpoint && *dim == 2 && len > 0){
+                        int corners = 0;
+                        int sides = 0;
+                        bool xmax = false;
+                        bool ymax = false;
+                        bool xmin = false;
+                        bool ymin = false;
+                        for(int runi = 0; runi < len; runi++){
+                            if(searchid[runi][0] != 0 && searchid[runi][1] != 0){
+                                corners++;
+                            }
+                            if((searchid[runi][0] != 0 && searchid[runi][1] == 0) || (searchid[runi][0] == 0 && searchid[runi][1] != 0)){
+                                sides++;
+                            }
+                            if(searchid[runi][0] == 1){
+                                xmax = true;
+                            }
+                            else if(searchid[runi][0] == -1){
+                                xmin = true;
+                            }
+                            if(searchid[runi][1] == 1){
+                                ymax = true;
+                            }
+                            else if(searchid[runi][1] == -1){
+                                ymin = true;
+                            }
+                        }
+                        if(corners+sides >= 4 && (xmax && ymax && xmin && ymin)){
+                            if(corners+sides == 4){
+                                //Checks that the 4 isnt crossing through everything 
+                                if(corners > 2 || sides > 2){
+                                    localmax = true;
+                                }
+                                else{
+                                    //sometimes there is a case where sides = 2 &  corners = 2 & it is a bifurcation area
+                                    //so we target that configuration here 
+                                    int *corner1 = calloc(2,sizeof(int));
+                                    int *corner2 = calloc(2,sizeof(int));
+                                    int *side1 = calloc(2,sizeof(int));
+                                    int *side2 = calloc(2,sizeof(int));
+                                    bool addc = false;
+                                    bool adds = false;
+                                    for(int runi = 0; runi < len; runi++){
+                                        //fprintf(stdout,"searchid[%d,%d]\n",searchid[runi][0],searchid[runi][1]);
+                                        if(searchid[runi][0] != 0 && searchid[runi][1] != 0){
+                                            if(!addc){
+                                                corner1[0] = searchid[runi][0];
+                                                corner1[1] = searchid[runi][1];
+                                                addc = true;
+                                            }
+                                            else{
+                                                corner2[0] = searchid[runi][0];
+                                                corner2[1] = searchid[runi][1];
+                                            }
+                                        }
+                                        if((searchid[runi][0] != 0 && searchid[runi][1] == 0) || (searchid[runi][0] == 0 && searchid[runi][1] != 0)){
+                                            if(!adds){
+                                                side1[0] = searchid[runi][0];
+                                                side1[1] = searchid[runi][1];
+                                                adds = true;
+                                            }
+                                            else{
+                                                side2[0] = searchid[runi][0];
+                                                side2[1] = searchid[runi][1];
+                                            }
+                                        }
+                                    }
+                                    //fprintf(stdout,"try correction [%d,%d],[%d,%d]\n",corner1[0],corner1[1],corner2[0],corner2[1]);
+                                    if(corner1[0] == corner2[0] || corner1[1] == corner2[1]){
+                                        //fprintf(stdout,"correction\n");
+                                        localmax = true;
+                                    }
+                                    free(corner1);
+                                    free(corner2);
+                                    free(side1);
+                                    free(side2);
+                                }
+                            }
+                            else{
+                                localmax = true;
+                            }
+                        }
+                    }
+                    if(endpoint){
+                        //If it is a end point, we will make a node point of the furthest point :)
+                        //fprintf(stdout,"endpoint\n");
+                        //fprintf(stdout,"@[%d,%d]\n",i,j);
+                        //fprintf(stdout,"len = %d\n",len);
+                        //for(int q = 0; q < len; q++){
+                        //    fprintf(stdout,"connections = [%d,%d]\n",searchid[q][0],searchid[q][1]);
+                        //}
+                        struct skeleBounds *localcell = &(sDmain->sB[i][j][k]);
+                        *localcell->hasNode = true;
+                        double extra = 1;
+                        double *calcpoint =  calloc(*dim+extra,sizeof(double));
+                        //Now we have our space malloced
+                        //Next we calculate our Node Point based on the average of the cell
+                        //To find our wanted node, we take the center of our data, which is calulated in the skeleBounds
+                        double cx = (*(sDmain->xmin) + *(sDmain->xmax)) / 2;
+                        double cy = (*(sDmain->ymin) + *(sDmain->ymax)) / 2;
+                        double cz;
+                        if(*dim == 3){
+                            cz = (*(sDmain->zmin) + *(sDmain->zmax)) / 2;
+                        }
+                        //And we will select the furthest point from the 'center'
+                        double furthest = 0.;
+                        int holdq = 0;
+                        for(int q = 0; q < *(localcell->leng); q++){
+                            double dx = localcell->points[q][0] - cx;
+                            double dy = localcell->points[q][1] - cy;
+                            double d;
+                            if(*dim == 3){
+                                double dz = localcell->points[q][2] - cz;
+                                d = pow(dx,2) + pow(dy,2) + pow(dz,2); 
+                            }
+                            else{
+                                d = pow(dx,2) + pow(dy,2); 
+                            }
+                            d = sqrt(d);
+                            if(d > furthest){
+                                furthest = d;
+                                holdq = q;
+                            }
+                        }
+                        calcpoint[0] = localcell->points[holdq][0];
+                        calcpoint[1] = localcell->points[holdq][1];
+                        if(*dim == 3){
+                            calcpoint[2] = localcell->points[holdq][2];
+                            calcpoint[3] = localcell->points[holdq][3];
+                        }
+                        else{
+                            calcpoint[2] = localcell->points[holdq][2];
+                        }
+                        localcell->nodepoint = calcpoint;
+                        *localcell->smode = 2;
+                        (*(sDmain->ncount))++;
+                    }
+                    else if(localmax){
+                        //fprintf(stdout,"localmax\n");
+                        //fprintf(stdout,"@[%d,%d]\n",i,j);
+                        //fprintf(stdout,"len = %d\n",len);
+                        //for(int q = 0; q < len; q++){
+                        //    fprintf(stdout,"connections = [%d,%d]\n",searchid[q][0],searchid[q][1]);
+                        //}
+                        //If it is a local maximum, we will make a node point :)
+                        struct skeleBounds *localcell = &(sDmain->sB[i][j][k]);
+                        *localcell->hasNode = true;
+                        double extra = 1;
+                        double *calcpoint =  calloc(*dim+extra,sizeof(double));
+                        //Now we have our space malloced
+                        //Next we calculate our Node Point based on the average of the cell
+                        double ax = 0.;
+                        double ay = 0.;
+                        double ar = 0.;
+                        double az;
+                        if(*dim == 3){
+                            az = 0.;
+                        }
+                        //fprintf(stdout,"leng=%d\n",*(localcell->leng));
+                        for(int q = 0; q < *(localcell->leng); q++){
+                            ax += localcell->points[q][0];
+                            ay += localcell->points[q][1];
+                            if(*dim == 3){
+                                az += localcell->points[q][2];
+                                ar += localcell->points[q][3];
+                            }
+                            else{
+                                ar += localcell->points[q][2];
+                            }
+                            //fprintf(stdout,"summing[%f,%f,%f]\n",ax,ay,ar);
+                        }
+                        ax = ax / *(localcell->leng);
+                        ay = ay / *(localcell->leng);
+                        if(*dim == 3){
+                            az = az / *(localcell->leng);
+                        }
+                        ar = ar / *(localcell->leng);
+                        calcpoint[0] = ax;
+                        calcpoint[1] = ay;
+                        if(*dim == 3){
+                            calcpoint[2] = az;
+                            calcpoint[3] = ar;
+                        }
+                        else{
+                            calcpoint[2] = ar;
+                        }
+                        localcell->nodepoint = calcpoint;
+                        *localcell->smode = 1;
+                        (*(sDmain->ncount))++;
+                    }
+                    //finally free up our searching
+                    for(int q = 0; q < 26; q++){
+                        free(searchid[q]);
+                    }
+                    free(searchid);
+                }
+            }
+        }
+    }
+}
+//method for tracing along our skeleDensity struct 
+int floodDensity(struct skeleDensity **sD,int *dim,int *nodeLocation,int distance,int **visitStack,int *visitcount){
+    //Firstly we set our curent cell's distance & assign it a new 
+    struct skeleDensity *sd = *sD;
+    if(distance == 0){
+        visitStack[0][0] = nodeLocation[0];
+        visitStack[0][1] = nodeLocation[1];
+        visitStack[0][2] = nodeLocation[2];
+    }
+    int i = visitStack[*visitcount][0];
+    int j = visitStack[*visitcount][1];
+    int k = visitStack[*visitcount][2];
+    //fprintf(stdout,"@[%d,%d,%d];distance=%d,vc=%d\n",i,j,k,distance,*visitcount);
+    *visitcount = *visitcount + 1;
+    if(*(sd->sB[i][j][k]).closedis == -1 || *(sd->sB[i][j][k]).closedis > distance){
+        *(sd->sB[i][j][k]).closedis = distance;
+        (sd->sB[i][j][k]).closeid[0] = nodeLocation[0];
+        (sd->sB[i][j][k]).closeid[1] = nodeLocation[1];
+        (sd->sB[i][j][k]).closeid[2] = nodeLocation[2];
+        //fprintf(stdout,"seen node[%d,%d,%d]\n",(sd->sB[i][j][k]).closeid[0],(sd->sB[i][j][k]).closeid[1],(sd->sB[i][j][k]).closeid[2]);
+    }
+    else{
+        return 0;
+    }
+    //Next we determine if there are any moves we want to make
+    int **searchid = malloc(26 * sizeof(int*));//allocate 26 potential cells of reach, if a full 3x3   
+    for(int q = 0; q < 26; q++){
+        searchid[q] = calloc(3 , sizeof(int));//initalize all as [0,0,0]
+    }
+    int len = 0;
+    for(int ic = -1; ic <= 1; ic++){
+        for(int jc = -1; jc <= 1; jc++){
+            for(int kc = -1; kc <= 1; kc++){
+                int ti = i + ic;
+                int tj = j + jc;
+                int tk = k + kc;
+                if(ti >= 0 && ti < *sd->row){
+                    if(tj >= 0 && tj < *sd->col){
+                        if(tk >= 0 && tk < *sd->dep){
+                            if(!(ic == 0 && jc == 0 && kc == 0)){
+                                if(*(sd->sB[ti][tj][tk]).leng != 0){
+                                    //Finally we check if the roi is connecting:)
+                                    //if(connectingROI((sd->sB[i][j][k]).roi,(sd->sB[ti][tj][tk]).roi,dim)){
+                                        searchid[len][0] = ic;  
+                                        searchid[len][1] = jc;  
+                                        searchid[len][2] = kc;
+                                        len++; 
+                                    //}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    //Now we have all our search id's, we first send floods towards the directly touching pieces, unless theres non in whichcase we will 
+    int edgesvisited = 0;//we track visited edges, and in cases where all have been gone to, we will bridge to a corner
+    int corners = 0;//we track corners/edges/cases where more than 1 variable isnt 0,
+    //this will let us know if we need to reach to corners or not
+    //fprintf(stdout,"\n");
+    for(int q = 0; q < len; q++){
+        //fprintf(stdout,"trying for [%d,%d,%d] (%d/%d)\n",i+searchid[q][0],j+searchid[q][1],k+searchid[q][2],q+1,len);
+        if((searchid[q][0] != 0 && searchid[q][1] == 0 && searchid[q][2] == 0) || (searchid[q][0] == 0 && searchid[q][1] != 0 && searchid[q][2] == 0) || (searchid[q][0] == 0 && searchid[q][1] == 0 && searchid[q][2] != 0)){
+            bool allowpass = true;
+            for(int p = 0; p < *visitcount; p++){
+                //check if node is already visited
+                //fprintf(stdout,"visted %d-[%d,%d,%d]\n",p,visitStack[p][0],visitStack[p][1],visitStack[p][2]);
+                if((i+searchid[q][0] == visitStack[p][0]) && (j+searchid[q][1] == visitStack[p][1]) && (k+searchid[q][2] == visitStack[p][2])){
+                    allowpass = false;
+                    break;
+                }
+            }
+            if(allowpass){
+                //Here we have determined that we are next to the cell & it hasnt been visited yet, so we will send a flood
+                //fprintf(stdout,"going to%d++\n",*visitcount);
+                visitStack[*visitcount][0] = i + searchid[q][0];
+                visitStack[*visitcount][1] = j + searchid[q][1];
+                visitStack[*visitcount][2] = k + searchid[q][2];
+                //*visitcount = *visitcount + 1;
+                edgesvisited = edgesvisited + floodDensity(&sd,dim,nodeLocation,distance + 1,visitStack,visitcount);
+            }
+        }
+        else{
+            //fprintf(stdout,"wascorner[%d,%d,%d]\n",searchid[q][0],searchid[q][1],searchid[q][2]);
+            bool allowpass = true;
+            for(int p = 0; p < *visitcount; p++){
+                //check if node is already visited
+                //fprintf(stdout,"visted %d-[%d,%d,%d]\n",p,visitStack[p][0],visitStack[p][1],visitStack[p][2]);
+                if((i+searchid[q][0] == visitStack[p][0]) && (j+searchid[q][1] == visitStack[p][1]) && (k+searchid[q][2] == visitStack[p][2])){
+                    allowpass = false;
+                    break;
+                }
+            }
+            if(allowpass){
+                corners++;
+            }
+        }
+    }
+    //now we correct to corners if no other options
+    if(corners > 0){
+        for(int q = 0; q < len; q++){
+            //fprintf(stdout,"trying for [%d,%d,%d] (%d/%d)\n",i+searchid[q][0],j+searchid[q][1],k+searchid[q][2],q+1,len);
+            if((searchid[q][0] != 0 && searchid[q][1] != 0 && searchid[q][2] == 0) || (searchid[q][0] == 0 && searchid[q][1] != 0 && searchid[q][2] != 0) || (searchid[q][0] != 0 && searchid[q][1] == 0 && searchid[q][2] != 0)){
+                bool allowpass = true;
+                for(int p = 0; p < *visitcount; p++){
+                    //check if node is already visited
+                    //fprintf(stdout,"visted %d-[%d,%d,%d]\n",p,visitStack[p][0],visitStack[p][1],visitStack[p][2]);
+                    if((i+searchid[q][0] == visitStack[p][0]) && (j+searchid[q][1] == visitStack[p][1]) && (k+searchid[q][2] == visitStack[p][2])){
+                        allowpass = false;
+                        break;
+                    }
+                }
+                if(allowpass){
+                    //Here we have determined that we are next to the cell & it hasnt been visited yet, so we will send a flood
+                    //fprintf(stdout,"going to%d++\n",*visitcount);
+                    visitStack[*visitcount][0] = i + searchid[q][0];
+                    visitStack[*visitcount][1] = j + searchid[q][1];
+                    visitStack[*visitcount][2] = k + searchid[q][2];
+                    //*visitcount = *visitcount + 1;
+                    floodDensity(&sd,dim,nodeLocation,distance + 1,visitStack,visitcount);
+                }
+            }
+        }
+    }
+    //fprintf(stdout,"\n");
+    for(int q = 0; q < 26; q++){
+        free(searchid[q]);
+    }
+    free(searchid);
+    *sD = sd;
+    return 1;
+}
+//resets all visited stacks to 0
+void resetFloodStack(int **vs, int leng){
+    for(int i = 0; i < leng; i++){
+        vs[i][0] = 0;
+        vs[i][1] = 0;
+        vs[i][2] = 0;
+    }
+}
+//Method for reducing LocalMax's where more than one exist in a 3x3 around it, uses endpoint calcs to 
+//optimize placement
+void reduceLocalMax(struct skeleDensity **sD,int *dim){
+    struct skeleDensity *sd  = *sD;
+    for(int i = 0; i < *sd->row; i++){
+        for(int j = 0; j < *sd->col; j++){
+            for(int k = 0; k < *sd->dep; k++){
+                if(*(sd->sB[i][j][k]).hasNode && *(sd->sB[i][j][k]).smode  == 1){
+                    //We have reached a point which is considered a localmax point 
+                    //and now we check if there are any point around it
+                    int tcount = 0;
+                    int tendcount = 0;
+                    bool closecase = false;
+                    //works for a 5x5 grid
+                    for(int ic = -2; ic <= 2; ic++){
+                        int ti = i + ic;
+                        for(int jc = -2; jc <= 2; jc++){
+                            int tj = j + jc;
+                            for(int kc = -2; kc <= 2; kc++){
+                                int tk = k + kc;
+                                if(ti >= 0 && ti < *sd->row){
+                                    if(tj >= 0 && tj < *sd->col){
+                                        if(tk >= 0 && tk < *sd->dep){
+                                            if(!(ic == 0 && jc == 0 && kc == 0)){
+                                                //we now have ti,tj,and tk which fall into the allowable regions(ie not off grid)
+                                                //Next we shall count the amount of nearby nodes made in smode = 1
+                                                if(*(sd->sB[ti][tj][tk]).smode == 2){
+                                                    closecase = true;
+                                                    tendcount++;
+                                                }
+                                                if(*(sd->sB[ti][tj][tk]).smode == 1){
+                                                    tcount++;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    //Now we have count & if its too close to a endpoint.
+                    if(closecase){
+                        for(int ic = -2; ic <= 2; ic++){
+                            int ti = i + ic;
+                            for(int jc = -2; jc <= 2; jc++){
+                                int tj = j + jc;
+                                for(int kc = -2; kc <= 2; kc++){
+                                    int tk = k + kc;
+                                    if(ti >= 0 && ti < *sd->row){
+                                        if(tj >= 0 && tj < *sd->col){
+                                            if(tk >= 0 && tk < *sd->dep){
+                                                if(!(ic == 0 && jc == 0 && kc == 0)){
+                                                    //we now have ti,tj,and tk which fall into the allowable regions(ie not off grid)
+                                                    //Next we shall count the amount of nearby nodes made in smode = 1
+                                                    if(*(sd->sB[ti][tj][tk]).smode == 1){
+                                                        //because too close to endpoint, we disable the nodepoint
+                                                        *(sd->sB[ti][tj][tk]).hasNode = false;
+                                                        free((sd->sB[ti][tj][tk]).nodepoint);
+                                                        *(sd->sB[ti][tj][tk]).smode = 0;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        //Lastly we will also merge close end points, these should be okay
+                        if(tendcount > 1){
+                            int hcount = 0;
+                            for(int ic = -2; ic <= 2; ic++){
+                                for(int jc = -2; jc <= 2; jc++){
+                                    for(int kc = -2; kc <= 2; kc++){
+                                        int ti = i + ic;
+                                        int tj = j + jc;
+                                        int tk = k + kc;
+                                        if(ti >= 0 && ti < *sd->row){
+                                            if(tj >= 0 && tj < *sd->col){
+                                                if(tk >= 0 && tk < *sd->dep){
+                                                    if(!(ic == 0 && jc == 0 && kc == 0)){
+                                                        //we now have ti,tj,and tk which fall into the allowable regions(ie not off grid)
+                                                        //Next we shall count the amount of nearby nodes made in smode = 1
+                                                        if(*(sd->sB[ti][tj][tk]).smode == 2){
+                                                            //because too close to nodepoint, we disable the nodepoint
+                                                            if(hcount == 0){
+                                                                hcount++;
+                                                            }
+                                                            else{
+                                                                *(sd->sB[ti][tj][tk]).hasNode = false;
+                                                                free((sd->sB[ti][tj][tk]).nodepoint);
+                                                                *(sd->sB[ti][tj][tk]).smode = 0;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    //And if not end point, it will collect a new nodepoint at the node nearby with the mode around it
+                    else if(tcount > 0){
+                        //For choosing which nodepoint to save, we will first average them up, and then 
+                        //given it falls inside one of the bounds of a point, that will be considered the branch
+                        int iavg = 0;
+                        int javg = 0;
+                        int kavg = 0;
+                        int avgcnt = 0;
+                        for(int ic = -2; ic <= 2; ic++){
+                            int ti = i + ic;
+                            for(int jc = -2; jc <= 2; jc++){
+                                int tj = j + jc;
+                                for(int kc = -2; kc <= 2; kc++){
+                                    int tk = k + kc;
+                                    if(ti >= 0 && ti < *sd->row){
+                                        if(tj >= 0 && tj < *sd->col){
+                                            if(tk >= 0 && tk < *sd->dep){
+                                                //we now have ti,tj,and tk which fall into the allowable regions(ie not off grid)
+                                                //Next we shall count the amount of nearby nodes made in smode = 1
+                                                if(*(sd->sB[ti][tj][tk]).smode == 1){
+                                                    iavg = iavg + ti;
+                                                    javg = javg + tj;
+                                                    kavg = kavg + tk;
+                                                    avgcnt++;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        //Now we average the amount
+                        iavg = (int)round(iavg / avgcnt);
+                        javg = (int)round(javg / avgcnt);
+                        kavg = (int)round(kavg / avgcnt);
+                        for(int ic = -2; ic <= 2; ic++){
+                            int ti = i + ic;
+                            for(int jc = -2; jc <= 2; jc++){
+                                int tj = j + jc;
+                                for(int kc = -2; kc <= 2; kc++){
+                                    int tk = k + kc;
+                                    if(ti >= 0 && ti < *sd->row){
+                                        if(tj >= 0 && tj < *sd->col){
+                                            if(tk >= 0 && tk < *sd->dep){
+                                                //we now have ti,tj,and tk which fall into the allowable regions(ie not off grid)
+                                                //Next we shall count the amount of nearby nodes made in smode = 1
+                                                if(*(sd->sB[ti][tj][tk]).smode == 1 && !(ti == iavg && tj == javg && tk == kavg)){
+                                                    *(sd->sB[ti][tj][tk]).hasNode = false;
+                                                    free((sd->sB[ti][tj][tk]).nodepoint);
+                                                    *(sd->sB[ti][tj][tk]).smode = 0;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }   
+    }
+    *sD = sd;
+}
+//Splining method, for merging unessicary nodes, and creating a spline
+void makeSpline(struct skeleDensity **sD,int *dim){
+    //Here the only node points are Skeleton points ends, we move from these
+    //along the region of interest 
+    struct skeleDensity *sDmain = *sD;
+    //for holding our locations & amounts of endpoints
+    int ncount = *sDmain->ncount;
+    int pcount = *sDmain->pcount; 
+    int **nodeid = malloc(ncount * sizeof(int*));
+    for(int i = 0; i < ncount; i++){
+        nodeid[i] = calloc(3,sizeof(int));
+    }
+    //first we collect the locations of each node
+    int localcount = 0;
+    int stackcount = 0;//allocates max needed space in our stack
+    //make adjustments if needed
+    if(*(sDmain->row) > 7 || *(sDmain->col) > 7 || *(sDmain->dep) > 7){
+        reduceLocalMax(sD,dim);
+    }
+    for(int i = 0; i < *sDmain->row; i++){
+        for(int j = 0; j < *sDmain->col; j++){
+            for(int k = 0; k < *sDmain->dep; k++){
+                if(*(sDmain->sB[i][j][k]).hasNode){// && *(sDmain->sB[i][j][k]).smode  == 2){
+                    nodeid[localcount][0] = i; 
+                    nodeid[localcount][1] = j; 
+                    nodeid[localcount][2] = k;
+                    localcount++;
+                }
+                if(*(sDmain->sB[i][j][k]).leng > 0){
+                    stackcount++;
+                }
+            }
+        }
+    }
+    //Here we begin our distance calculations from each endpoint
+    int **visitstack = malloc(stackcount * sizeof(int*));
+    for(int i = 0; i < stackcount; i++){
+        visitstack[i] = calloc(3,sizeof(int));
+    }
+    int *visitcount = calloc(1,sizeof(int));
+    for(int i = 0; i < localcount; i++){
+        *visitcount = 0;
+        floodDensity(sD,dim,nodeid[i],0,visitstack,visitcount);
+        if(i != localcount-1){
+            resetFloodStack(visitstack,stackcount);
+        }
+    }
+    //We have flooded our tree with endpoint calculations,
+    //Next we want to merge all of our localpoints which have been flagged, and turn the close ones into one node point
+    //now we free variables 
+    free(visitcount);
+    for(int i = 0; i < ncount; i++){
+        free(nodeid[i]);
+    }   
+    free(nodeid);
+    for(int i = 0; i < stackcount; i++){
+        free(visitstack[i]);
+    }
+    free(visitstack);
 }
 void skeleReduce(double **skeleton,double delta,double *minblen,int *length,int *dim,int *mxpt,double t){
     //We will have to brute force our data, however we will target area of data max & mins
@@ -761,11 +1659,21 @@ void skeleReduce(double **skeleton,double delta,double *minblen,int *length,int 
             }
         }
     }
+    xmax = xmax + delta * 1.5;
+    xmin = xmin - delta * 1.5;
+    ymax = ymax + delta * 1.5;
+    ymin = ymin - delta * 1.5;
+    if(*dim == 3){
+        zmax = zmax + delta * 1.5;
+        zmin = zmin - delta * 1.5;
+    }
     double tolerance = 1e-5;
     //Next we create our Structures
     
     struct skeleDensity *sD;
     createSD(&sD,skeleton,length,dim,delta,xmax,xmin,ymax,ymin,zmax,zmin);
+    makeNodePoint(&sD,dim);
+    makeSpline(&sD,dim);
     ///////////////////////////////////////////////////////////////////////Clearance
     //adapt_wavelet({hsd,hnpt,hlpt,hrpt},(double[]) {tolerance,tolerance,tolerance,tolerance}, sd.level,sd.level);
     //adapt_wavelet2({hsd,hnpt,hlpt,hrpt},(double[]) {tolerance,tolerance,tolerance,tolerance},calclevel,calclevel);
@@ -869,12 +1777,47 @@ void skeleReduce(double **skeleton,double delta,double *minblen,int *length,int 
             for(int k = 0; k < *sD->dep;k++){
                 //outputs --point, and ++point
                 struct skeleBounds sb = (sD->sB)[i][j][k];
-                fprintf(fpbox,"%f %f %f %f\n",*sb.x,*sb.y,*sb.x + *(sD->dx),*sb.y + *(sD->dy));
+                fprintf(fpbox,"%f %f %f %f %f %f %f %f %f %d %d %d\n",*sb.x,*sb.y,*sb.x + *(sD->dx),*sb.y + *(sD->dy),sb.roi[0][0],sb.roi[0][1],sb.roi[1][0],sb.roi[1][1],*sb.density,*sD->row,*sD->col,*sb.leng > 0);
+            }
         }
-    }
     }
     fflush(fpbox);
     fclose(fpbox);
+    
+
+    char nodename[80];
+    sprintf (nodename, "nodeDat-%5.3f.dat", t);
+    FILE * fpnode = fopen (nodename, "w");
+    for(int i = 0; i < *sD->row;i++){
+        for(int j = 0; j < *sD->col;j++){
+            for(int k = 0; k < *sD->dep;k++){
+                //outputs --point, and ++point
+                struct skeleBounds sb = (sD->sB)[i][j][k];
+                if(*sb.hasNode){
+                    fprintf(fpnode,"%f %f %f %d\n",sb.nodepoint[0],sb.nodepoint[1],sb.nodepoint[2],*sb.smode);
+                }
+            }
+        }
+    }
+    fflush(fpnode);
+    fclose(fpnode);
+    
+    char scname[80];
+    sprintf (scname, "splinecalcDat-%5.3f.dat", t);
+    FILE * fpsc = fopen (scname, "w");
+    for(int i = 0; i < *sD->row;i++){
+        for(int j = 0; j < *sD->col;j++){
+            for(int k = 0; k < *sD->dep;k++){
+                //outputs --point, and ++point
+                struct skeleBounds sb = (sD->sB)[i][j][k];
+                if(sb.closedis != NULL && *sb.closedis != -1){
+                    fprintf(fpsc,"%f %f %f %f %d %d %d\n",*sb.x,*sb.y,*(sD->dx),*(sD->dy),*sb.closedis,sb.closeid[0],sb.closeid[1]);
+                }
+            }
+        }
+    }
+    fflush(fpsc);
+    fclose(fpsc);
     destroySD(&sD,dim);
     
     //cleanup var
