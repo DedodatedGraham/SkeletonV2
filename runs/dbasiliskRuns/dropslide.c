@@ -109,8 +109,9 @@ void runSkeleton(double ti){
     int mxpt = 100; 
     //run reduce
     //double del = 0.05;
-    double del = 0.05/2;
-    skeleReduce(skeleton,del,&minbranchlength,&snr,&snd,&mxpt,ti);
+    double del = 0.05/8;
+    int n = 1;
+    skeleReduce(skeleton,del,&minbranchlength,&snr,&snd,&mxpt,ti,n);
     
     end = clock();
     calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for skeleton  

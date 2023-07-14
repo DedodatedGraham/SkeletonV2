@@ -539,8 +539,10 @@ struct skeleBounds{
     double **roi;//Region of Interest [xmin,ymin,zmin],[xmax,ymax,zmax]
     int *smode;//selection mode
     int *connections;
-    int *closedis;//closest distance to node point
-    int *closeid;//closest node's id
+    int *closedis1;//closest distance to node point
+    int *closedis2;//closest distance to node point
+    int *closeid1;//closest node's id
+    int *closeid2;//closest node's id
 };
 struct skeleDensity{
     //overall struct, this holds relevant values needed to be calculated &
@@ -672,11 +674,16 @@ void createSD(struct skeleDensity **sd,double **inpts,int *inleng,int *dim,doubl
                 *tsc = 0;
                 allocsb[i][j][k].connections = tsc;
                 //allocate for distances
-                int *tcd = malloc(sizeof(int));
-                *tcd = -1;
-                allocsb[i][j][k].closedis = tcd;
-                int *tci = calloc(3,sizeof(int));
-                allocsb[i][j][k].closeid = tci;
+                int *tcd1 = malloc(sizeof(int));
+                *tcd1 = -1;
+                allocsb[i][j][k].closedis1 = tcd1;
+                int *tcd2 = malloc(sizeof(int));
+                *tcd2 = -1;
+                allocsb[i][j][k].closedis2 = tcd2;
+                int *tci1 = calloc(3,sizeof(int));
+                allocsb[i][j][k].closeid1 = tci1;
+                int *tci2 = calloc(3,sizeof(int));
+                allocsb[i][j][k].closeid2 = tci2;
                 //set y from row
                 double *ty = malloc(sizeof (double));
                 *ty = ystart + (*dy * i);
@@ -712,7 +719,7 @@ void createSD(struct skeleDensity **sd,double **inpts,int *inleng,int *dim,doubl
                 (allocsb[i][j][k].roi)[0] = calloc(3 , sizeof(double));
                 (allocsb[i][j][k].roi)[1] = calloc(3 , sizeof(double));
                 double *calcdensity = malloc(sizeof(double));
-                double extra = 1;
+                int extra = 1;
                 if(*tlen != 0){
                     for(int q = 0; q < *dim; q++){
                         (allocsb[i][j][k].roi)[0][q] = HUGE;
@@ -858,8 +865,10 @@ void destroySD(struct skeleDensity **sd, int *dim){
                     free(bounds->smode);
                     free(bounds->connections);
                     free(bounds->leng);
-                    free(bounds->closedis);
-                    free(bounds->closeid);
+                    free(bounds->closedis1);
+                    free(bounds->closedis2);
+                    free(bounds->closeid1);
+                    free(bounds->closeid2);
                     free(bounds->roi[0]);
                     free(bounds->roi[1]);
                     free(bounds->roi);
@@ -892,14 +901,18 @@ void destroySD(struct skeleDensity **sd, int *dim){
         fprintf(stdout,"error NULL\n");
     }
 }
-bool connectingROI(double **roi1,double**roi2,int *dim){
+bool connectingROI(double **roi1,double**roi2,int *dim,double *tolerance){
     //roi is [xmin,ymin,zmin],[xmax,ymax,zmax]
     //a connection has atleast one touching dimension
     bool ret = false;
-    for(int i = 0; i < *dim; i++){
-        if(roi1[0][i] == roi2[0][i] || roi1[0][i] == roi2[1][i] || roi1[1][i] == roi2[0][i] || roi1[1][i] == roi2[1][i]){
-            ret = true;
-            break;
+    if(*dim == 2){
+        //ignore z bc will always be touching
+        //First we check if one dimension lines up, this determines if they are even relative to eachother
+        //then check if other dimension is between
+        if((abs(roi1[0][0]-roi2[0][0])<*tolerance)||(abs(roi1[0][0]-roi2[1][0])<*tolerance)||(abs(roi1[1][0]-roi2[0][0])<*tolerance)||(abs(roi1[1][0]-roi2[1][0])<*tolerance)){
+            if((abs(roi1[0][1]-roi2[0][1])<*tolerance)||(abs(roi1[0][1]-roi2[1][1])<*tolerance)||(abs(roi1[1][1]-roi2[0][1])<*tolerance)||(abs(roi1[1][1]-roi2[1][1])<*tolerance)){
+                ret = true;
+            }
         }
     }
     return ret;
@@ -1263,28 +1276,47 @@ void makeNodePoint(struct skeleDensity **sd,int *dim){
     }
 }
 //method for tracing along our skeleDensity struct 
-int floodDensity(struct skeleDensity **sD,int *dim,int *nodeLocation,int distance,int **visitStack,int *visitcount){
+int floodDensity(struct skeleDensity **sD,int *dim,int *nodeLocation,int distance,int ***pvisitStack,int *visitcount,int **markerids,int *lengmarker,double *tolerance){
     //Firstly we set our curent cell's distance & assign it a new 
     struct skeleDensity *sd = *sD;
+    int **visitStack = *pvisitStack; 
     if(distance == 0){
         visitStack[0][0] = nodeLocation[0];
         visitStack[0][1] = nodeLocation[1];
         visitStack[0][2] = nodeLocation[2];
+        for(int i = 0; i < *lengmarker; i++){
+            visitStack[i+1][0] = markerids[i][0];
+            visitStack[i+1][1] = markerids[i][1];
+            visitStack[i+1][2] = markerids[i][2];
+        }
     }
     int i = visitStack[*visitcount][0];
     int j = visitStack[*visitcount][1];
     int k = visitStack[*visitcount][2];
     //fprintf(stdout,"@[%d,%d,%d];distance=%d,vc=%d\n",i,j,k,distance,*visitcount);
-    *visitcount = *visitcount + 1;
-    if(*(sd->sB[i][j][k]).closedis == -1 || *(sd->sB[i][j][k]).closedis > distance){
-        *(sd->sB[i][j][k]).closedis = distance;
-        (sd->sB[i][j][k]).closeid[0] = nodeLocation[0];
-        (sd->sB[i][j][k]).closeid[1] = nodeLocation[1];
-        (sd->sB[i][j][k]).closeid[2] = nodeLocation[2];
-        //fprintf(stdout,"seen node[%d,%d,%d]\n",(sd->sB[i][j][k]).closeid[0],(sd->sB[i][j][k]).closeid[1],(sd->sB[i][j][k]).closeid[2]);
+    if(*(sd->sB[i][j][k]).closedis1 == -1 || *(sd->sB[i][j][k]).closedis1 > distance){
+        //*(sd->sB[i][j][k]).closedis2 = *(sd->sB[i][j][k]).closedis1;
+        //(sd->sB[i][j][k]).closeid2[0] = (sd->sB[i][j][k]).closeid1[0];
+        //(sd->sB[i][j][k]).closeid2[1] = (sd->sB[i][j][k]).closeid1[1];
+        //(sd->sB[i][j][k]).closeid2[2] = (sd->sB[i][j][k]).closeid1[2];
+        *(sd->sB[i][j][k]).closedis1 = distance;
+        (sd->sB[i][j][k]).closeid1[0] = nodeLocation[0];
+        (sd->sB[i][j][k]).closeid1[1] = nodeLocation[1];
+        (sd->sB[i][j][k]).closeid1[2] = nodeLocation[2];
+        *visitcount = *visitcount + +1;
+        //fprintf(stdout,"closest node[%d,%d,%d]\n",(sd->sB[i][j][k]).closeid1[0],(sd->sB[i][j][k]).closeid1[1],(sd->sB[i][j][k]).closeid1[2]);
     }
     else{
-        return 0;
+        //fprintf(stdout,"pass on node, belongs to[%d,%d,%d] (%d vs %d)\n",(sd->sB[i][j][k]).closeid1[0],(sd->sB[i][j][k]).closeid1[1],(sd->sB[i][j][k]).closeid1[2],distance,*(sd->sB[i][j][k].closedis1));
+        //if(*(sd->sB[i][j][k]).closedis2 == -1 || *(sd->sB[i][j][k]).closedis2 > distance){
+        //    *(sd->sB[i][j][k]).closedis2 = distance;
+        //    (sd->sB[i][j][k]).closeid2[0] = nodeLocation[0];
+        //    (sd->sB[i][j][k]).closeid2[1] = nodeLocation[1];
+        //    (sd->sB[i][j][k]).closeid2[2] = nodeLocation[2];
+        //}
+        //else{
+            return 0;
+        //}
     }
     //Next we determine if there are any moves we want to make
     int **searchid = malloc(26 * sizeof(int*));//allocate 26 potential cells of reach, if a full 3x3   
@@ -1304,7 +1336,7 @@ int floodDensity(struct skeleDensity **sD,int *dim,int *nodeLocation,int distanc
                             if(!(ic == 0 && jc == 0 && kc == 0)){
                                 if(*(sd->sB[ti][tj][tk]).leng != 0){
                                     //Finally we check if the roi is connecting:)
-                                    //if(connectingROI((sd->sB[i][j][k]).roi,(sd->sB[ti][tj][tk]).roi,dim)){
+                                    //if(connectingROI((sd->sB[i][j][k]).roi,(sd->sB[ti][tj][tk]).roi,dim,tolerance)){
                                         searchid[len][0] = ic;  
                                         searchid[len][1] = jc;  
                                         searchid[len][2] = kc;
@@ -1321,44 +1353,46 @@ int floodDensity(struct skeleDensity **sD,int *dim,int *nodeLocation,int distanc
     //Now we have all our search id's, we first send floods towards the directly touching pieces, unless theres non in whichcase we will 
     int edgesvisited = 0;//we track visited edges, and in cases where all have been gone to, we will bridge to a corner
     int corners = 0;//we track corners/edges/cases where more than 1 variable isnt 0,
+    int edges = 0;
     //this will let us know if we need to reach to corners or not
     //fprintf(stdout,"\n");
     for(int q = 0; q < len; q++){
         //fprintf(stdout,"trying for [%d,%d,%d] (%d/%d)\n",i+searchid[q][0],j+searchid[q][1],k+searchid[q][2],q+1,len);
         if((searchid[q][0] != 0 && searchid[q][1] == 0 && searchid[q][2] == 0) || (searchid[q][0] == 0 && searchid[q][1] != 0 && searchid[q][2] == 0) || (searchid[q][0] == 0 && searchid[q][1] == 0 && searchid[q][2] != 0)){
-            bool allowpass = true;
-            for(int p = 0; p < *visitcount; p++){
-                //check if node is already visited
-                //fprintf(stdout,"visted %d-[%d,%d,%d]\n",p,visitStack[p][0],visitStack[p][1],visitStack[p][2]);
-                if((i+searchid[q][0] == visitStack[p][0]) && (j+searchid[q][1] == visitStack[p][1]) && (k+searchid[q][2] == visitStack[p][2])){
-                    allowpass = false;
-                    break;
-                }
-            }
-            if(allowpass){
+            //bool allowpass = true;
+            //for(int p = 0; p < *visitcount; p++){
+            //    //check if node is already visited
+            //    //fprintf(stdout,"visted %d-[%d,%d,%d]\n",p,visitStack[p][0],visitStack[p][1],visitStack[p][2]);
+            //    if((i+searchid[q][0] == visitStack[p][0]) && (j+searchid[q][1] == visitStack[p][1]) && (k+searchid[q][2] == visitStack[p][2])){
+            //        allowpass = false;
+            //        break;
+            //    }
+            //}
+            //if(allowpass){
                 //Here we have determined that we are next to the cell & it hasnt been visited yet, so we will send a flood
                 //fprintf(stdout,"going to%d++\n",*visitcount);
                 visitStack[*visitcount][0] = i + searchid[q][0];
                 visitStack[*visitcount][1] = j + searchid[q][1];
                 visitStack[*visitcount][2] = k + searchid[q][2];
                 //*visitcount = *visitcount + 1;
-                edgesvisited = edgesvisited + floodDensity(&sd,dim,nodeLocation,distance + 1,visitStack,visitcount);
-            }
+                edgesvisited = edgesvisited + floodDensity(&sd,dim,nodeLocation,distance + 1,&visitStack,visitcount,markerids,lengmarker,tolerance);
+                edges++;
+            //}
         }
         else{
             //fprintf(stdout,"wascorner[%d,%d,%d]\n",searchid[q][0],searchid[q][1],searchid[q][2]);
-            bool allowpass = true;
-            for(int p = 0; p < *visitcount; p++){
-                //check if node is already visited
-                //fprintf(stdout,"visted %d-[%d,%d,%d]\n",p,visitStack[p][0],visitStack[p][1],visitStack[p][2]);
-                if((i+searchid[q][0] == visitStack[p][0]) && (j+searchid[q][1] == visitStack[p][1]) && (k+searchid[q][2] == visitStack[p][2])){
-                    allowpass = false;
-                    break;
-                }
-            }
-            if(allowpass){
+            //bool allowpass = true;
+            //for(int p = 0; p < *visitcount; p++){
+            //    //check if node is already visited
+            //    //fprintf(stdout,"visted %d-[%d,%d,%d]\n",p,visitStack[p][0],visitStack[p][1],visitStack[p][2]);
+            //    if((i+searchid[q][0] == visitStack[p][0]) && (j+searchid[q][1] == visitStack[p][1]) && (k+searchid[q][2] == visitStack[p][2])){
+            //        allowpass = false;
+            //        break;
+            //    }
+            //}
+            //if(allowpass){
                 corners++;
-            }
+            //}
         }
     }
     //now we correct to corners if no other options
@@ -1366,24 +1400,29 @@ int floodDensity(struct skeleDensity **sD,int *dim,int *nodeLocation,int distanc
         for(int q = 0; q < len; q++){
             //fprintf(stdout,"trying for [%d,%d,%d] (%d/%d)\n",i+searchid[q][0],j+searchid[q][1],k+searchid[q][2],q+1,len);
             if((searchid[q][0] != 0 && searchid[q][1] != 0 && searchid[q][2] == 0) || (searchid[q][0] == 0 && searchid[q][1] != 0 && searchid[q][2] != 0) || (searchid[q][0] != 0 && searchid[q][1] == 0 && searchid[q][2] != 0)){
-                bool allowpass = true;
-                for(int p = 0; p < *visitcount; p++){
-                    //check if node is already visited
-                    //fprintf(stdout,"visted %d-[%d,%d,%d]\n",p,visitStack[p][0],visitStack[p][1],visitStack[p][2]);
-                    if((i+searchid[q][0] == visitStack[p][0]) && (j+searchid[q][1] == visitStack[p][1]) && (k+searchid[q][2] == visitStack[p][2])){
-                        allowpass = false;
-                        break;
-                    }
-                }
-                if(allowpass){
+                //bool allowpass = true;
+                //for(int p = 0; p < *visitcount; p++){
+                //    //check if node is already visited
+                //    //fprintf(stdout,"visted %d-[%d,%d,%d]\n",p,visitStack[p][0],visitStack[p][1],visitStack[p][2]);
+                //    if((i+searchid[q][0] == visitStack[p][0]) && (j+searchid[q][1] == visitStack[p][1]) && (k+searchid[q][2] == visitStack[p][2])){
+                //        allowpass = false;
+                //        break;
+                //    }
+                //}
+                //if(allowpass){
                     //Here we have determined that we are next to the cell & it hasnt been visited yet, so we will send a flood
                     //fprintf(stdout,"going to%d++\n",*visitcount);
                     visitStack[*visitcount][0] = i + searchid[q][0];
                     visitStack[*visitcount][1] = j + searchid[q][1];
                     visitStack[*visitcount][2] = k + searchid[q][2];
                     //*visitcount = *visitcount + 1;
-                    floodDensity(&sd,dim,nodeLocation,distance + 1,visitStack,visitcount);
-                }
+                    if(edges == 1){
+                        floodDensity(&sd,dim,nodeLocation,distance + 1,&visitStack,visitcount,markerids,lengmarker,tolerance);
+                    }
+                    else{
+                        floodDensity(&sd,dim,nodeLocation,distance + 2,&visitStack,visitcount,markerids,lengmarker,tolerance);
+                    }
+                //}
             }
         }
     }
@@ -1392,16 +1431,23 @@ int floodDensity(struct skeleDensity **sD,int *dim,int *nodeLocation,int distanc
         free(searchid[q]);
     }
     free(searchid);
+    *pvisitStack = visitStack;
     *sD = sd;
     return 1;
 }
 //resets all visited stacks to 0
-void resetFloodStack(int **vs, int leng){
+void resetFloodStack(int **vs, int leng, int **ids, int idleng){
     for(int i = 0; i < leng; i++){
         vs[i][0] = 0;
         vs[i][1] = 0;
         vs[i][2] = 0;
     }
+    for(int i = 0; i < idleng; i++){
+        ids[i][0] = 0;
+        ids[i][1] = 0;
+        ids[i][2] = 0;
+    }
+
 }
 //Method for reducing LocalMax's where more than one exist in a 3x3 around it, uses endpoint calcs to 
 //optimize placement
@@ -1454,7 +1500,7 @@ void reduceLocalMax(struct skeleDensity **sD,int *dim){
                                     if(ti >= 0 && ti < *sd->row){
                                         if(tj >= 0 && tj < *sd->col){
                                             if(tk >= 0 && tk < *sd->dep){
-                                                if(!(ic == 0 && jc == 0 && kc == 0)){
+                                                //if(!(ic == 0 && jc == 0 && kc == 0)){
                                                     //we now have ti,tj,and tk which fall into the allowable regions(ie not off grid)
                                                     //Next we shall count the amount of nearby nodes made in smode = 1
                                                     if(*(sd->sB[ti][tj][tk]).smode == 1){
@@ -1462,8 +1508,9 @@ void reduceLocalMax(struct skeleDensity **sD,int *dim){
                                                         *(sd->sB[ti][tj][tk]).hasNode = false;
                                                         free((sd->sB[ti][tj][tk]).nodepoint);
                                                         *(sd->sB[ti][tj][tk]).smode = 0;
+                                                        *(sd->ncount) = *(sd->ncount) - 1;
                                                     }
-                                                }
+                                                //}
                                             }
                                         }
                                     }
@@ -1494,6 +1541,7 @@ void reduceLocalMax(struct skeleDensity **sD,int *dim){
                                                                 *(sd->sB[ti][tj][tk]).hasNode = false;
                                                                 free((sd->sB[ti][tj][tk]).nodepoint);
                                                                 *(sd->sB[ti][tj][tk]).smode = 0;
+                                                                *(sd->ncount) = *(sd->ncount) - 1;
                                                             }
                                                         }
                                                     }
@@ -1555,6 +1603,7 @@ void reduceLocalMax(struct skeleDensity **sD,int *dim){
                                                     *(sd->sB[ti][tj][tk]).hasNode = false;
                                                     free((sd->sB[ti][tj][tk]).nodepoint);
                                                     *(sd->sB[ti][tj][tk]).smode = 0;
+                                                    *(sd->ncount) = *(sd->ncount) - 1;
                                                 }
                                             }
                                         }
@@ -1569,14 +1618,610 @@ void reduceLocalMax(struct skeleDensity **sD,int *dim){
     }
     *sD = sd;
 }
+//handles allocation/reallocation of combos
+void addCombo(int *masterid,int *indexCombo,int *comboCount,int ***pnodeconnections,int ***pnodeindex,int *nicount){
+    int **nodeconnections = *pnodeconnections;
+    int **nodeindex = *pnodeindex;
+    int im = -1;
+    int ic = -1;
+    //find index of id's if already exist
+    for(int i = 0; i < *nicount; i++){
+        if((masterid[0]==nodeindex[i][0]) && (masterid[1]==nodeindex[i][1]) && (masterid[2]==nodeindex[i][2])){
+            im = i;
+        }
+        else if((indexCombo[0]==nodeindex[i][0]) && (indexCombo[1]==nodeindex[i][1]) && (indexCombo[2]==nodeindex[i][2])){
+            ic = i;
+        }
+    }
+    //First calc needed alloc space
+    int nialloc = 0;
+    if(im == -1){
+        nialloc++;
+    }
+    if(ic == -1){
+        nialloc++;
+    }
+    int **tempnodeindex = malloc((nialloc + *nicount) * sizeof(int*));
+    int mode = 0;
+    //create new nodeindex
+    for(int i = 0; i < (nialloc + *nicount); i++){
+        tempnodeindex[i] = calloc(3,sizeof(int));
+        if(i < *nicount){
+            tempnodeindex[i][0] = nodeindex[i][0];
+            tempnodeindex[i][1] = nodeindex[i][1];
+            tempnodeindex[i][2] = nodeindex[i][2];
+        }
+        else{
+            if(im == -1 && mode == 0){
+                mode++;
+                tempnodeindex[i][0] = masterid[0];
+                tempnodeindex[i][1] = masterid[1];
+                tempnodeindex[i][2] = masterid[2];
+                im = i;
+            }
+            else if(ic == -1){
+                tempnodeindex[i][0] = indexCombo[0];
+                tempnodeindex[i][1] = indexCombo[1];
+                tempnodeindex[i][2] = indexCombo[2];
+                ic = i;
+            }
+        }
+    }
+    //free old
+    for(int i = 0; i < *nicount; i++){
+        free(nodeindex[i]);
+    }
+    if(nodeindex != NULL){
+        free(nodeindex);
+    }
+    //set new
+    *pnodeindex = tempnodeindex;
+    *nicount = *nicount + nialloc;
+    if(im == -1 || ic == -1){
+        fprintf(stdout,"comboadd error !\n");
+    }
+    //Next we add the combo with the respective index
+    int **tempnodeconnections = malloc((*comboCount + 1) * sizeof(int*));
+    for(int i = 0; i < (*comboCount + 1); i++){
+        tempnodeconnections[i] = calloc(2,sizeof(int));
+        if(i < *comboCount){
+            tempnodeconnections[i][0] = nodeconnections[i][0];
+            tempnodeconnections[i][1] = nodeconnections[i][1];
+        }
+        else{
+            tempnodeconnections[i][0] = im;
+            tempnodeconnections[i][1] = ic;
+        }
+    }
+    for(int i = 0; i < *comboCount; i++){
+        free(nodeconnections[i]);
+    }
+    if(nodeconnections != NULL){
+        free(nodeconnections);
+    }
+    *pnodeconnections = tempnodeconnections;
+    *comboCount = *comboCount + 1;
+}
+//handles deallocation of combos
+void freeCombo(double ****pfindpoints,int **pcomboindex,int ***pnodeconnections,int ***pnodeindex,int *combocount,int *nicount){
+    double ***findpoints = *pfindpoints;
+    int **nodeindex = *pnodeindex;
+    int **nodeconnections = *pnodeconnections;
+    int *comboindex = *pcomboindex;
+    bool clearfind = false;
+    if(findpoints != NULL){
+        clearfind = true;
+    }
+    //frees connections & points if needed
+    for(int i = 0; i < *combocount; i++){
+        free(nodeconnections[i]);
+        if(clearfind){
+            free(findpoints[i]);
+        }
+    }
+    if(*pnodeconnections != NULL && nodeconnections != NULL){
+        free(nodeconnections);
+    }
+    if(clearfind){
+        free(findpoints);
+    }
+    for(int i = 0; i < *nicount; i++){
+        free(nodeindex[i]);
+    }
+    if(nodeindex != NULL){
+        free(nodeindex);
+    }
+    if(comboindex != NULL){
+        free(comboindex);
+    }
+    *pfindpoints = NULL;
+    *pnodeindex = NULL;
+    *pnodeconnections = NULL;
+    *pcomboindex = NULL;
+}
+//floodpart2 for checking id mesh
+void floodDensity2(struct skeleDensity **sD,int *dim,int *combocount,int ***pnodeconnections,int ***pnodeindex,int *nicount,int **pmasterid,int ***pgonestack,int *gonecount){
+    struct skeleDensity *sd  = *sD;
+    int **nodeconnections = *pnodeconnections;
+    int **nodeindex = *pnodeindex;
+    int **gonestack = *pgonestack;
+    int *masterid = *pmasterid;
+    //get curent location
+    int i = gonestack[*gonecount][0];
+    int j = gonestack[*gonecount][1];
+    int k = gonestack[*gonecount][2];
+    if((sd->sB[i][j][k]).closeid1[0] == masterid[0] && (sd->sB[i][j][k]).closeid1[1] == masterid[1] && (sd->sB[i][j][k]).closeid1[2] == masterid[2]){
+        //If our id is the same, we move on :)
+        //first test for edge nodes & move
+        for(int q = -1; q <= 1; q++){
+            for(int p = -1; p <= 1; p++){
+                for(int r = -1; r <= 1; r++){
+                    if(!(q == 0 && p == 0 && r == 0)){
+                        int ic = i + q;
+                        int jc = j + p;
+                        int kc = k + r;
+                        if(ic >= 0 && ic < *(sd->row)){
+                            if(jc >= 0 && jc < *(sd->col)){
+                                if(kc >= 0 && kc < *(sd->dep)){
+                                    if(*(sd->sB[ic][jc][kc]).leng != 0){
+                                        //Within bounds
+                                        if((q != 0 && p == 0 && r == 0) || (q == 0 && p != 0 && r == 0) || (q == 0 && p == 0 && r != 0)){
+                                            //Edge node we visit first
+                                            bool passcase = true;
+                                            for(int l = 0; l < *gonecount; l++){
+                                                if((ic == gonestack[l][0]) && (jc == gonestack[l][1]) && (kc == gonestack[l][2])){
+                                                    passcase = false;
+                                                    break;
+                                                }
+                                            }
+                                            if(passcase){
+                                                *gonecount = *gonecount + 1;
+                                                gonestack[*gonecount][0] = ic; 
+                                                gonestack[*gonecount][1] = jc; 
+                                                gonestack[*gonecount][2] = kc; 
+                                                floodDensity2(sD,dim,combocount,&nodeconnections,&nodeindex,nicount,&masterid,&gonestack,gonecount);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        //Next test for corners and move if not visited
+        for(int q = -1; q <= 1; q++){
+            for(int p = -1; p <= 1; p++){
+                for(int r = -1; r <= 1; r++){
+                    if(!(q == 0 && p == 0 && r == 0)){
+                        int ic = i + q;
+                        int jc = j + p;
+                        int kc = k + r;
+                        if(ic >= 0 && ic < *(sd->row)){
+                            if(jc >= 0 && jc < *(sd->col)){
+                                if(kc >= 0 && kc < *(sd->dep)){
+                                    if(*(sd->sB[ic][jc][kc]).leng != 0){
+                                        //Within bounds
+                                        if((q != 0 && p != 0 && r != 0) || (q != 0 && p != 0 && r == 0) || (q != 0 && p == 0 && r != 0) || (q == 0 && p != 0 && r != 0)){
+                                            //now corners 
+                                            bool passcase = true;
+                                            for(int l = 0; l < *gonecount; l++){
+                                                if((ic == gonestack[l][0]) && (jc == gonestack[l][1]) && (kc == gonestack[l][2])){
+                                                    passcase = false;
+                                                    break;
+                                                }
+                                            }
+                                            if(passcase){
+                                                *gonecount = *gonecount + 1;
+                                                gonestack[*gonecount][0] = ic; 
+                                                gonestack[*gonecount][1] = jc; 
+                                                gonestack[*gonecount][2] = kc; 
+                                                floodDensity2(sD,dim,combocount,&nodeconnections,&nodeindex,nicount,&masterid,&gonestack,gonecount);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    else{// if(!((sd->sB[i][j][k]).closeid1[0] == 0 && (sd->sB[i][j][k]).closeid1[1] == 0 && (sd->sB[i][j][k]).closeid1[2] == 0)){
+        //If its different than we check the combo count
+        int *indexCombo = malloc(3*sizeof(int));
+        indexCombo[0] = (sd->sB[i][j][k]).closeid1[0];
+        indexCombo[1] = (sd->sB[i][j][k]).closeid1[1];
+        indexCombo[2] = (sd->sB[i][j][k]).closeid1[2];
+        bool clearindexcombo = false;
+        //fprintf(stdout,"--combocount--%d\n",*combocount);
+        for(int q = 0; q < *combocount; q++){
+            if((masterid[0]==nodeindex[nodeconnections[q][0]][0]) && (masterid[1]==nodeindex[nodeconnections[q][0]][1]) && (masterid[2]==nodeindex[nodeconnections[q][0]][2])){
+                if((indexCombo[0]==nodeindex[nodeconnections[q][1]][0]) && (indexCombo[1]==nodeindex[nodeconnections[q][1]][1]) && (indexCombo[2]==nodeindex[nodeconnections[q][1]][2])){
+                    //Here we have found one variant
+                    clearindexcombo = true;
+                }
+
+            }
+            else if((masterid[0]==nodeindex[nodeconnections[q][1]][0]) && (masterid[1]==nodeindex[nodeconnections[q][1]][1]) && (masterid[2]==nodeindex[nodeconnections[q][1]][2])){
+                if((indexCombo[0]==nodeindex[nodeconnections[q][0]][0]) && (indexCombo[1]==nodeindex[nodeconnections[q][0]][1]) && (indexCombo[2]==nodeindex[nodeconnections[q][0]][2])){
+                    clearindexcombo = true;
+                }
+            }
+        }
+        if(clearindexcombo){
+            free(indexCombo);
+        }
+        else{
+            //We didnt find the index combo, so we will allocate for a new index combo, which places the masterid in position 1
+            addCombo(masterid,indexCombo,combocount,&nodeconnections,&nodeindex,nicount);
+            free(indexCombo);
+        }
+    }
+    *pgonestack = gonestack;
+    *pmasterid = masterid;
+    *pnodeconnections = nodeconnections;
+    *pnodeindex = nodeindex;
+    *sD = sd;
+}
+void sortAng(double **pangles,int ***paltid,int **paltloc,int *leng,double t){
+    double *angles = *pangles;
+    int **altid = *paltid;
+    int *altloc = *paltloc;
+    bool didswap;
+    for(int i = 0; i < *leng - 1;i++){
+        didswap = false;
+        for(int j = 0; j < *leng - i - 1;j++){
+            if(angles[j] > angles[j + 1]){
+                //swaps order
+                //fprintf(stdout,"b4[%f-%f] , [%d,%d,%d] - [%d,%d,%d]\n",angles[j],angles[j + 1],altid[j][0],altid[j][1],altid[j][2],altid[j+1][0],altid[j+1][1],altid[j+1][2]);
+                double tempa = angles[j];
+                angles[j] = angles[j + 1];
+                angles[j + 1] = tempa;
+                int *tempid = altid[j];
+                altid[j] = altid[j + 1];
+                altid[j + 1] = tempid;
+                int temploc = altloc[j];
+                altloc[j] = altloc[j + 1];
+                altloc[j + 1] = temploc;
+                didswap = true;
+            }
+        }
+        if(!didswap){
+            break;
+        }
+    }
+    *pangles = angles;
+    *paltid = altid;
+    *paltloc = altloc;
+}
+//Pathing Secondary Nodes
+void sortConnections(struct skeleDensity **sD,int *dim,int *combocount,int ***pnodeconnections,double ****pfindpoints,int **pcomboindex,int ***pnodeindex,int *nicount,double t){
+    struct skeleDensity *sd = *sD;
+    double ***findpoints = *pfindpoints;
+    int **nodeindex = *pnodeindex;
+    int **nodeconnections = *pnodeconnections;
+    int *comboindex = *pcomboindex;
+    //First we go through and count up all the occurances of each id
+    int *idcount = calloc(*nicount , sizeof(int));
+    int *sidcount = calloc(*nicount , sizeof(int));
+    for(int i = 0; i < *combocount; i++){
+       idcount[nodeconnections[i][0]]++;//idcount counts times each id appears
+       idcount[nodeconnections[i][1]]++;
+       sidcount[nodeconnections[i][0]] = i;//note sidcount only helps in situations with each spline containing one idcount
+       sidcount[nodeconnections[i][1]] = i;
+    }
+    for(int p = 0; p < *nicount; p++){
+        int cid = idcount[p];
+        if(cid == 1){
+            //Only one occurance, so we will add points & 
+            for(int i = 0 ; i < *sd->row; i++){
+                for(int j = 0 ; j < *sd->col; j++){
+                    for(int k = 0 ; k < *sd->dep; k++){
+                        //goes through each cell && if == index, then we pass & add :)
+                        if(*(sd->sB[i][j][k].leng) != 0){
+                            if(((sd->sB[i][j][k]).closeid1[0]==nodeindex[p][0])&&((sd->sB[i][j][k]).closeid1[1]==nodeindex[p][1])&&((sd->sB[i][j][k]).closeid1[2] == nodeindex[p][2])){
+                                //Here we now are in a cell which has the same node id as our one count, so we go through each point & assign it :)
+                                for(int q = 0; q < *(sd->sB[i][j][k]).leng; q++){
+                                    findpoints[sidcount[p]][comboindex[sidcount[p]]] = (sd->sB[i][j][k]).points[q];
+                                    //fprintf(stdout,"added #%d to [%d,%d,%d] - [%f,%f|%f]\n",comboindex[sidcount[p]],nodeindex[p][0],nodeindex[p][1],nodeindex[p][2],findpoints[sidcount[p]][comboindex[sidcount[p]]][0],findpoints[sidcount[p]][comboindex[sidcount[p]]][1],findpoints[sidcount[p]][comboindex[sidcount[p]]][2]);
+                                    comboindex[sidcount[p]]++;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        else{
+            //Multiple occurances, so we will use angles to sort id's
+            //First we roughly calculate the angle based on node points
+            int i = nodeindex[p][0];
+            int j = nodeindex[p][1];
+            int k = nodeindex[p][2];
+            int ti = 0;
+            int tj = 0;
+            int tk = 0;
+            double *curpt = (sd->sB[i][j][k]).nodepoint;//current point location
+            double *comppt;//comparison point of locations
+            double *angles = malloc(cid * sizeof(double));
+            int **altid = malloc(cid * sizeof(int*));
+            int *altloc = malloc(cid * sizeof(int));
+            for(int q = 0; q < cid;q++){
+                altid[q] = calloc(3,sizeof(int));
+                //Since there are 'cid' connections, we calculate that many angles
+                int helpcount = 0;
+                for(int itemp = 0; itemp < *combocount; itemp++){
+                    if(nodeconnections[itemp][0] == p){
+                        if(helpcount == q){
+                            altid[q][0] = nodeindex[nodeconnections[itemp][1]][0];
+                            altid[q][1] = nodeindex[nodeconnections[itemp][1]][1];
+                            altid[q][2] = nodeindex[nodeconnections[itemp][1]][2];
+                            altloc[q] = itemp;
+                            break;
+                        }
+                        helpcount++;
+                    }
+                    else if(nodeconnections[itemp][1] == p){
+                        if(helpcount == q){
+                            altid[q][0] = nodeindex[nodeconnections[itemp][0]][0];
+                            altid[q][1] = nodeindex[nodeconnections[itemp][0]][1];
+                            altid[q][2] = nodeindex[nodeconnections[itemp][0]][2];
+                            altloc[q] = itemp;
+                            break;
+                        }
+                        helpcount++;
+                    }
+                }
+                //assign found point:)
+                ti = altid[q][0];
+                tj = altid[q][1];
+                tk = altid[q][2];
+                comppt = (sd->sB[ti][tj][tk]).nodepoint;
+                //We now calculate the angle of the points
+                if(*dim == 2){
+                    //2D angle
+                    double dx = comppt[0] - curpt[0];
+                    double dy = comppt[1] - curpt[1];
+                    angles[q] = atan2(dy,dx);
+                    if(angles[q] < 0){
+                        angles[q] = angles[q] + (2 * PI);
+                    }
+                }
+                else{
+                    //3D angle not implemented
+                }
+            }
+            //Now we have each location & angle beween nodes
+            //So we will sort the angles in a needed fashion
+            //calculate the midpoint angles, and sort each node which falls between the angles
+            sortAng(&angles,&altid,&altloc,&cid,t);
+            double *newangles = malloc(cid * sizeof(double));
+            for(int q = 0; q < cid; q++){
+                //each new angle will fall between q & q + 1
+                if(q != (cid - 1)){
+                    newangles[q] = (angles[q] + angles[q + 1]) / 2;
+                }
+                else{
+                    newangles[q] = ((angles[q] + angles[0]) / 2) + PI;
+                    if(newangles[q] > 2*PI){
+                        newangles[q] = newangles[q] - 2*PI;
+                    }
+                }
+            }
+            //We have calculated the midpoint angles; now we go though and assign nodes to splines
+            double a1;
+            double a2;
+            for(int q = 0; q < cid; q++){
+                //grab relavant angles
+                if(q == 0){
+                    a1 = newangles[cid - 1];
+                    a2 = newangles[q];
+                }
+                else{
+                    a1 = newangles[q - 1];
+                    a2 = newangles[q];
+                }
+                //fprintf(stdout,"[%d,%d,%d] -> [%f,%f]\n",);
+                for(int ni = 0; ni < *(sd->row); ni++){
+                    for(int nj = 0; nj < *(sd->col); nj++){
+                        for(int nk = 0; nk < *(sd->dep); nk++){
+                            //check if node exists
+                            if(*(sd->sB[ni][nj][nk]).leng != 0){
+                                //Finally we will check if the node belongs to our current nodeid
+                                if(((sd->sB[ni][nj][nk]).closeid1[0]==nodeindex[p][0])&&((sd->sB[ni][nj][nk]).closeid1[1]==nodeindex[p][1])&&((sd->sB[ni][nj][nk]).closeid1[2] == nodeindex[p][2])){
+                                    //Only hitting relevant nodes now
+                                    //so we can check angle according to id's
+                                    if(ni==nodeindex[p][0]&&nj==nodeindex[p][1]&&nk==nodeindex[p][2]){
+                                        //always add root nodes points :)
+                                        for(int addpt = 0; addpt < *(sd->sB[ni][nj][nk]).leng; addpt++){
+                                            findpoints[altloc[q]][comboindex[altloc[q]]] = (sd->sB[ni][nj][nk]).points[addpt];
+                                            comboindex[altloc[q]]++;
+                                        }
+                                    }
+                                    else{
+                                        //Check angle if not rootnode, angle based upon index :)
+                                        bool checkpass = false;
+                                        double nangle;
+                                        comppt = (sd->sB[ni][nj][nk]).points[0];
+                                        if(*dim == 2){
+                                            double dx = comppt[0] - curpt[0];
+                                            double dy = comppt[1] - curpt[1];
+                                            nangle = atan2(dy,dx);
+                                            if(nangle < 0){
+                                                nangle = nangle + 2 * PI;
+                                            }
+                                        }
+                                        else{
+                                        }
+                                        //finally check for pass
+                                        if(a1 < a2){
+                                            if(nangle >= a1 && nangle <= a2){
+                                                checkpass = true;
+                                            }
+                                        }
+                                        else{
+                                            if(nangle >= a1 || nangle <= a2){
+                                                checkpass = true;
+                                            }
+                                        }
+                                        //if passes add
+                                        if(checkpass){
+                                            for(int addpt = 0; addpt < *(sd->sB[ni][nj][nk]).leng; addpt++){
+                                                findpoints[altloc[q]][comboindex[altloc[q]]] = (sd->sB[ni][nj][nk]).points[addpt];
+                                                comboindex[altloc[q]]++;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            for(int q = 0; q < cid; q++){
+                free(altid[q]);
+            }
+            free(altid);
+            free(altloc);
+            free(angles);
+            free(newangles);
+        }
+    }
+    free(idcount);
+    free(sidcount);
+    *pfindpoints = findpoints;
+    *pnodeindex = nodeindex;
+    *pnodeconnections = nodeconnections;
+    *pcomboindex = comboindex;
+    *sD = sd;
+}
+void pathNodes(struct skeleDensity **sD,int *dim,int **nodeid, int *nodeidcount,double ****pfindpoints,int **pcomboindex,int ***pnodeconnections,int ***pnodeindex,int *combocount,int *nicount,int *mxpt, double t){
+    //First we Go through and Find which grid spaces have which id already tagged, and determine which nodes are touching which nodes,
+    //This will work similar to the flood but stop when 
+    struct skeleDensity *sd = *sD;
+    double ***findpoints = *pfindpoints;
+    int **nodeindex = *pnodeindex;
+    int **nodeconnections = *pnodeconnections;
+    int *comboindex = *pcomboindex;
+    for(int i = 0; i < *nodeidcount; i++){
+        int **visited = malloc(*(sd->pcount) * sizeof(int*));
+        for(int j = 0; j < *(sd->pcount); j++){
+            visited[j] = calloc(3,sizeof(int));
+        }
+        visited[0][0] = nodeid[i][0];
+        visited[0][1] = nodeid[i][1];
+        visited[0][2] = nodeid[i][2];
+        int visitcount = 0;
+        floodDensity2(sD,dim,combocount,&nodeconnections,&nodeindex,nicount,&nodeid[i],&visited,&visitcount);
+        for(int j = 0; j < *(sd->pcount); j++){
+            free(visited[j]);
+        }
+        free(visited);
+    }
+    //With our second flood density, we now have the connections of the skeleton nodes ids
+    //and thus we create paths, and assign nodes to connections
+    findpoints = malloc(*combocount * sizeof(double**));
+    comboindex = calloc(*combocount , sizeof(int));
+    for(int i = 0; i < *combocount; i++){
+        findpoints[i] = malloc(*mxpt * sizeof(double*));
+    }
+    sortConnections(sD,dim,combocount,&nodeconnections,&findpoints,&comboindex,&nodeindex,nicount,t);
+    //output data
+    //connection ID's
+    char conname[80];
+sprintf (conname, "connectionDat-%5.3f.dat", t);
+    FILE * fpcon = fopen (conname, "w");
+    for(int i = 0; i < *combocount;i++){
+        fprintf(fpcon,"%d %d\n",nodeconnections[i][0],nodeconnections[i][1]);
+    }
+    fflush(fpcon);
+    fclose(fpcon);
+    //Connection Index:
+    char indxname[80];
+    sprintf (indxname, "connectionidDat-%5.3f.dat", t);
+    FILE * fpindx = fopen (indxname, "w");
+    for(int i = 0; i < *nicount;i++){
+        struct skeleBounds sb = (sd->sB[nodeindex[i][0]][nodeindex[i][1]][nodeindex[i][2]]);
+        fprintf(fpindx,"%d %d %f %f\n",nodeindex[i][0],nodeindex[i][1],sb.nodepoint[0],sb.nodepoint[1]);
+    }
+    fflush(fpindx);
+    fclose(fpindx);
+    //reasign
+    *pfindpoints = findpoints;
+    *pnodeindex = nodeindex;
+    *pnodeconnections = nodeconnections;
+    *pcomboindex = comboindex;
+    *sD = sd;
+}
+double basisFunction(int i, int n, double t) {
+    // Recursive calculation of B-spline basis function
+    if (n == 1) {
+        if ((t >= i) && (t < (i + 1)))
+            return 1.0;
+        return 0.0;
+    }
+
+    double denominator1 = (i + n - 1) - i;
+    double denominator2 = (i + n) - (i + 1);
+    double term1 = 0.0;
+    double term2 = 0.0;
+
+    if (denominator1 != 0)
+        term1 = ((t - i) / denominator1) * basisFunction(i, n - 1, t);
+    if (denominator2 != 0)
+        term2 = ((i + n - t) / denominator2) * basisFunction(i + 1, n - 1, t);
+
+    return term1 + term2;
+}
+//fit spline itteratively
+void findBestFit(double ***ppositioncoeff,double ***pradcoeff,double **findpoints,int comboindex,int *dim, int *n,double *tolerance){
+    double **positioncoeff = *ppositioncoeff;
+    double **radcoeff = *pradcoeff;
+    //firstly we get a knot vector
+    *ppositioncoeff = positioncoeff; 
+    *pradcoeff = radcoeff;      
+}
+void getSplineCoeff(double ***ppositioncoeff,double ***pradcoeff,double **pnode0,double **pnode1,int *dim,int *n,double ***pfindpoints,int *pcomboindex,double *tolerance){
+    double **positioncoeff = *ppositioncoeff;
+    double **radcoeff = *pradcoeff;
+    double *node0 = *pnode0;
+    double *node1 = *pnode1;
+    double **findpoints = *pfindpoints;
+    int comboindex = *pcomboindex;
+    //To create our bezier curve, we will first generate needed controlpoints
+    if(*n == 1){
+        //if n == 1, then we dont need to generate controlpoints
+        positioncoeff[0][0] = node0[0];//since linear starting node
+        positioncoeff[0][1] = node0[1];
+        radcoeff[0][0] = node0[2];
+        positioncoeff[1][0] = node1[0];//ending node
+        positioncoeff[1][1] = node1[1];
+        radcoeff[1][0] = node1[2];
+    }
+    else{
+        //if n is bigger than we need to find new bestfit
+        //finally assign start & end
+        positioncoeff[0][0] = node0[0];//starting node
+        positioncoeff[0][1] = node0[1];
+        radcoeff[0][0] = node0[2];
+        positioncoeff[*n+1][0] = node1[0];//ending node
+        positioncoeff[*n+1][1] = node1[1];
+        radcoeff[*n+1][0] = node1[2];
+        findBestFit(&positioncoeff,&radcoeff,findpoints,comboindex,dim,n,tolerance);
+    }
+    *ppositioncoeff = positioncoeff; 
+    *pradcoeff = radcoeff;      
+}
 //Splining method, for merging unessicary nodes, and creating a spline
-void makeSpline(struct skeleDensity **sD,int *dim){
+void makeSpline(struct skeleDensity **sD,int *dim,double *tolerance,int *length,double t,int *n){
     //Here the only node points are Skeleton points ends, we move from these
     //along the region of interest 
     struct skeleDensity *sDmain = *sD;
     //for holding our locations & amounts of endpoints
     int ncount = *sDmain->ncount;
-    int pcount = *sDmain->pcount; 
     int **nodeid = malloc(ncount * sizeof(int*));
     for(int i = 0; i < ncount; i++){
         nodeid[i] = calloc(3,sizeof(int));
@@ -1585,9 +2230,11 @@ void makeSpline(struct skeleDensity **sD,int *dim){
     int localcount = 0;
     int stackcount = 0;//allocates max needed space in our stack
     //make adjustments if needed
+    fprintf(stdout,"nodepoints b4 = %d\n",ncount);
     if(*(sDmain->row) > 7 || *(sDmain->col) > 7 || *(sDmain->dep) > 7){
         reduceLocalMax(sD,dim);
     }
+    fprintf(stdout,"nodepoints af = %d\n",*sDmain->ncount);
     for(int i = 0; i < *sDmain->row; i++){
         for(int j = 0; j < *sDmain->col; j++){
             for(int k = 0; k < *sDmain->dep; k++){
@@ -1604,32 +2251,119 @@ void makeSpline(struct skeleDensity **sD,int *dim){
         }
     }
     //Here we begin our distance calculations from each endpoint
-    int **visitstack = malloc(stackcount * sizeof(int*));
-    for(int i = 0; i < stackcount; i++){
+    int **visitstack = malloc(stackcount * stackcount * sizeof(int*));
+    for(int i = 0; i < stackcount * stackcount; i++){
         visitstack[i] = calloc(3,sizeof(int));
     }
     int *visitcount = calloc(1,sizeof(int));
+    int idcount = localcount-1;
+    int **ids = malloc(idcount * sizeof(int*));
+    for(int i = 0; i < idcount; i++){
+        ids[i] = calloc(3,sizeof(int));
+    }
     for(int i = 0; i < localcount; i++){
         *visitcount = 0;
-        floodDensity(sD,dim,nodeid[i],0,visitstack,visitcount);
-        if(i != localcount-1){
-            resetFloodStack(visitstack,stackcount);
+        int countnow = 0;
+        for(int j = 0; j < localcount; j++){
+            if(j != i){
+                ids[countnow][0] = nodeid[j][0];
+                ids[countnow][1] = nodeid[j][1];
+                ids[countnow][2] = nodeid[j][2];
+                countnow++;
+            }
+        }
+        floodDensity(sD,dim,nodeid[i],0,&visitstack,visitcount,ids,&idcount,tolerance);
+        if(i != idcount){
+            resetFloodStack(visitstack,stackcount * stackcount,ids,idcount);
         }
     }
     //We have flooded our tree with endpoint calculations,
-    //Next we want to merge all of our localpoints which have been flagged, and turn the close ones into one node point
-    //now we free variables 
+    //Next we want to find the paths between the points :)
+    double ***findpoints = NULL;//A collection of points which will be combined with the node id's[[pts1],[pts2],[pts3]]
+    int **nodeconnections = NULL;//A collection of nodes tied to points [[i1,i2],[i1,i2],[i3,i4],..]
+    int **nodeindex = NULL;//A index for the nodes [[32,54,0],[2,6,8],..]
+    int *comboindex = NULL;//current index of each individual combo
+    int combocount = 0;
+    int nicount = 0;
+    pathNodes(sD,dim,nodeid,&localcount,&findpoints,&comboindex,&nodeconnections,&nodeindex,&combocount,&nicount,length,t);
+    //Now weve assigned nodes & collected splines approx points
+    //So we will go through and calculate our approximations
+    //first we define some things we want
+    //given we want order 'n' we allocate accordingly
+    double ***positioncoeff;
+    double ***radcoeff;//collections of the collections of the coeffs
+    //allocation for coeffs
+    positioncoeff = malloc(combocount*sizeof(double**));
+    radcoeff = malloc(combocount*sizeof(double**));
+    double **node0 = malloc(combocount*sizeof(double*));
+    double **node1 = malloc(combocount*sizeof(double*));
+    for(int q = 0; q < combocount; q++){
+        positioncoeff[q] = malloc((*n+2)*sizeof(double*));
+        radcoeff[q] = malloc((*n+2)*sizeof(double*));
+        for(int i = 0; i < (*n + 2); i++){
+            positioncoeff[q][i] = malloc(*dim*sizeof(double));
+            radcoeff[q][i] = malloc((1)*sizeof(double));
+        }
+        //Now we have the space for our current coefficients so next we grab the relevant points and calculate them
+        int extra = 1;
+        int i0=nodeindex[nodeconnections[q][0]][0],j0=nodeindex[nodeconnections[q][0]][1],k0=nodeindex[nodeconnections[q][0]][2];
+        int i1=nodeindex[nodeconnections[q][1]][0],j1=nodeindex[nodeconnections[q][1]][1],k1=nodeindex[nodeconnections[q][1]][2];
+        node0[q] = malloc((*dim + extra)*sizeof(double));
+        node1[q] = malloc((*dim + extra)*sizeof(double));
+        for(int p = 0; p < *dim + extra; p++){
+            node0[q][p] = (sDmain->sB[i0][j0][k0]).nodepoint[p];
+            node1[q][p] = (sDmain->sB[i1][j1][k1]).nodepoint[p];
+        }
+        getSplineCoeff(&positioncoeff[q],&radcoeff[q],&node0[q],&node1[q],dim,n,&findpoints[q],&comboindex[q],tolerance);
+    }
+    for(int q = 0; q < combocount; q++){
+        char indxname[80];
+        sprintf (indxname, "splineBranchDat-%5.3f.dat", t);
+        FILE * fpindx = fopen (indxname, "a");
+        //Out puts node0(x,y) , node1(x,y) , and then if n coeff
+        if(*n == 1){
+            fprintf(fpindx,"%f %f %f %f %f %f %f %f\n",node0[q][0],node0[q][1],node0[q][2],node1[q][0],node1[q][1],node1[q][2],positioncoeff[q][0][0],radcoeff[q][0][0]);
+        }
+        else if(*n > 1){
+            fprintf(fpindx,"%d ",*n);
+            for(int i = 0; i < *n + 2; i++){
+                fprintf(fpindx,"%f %f %f ",positioncoeff[q][i][0],positioncoeff[q][i][1],radcoeff[q][i][0]);
+            }
+            fprintf(fpindx,"\n");
+            //fprintf(fpindx,"%f %f %f %f %f %f %f %f\n",node0[q][0],node0[q][1],node0[q][2],node1[q][0],node1[q][1],node1[q][2],positioncoeff[q][0][0],positioncoeff[q][0][1]);
+        }
+        fflush(fpindx);
+        fclose(fpindx);
+    }
+
+    //Finally free up needed variables 
+    freeCombo(&findpoints,&comboindex,&nodeconnections,&nodeindex,&combocount,&nicount);
     free(visitcount);
+    for(int i = 0; i < combocount; i++){
+        for(int j = 0; j < *n+2; j++){
+            free(positioncoeff[i][j]);
+            free(radcoeff[i][j]);
+        }
+        free(positioncoeff[i]);
+        free(radcoeff[i]);
+    }
+    free(positioncoeff);
+    free(radcoeff);
     for(int i = 0; i < ncount; i++){
         free(nodeid[i]);
     }   
     free(nodeid);
-    for(int i = 0; i < stackcount; i++){
+    for(int i = 0; i < stackcount * stackcount; i++){
         free(visitstack[i]);
     }
     free(visitstack);
+    for(int i = 0; i < idcount; i++){
+        free(ids[i]);
+    }
+    free(ids);
+    *sD = sDmain;
 }
-void skeleReduce(double **skeleton,double delta,double *minblen,int *length,int *dim,int *mxpt,double t){
+void skeleReduce(double **skeleton,double delta,double *minblen,int *length,int *dim,int *mxpt,double t,int n){
     //We will have to brute force our data, however we will target area of data max & mins
     double xmax = -HUGE;
     double xmin = HUGE;
@@ -1673,7 +2407,7 @@ void skeleReduce(double **skeleton,double delta,double *minblen,int *length,int 
     struct skeleDensity *sD;
     createSD(&sD,skeleton,length,dim,delta,xmax,xmin,ymax,ymin,zmax,zmin);
     makeNodePoint(&sD,dim);
-    makeSpline(&sD,dim);
+    makeSpline(&sD,dim,&tolerance,length,t,&n);
     ///////////////////////////////////////////////////////////////////////Clearance
     //adapt_wavelet({hsd,hnpt,hlpt,hrpt},(double[]) {tolerance,tolerance,tolerance,tolerance}, sd.level,sd.level);
     //adapt_wavelet2({hsd,hnpt,hlpt,hrpt},(double[]) {tolerance,tolerance,tolerance,tolerance},calclevel,calclevel);
@@ -1810,8 +2544,8 @@ void skeleReduce(double **skeleton,double delta,double *minblen,int *length,int 
             for(int k = 0; k < *sD->dep;k++){
                 //outputs --point, and ++point
                 struct skeleBounds sb = (sD->sB)[i][j][k];
-                if(sb.closedis != NULL && *sb.closedis != -1){
-                    fprintf(fpsc,"%f %f %f %f %d %d %d\n",*sb.x,*sb.y,*(sD->dx),*(sD->dy),*sb.closedis,sb.closeid[0],sb.closeid[1]);
+                if(sb.closedis1 != NULL && *sb.closedis1 != -1){
+                    fprintf(fpsc,"%f %f %f %f %d %d %d\n",*sb.x,*sb.y,*(sD->dx),*(sD->dy),*sb.closedis1,sb.closeid1[0],sb.closeid1[1]);
                 }
             }
         }
