@@ -33,7 +33,7 @@ double maxruntime = 60;
 double i_start = 0.;
 double i_end = 39.;
 //double i_start = 22.;
-//double i_end = 10.;
+//double i_end = 23.;
 double i_gap = 1.;
 int i = 0.;
 double mindis = 0.0;
@@ -109,8 +109,8 @@ void runSkeleton(double ti){
     int mxpt = 100; 
     //run reduce
     //double del = 0.05;
-    double del = 0.05/8;
-    int n = 1;
+    double del = 0.05/4;
+    int n = 3;
     skeleReduce(skeleton,del,&minbranchlength,&snr,&snd,&mxpt,ti,n);
     
     end = clock();

@@ -11,61 +11,21 @@ import csv
 import math
 
 
-def generate_nonuniform_knot_vector(n, degree):
-    num_knots = n + degree + 1
-    knot_vector = [0] * num_knots
+def calcbfunc(n,points,t):
+    if n == 1:
+        return points[0]
+    else:
+        i = 0
+        npoints = []
+        while i < n - 1:
+            npoints.append([])
+            npoints[i].append((1-t)*points[i][0] + t * points[i + 1][0])
+            npoints[i].append((1-t)*points[i][1] + t * points[i + 1][1])
+            npoints[i].append((1-t)*points[i][2] + t * points[i + 1][2])
+            i += 1
+        return calcbfunc(n-1,npoints,t)
 
-    for i in range(num_knots):
-        if i < degree:
-            knot_vector[i] = 0
-        elif i <= n:
-            knot_vector[i] = i - degree + 1
-        else:
-            knot_vector[i] = n - degree + 2
-
-    return knot_vector
-
-def basis_function(i, degree, param, knots):
-    # Check if the degree is 0
-    if degree == 0:
-        return 1.0 if knots[i] <= param < knots[i + 1] else 0.0
-
-    # Recursive calculation of the B-spline basis function
-    denominator1 = knots[i + degree - 1] - knots[i]  # Updated indexing here
-    denominator2 = 0.0
-
-    if i + degree < len(knots):
-        denominator2 = knots[i + degree] - knots[i + 1]
-
-    term1 = 0.0
-    term2 = 0.0
-
-    if denominator1 != 0:
-        term1 = ((param - knots[i]) / denominator1) * basis_function(i, degree - 1, param, knots)
-    if denominator2 != 0:
-        term2 = ((knots[i + degree] - param) / denominator2) * basis_function(i + 1, degree - 1, param, knots)
-
-    return term1 + term2
-
-def calculate_bspline_point(control_points, param,knots):
-    n = len(control_points) - 1  # Number of control points
-    degree = n  # Degree of the B-spline curve
-    # Initialize the point coordinates
-    x = 0.0
-    y = 0.0
-    r = 0.0
-
-    # Calculate the basis functions and weighted control point contributions
-    for i in range(n + 1):
-        basis = basis_function(i, degree, param,knots)
-        x += control_points[i][0] * basis
-        y += control_points[i][1] * basis
-        r += control_points[i][2] * basis
-
-    return x, y, r
-
-
-def plotmirror(fig,scdat,idat,ndat,bdat,condat,sbdat,mirroraxi,mirrorval,save,t,focus):
+def plotmirror(fig,scdat,idat,ndat,bdat,condat,sbdat,mirroraxi,mirrorval,save,t,focus,n):
     #We will mirror results here
     #First find focus box
     plt.clf()
@@ -177,108 +137,127 @@ def plotmirror(fig,scdat,idat,ndat,bdat,condat,sbdat,mirroraxi,mirrorval,save,t,
 
         if(len(sbdat[0]) > 0):
             #n-1 method
-            mr = 0
-            i = 0
-            while i < len(sbdat[0]):
-                if mr < sbdat[2][i]:
-                    mr = sbdat[2][i]
-                if mr < sbdat[5][i]:
-                    mr = sbdat[5][i]
-                i += 1
-            i = 0
-            while i < len(sbdat[0]):
-                px = []
-                py = []
-                pr = []
-                #start
-                px.append(sbdat[0][i])
-                py.append(sbdat[1][i])
-                pr.append(sbdat[2][i])
-                #calcpoints
-                j = 1
-                dx = (sbdat[3][i]-sbdat[0][i])/100
-                dy = (sbdat[4][i]-sbdat[1][i])/100
-                dr = (sbdat[5][i]-sbdat[2][i])/100
-                startx = sbdat[0][i]
-                starty = sbdat[1][i]
-                startr = sbdat[2][i]
-                while j < 100:
-                    cx = startx+j*dx
-                    cy = starty+j*dy
-                    cr = startr+j*dr
-                    px.append(cx)
-                    #if(len(sbdat[7]) == 0):
-                    py.append(cy)
-                    pr.append(cr)
-                    #else:
-                    #    py.append(cx*sbdat[6][i] + pow(cx,2)*sbdat[7][i])
-                    j += 1
-                #end
-                px.append(sbdat[3][i])
-                py.append(sbdat[4][i])
-                pr.append(sbdat[5][i])
-                j = 0
-                while j < len(px):
-                    drawcirc = plt.Circle((px[j],py[j]),pr[j])
-                    ax.add_artist(drawcirc)
-                    j += 1
-                j = 0
-                while j < len(px)-1:
-                    tpx = []
-                    tpy = []
-                    tpx.append(px[j])
-                    tpy.append(py[j])
-                    tpx.append(px[j+1])
-                    tpy.append(py[j+1])
-                    color = plt.cm.get_cmap('hsv')(((pr[j] + pr[j+1])/2)/mr)
-                    ax.plot(tpx,tpy,linewidth=3,color=color)
-                    j += 1
-                i += 1
-            #n-2 method
             #mr = 0
             #i = 0
             #while i < len(sbdat[0]):
-            #    j = 0
-            #    while j < len(sbdat[0][i]):
-            #        if sbdat[2][i][j] > mr:
-            #            mr = sbdat[2][i][j]
-            #        j += 1
+            #    if mr < sbdat[2][i]:
+            #        mr = sbdat[2][i]
+            #    if mr < sbdat[5][i]:
+            #        mr = sbdat[5][i]
             #    i += 1
-            #i = 0
+            i = 0
             #while i < len(sbdat[0]):
-            #    sx = []
-            #    sy = []
-            #    sr = []
-            #    j = 0
-            #    control_points = []
-            #    while j < len(sbdat[0][i]):
-            #        control_points.append([sbdat[0][i][j],sbdat[1][i][j],sbdat[2][i][j]])
+            #    px = []
+            #    py = []
+            #    pr = []
+            #    #start
+            #    px.append(sbdat[0][i])
+            #    py.append(sbdat[1][i])
+            #    pr.append(sbdat[2][i])
+            #    #calcpoints
+            #    j = 1
+            #    dx = (sbdat[3][i]-sbdat[0][i])/100
+            #    dy = (sbdat[4][i]-sbdat[1][i])/100
+            #    dr = (sbdat[5][i]-sbdat[2][i])/100
+            #    startx = sbdat[0][i]
+            #    starty = sbdat[1][i]
+            #    startr = sbdat[2][i]
+            #    while j < 100:
+            #        cx = startx+j*dx
+            #        cy = starty+j*dy
+            #        cr = startr+j*dr
+            #        px.append(cx)
+            #        #if(len(sbdat[7]) == 0):
+            #        py.append(cy)
+            #        pr.append(cr)
+            #        #else:
+            #        #    py.append(cx*sbdat[6][i] + pow(cx,2)*sbdat[7][i])
             #        j += 1
-            #    degree = len(control_points) - 1
-            #    knots = generate_nonuniform_knot_vector(degree, degree)
-            #    ts = np.linspace(knots[len(knots)-1], knots[0], num=100)
-            #    for param in ts:
-            #        spline_point = calculate_bspline_point(control_points, param, knots)
-            #        sx.append(spline_point[0])
-            #        sy.append(spline_point[1])
-            #        sr.append(spline_point[2])
+            #    #end
+            #    px.append(sbdat[3][i])
+            #    py.append(sbdat[4][i])
+            #    pr.append(sbdat[5][i])
             #    j = 0
-            #    print()
-            #    print('sx',sx)
-            #    print('sy',sy)
-            #    print('sr',sr)
-            #    print()
-            #    while j < len(sx) - 1:
+            #    while j < len(px):
+            #        drawcirc = plt.Circle((px[j],py[j]),pr[j])
+            #        ax.add_artist(drawcirc)
+            #        j += 1
+            #    j = 0
+            #    while j < len(px)-1:
             #        tpx = []
             #        tpy = []
-            #        tpx.append(sx[j])
-            #        tpy.append(sy[j])
-            #        tpx.append(sx[j+1])
-            #        tpy.append(sy[j+1])
-            #        color = plt.cm.get_cmap('hsv')(((sr[j] + sr[j+1])/2)/mr)
+            #        tpx.append(px[j])
+            #        tpy.append(py[j])
+            #        tpx.append(px[j+1])
+            #        tpy.append(py[j+1])
+            #        color = plt.cm.get_cmap('hsv')(((pr[j] + pr[j+1])/2)/mr)
             #        ax.plot(tpx,tpy,linewidth=3,color=color)
             #        j += 1
             #    i += 1
+            #n-2 method
+            mr = 0
+            i = 0
+            while i < len(sbdat[0]):
+                j = 0
+                while j < len(sbdat[0][i]):
+                    if sbdat[2][i][j] > mr:
+                        mr = sbdat[2][i][j]
+                    j += 1
+                i += 1
+            i = 0
+            while i < len(sbdat[0]):
+                sx = []
+                sy = []
+                sr = []
+                j = 0
+                control_points = []
+                while j < len(sbdat[0][i]):
+                    control_points.append([sbdat[0][i][j],sbdat[1][i][j],sbdat[2][i][j]])
+                    j += 1
+                ts = np.linspace(0,1, num=100)
+                for param in ts:
+                    spline_point = calcbfunc(n+1,control_points,param)
+                    sx.append(spline_point[0])
+                    sy.append(spline_point[1])
+                    sr.append(spline_point[2])
+                #fill volume
+                j = 0
+                while j < len(sx):
+                    drawcirc = plt.Circle((sx[j],sy[j]),sr[j])
+                    ax.add_artist(drawcirc)
+                    j += 1
+                #draw Splines
+                j = 0
+                while j < len(sx) - 1:
+                    tpx = []
+                    tpy = []
+                    tpx.append(sx[j])
+                    tpy.append(sy[j])
+                    tpx.append(sx[j+1])
+                    tpy.append(sy[j+1])
+                    color = plt.cm.get_cmap('hsv')(((sr[j] + sr[j+1])/2)/mr)
+                    ax.plot(tpx,tpy,linewidth=4,color=color)
+                    j += 1
+                #draw lines
+                j = 0
+                cpscatx = []
+                cpscaty = []
+                while j < len(control_points):
+                    cpscatx.append(control_points[j][0])
+                    cpscaty.append(control_points[j][1])
+                    if(j < len(control_points) - 1):
+                        tpx = []
+                        tpy = []
+                        tpx.append(control_points[j][0])
+                        tpy.append(control_points[j][1])
+                        tpx.append(control_points[j + 1][0])
+                        tpy.append(control_points[j + 1][1])
+                        color = plt.cm.get_cmap('hsv')(((control_points[j][2] + control_points[j + 1][2])/2)/mr)
+                        ax.plot(tpx,tpy,linewidth=1,color='black')
+                    j += 1
+                ax.scatter(cpscatx,cpscaty,c='black',s=5)
+                i += 1
+
         ax.scatter(idat[0],idat[1],c='black',s=2)
         #print("scattered")
         #if(len(sbdat[0]) > 0):
@@ -339,7 +318,8 @@ source = os.path.split(os.path.dirname(os.path.abspath(__file__)))[0] + r'/'
 if __name__ == '__main__':
     fig = plt.figure()
     case = True
-    t = 0.0
+    t = 0.01
+    #t = 0.22
     dt = 0.01
     j = 0
     focus = [0,0,0,0]
@@ -448,59 +428,58 @@ if __name__ == '__main__':
                 i += 1
         sbpath = ""
         #n-1 data
-        sn0x = []
-        sn0y = []
-        sn0r = []
-        sn1x = []
-        sn1y = []
-        sn1r = []
-        sa0 = []
-        sa1 = []
+        #n0x = []
+        #n0y = []
+        #n0r = []
+        #n1x = []
+        #n1y = []
+        #n1r = []
+        #a0 = []
+        #a1 = []
+        #ry:
+        #   sbpath = source + r'dbasiliskRuns/' + "splineBranchDat-{:.3f}.dat".format(t)
+        #   with open(sbpath,'r') as csvfile:
+        #       data  = csv.reader(csvfile,delimiter = ' ')
+        #       i = 0
+        #       for row in data:
+        #           sn0x.append(float(row[0]))
+        #           sn0y.append(float(row[1]))
+        #           sn0r.append(float(row[2]))
+        #           sn1x.append(float(row[3]))
+        #           sn1y.append(float(row[4]))
+        #           sn1r.append(float(row[5]))
+        #           sa0.append(float(row[6]))
+        #           if(len(row) > 7):
+        #               sa1.append(float(row[7]))
+        #           i += 1
+        #xcept:
+        #   print("no existing file:",sbpath)
+        #n-2 data input
+        n = 0
+        conx = []
+        cony = []
+        conr = []
         try:
             sbpath = source + r'dbasiliskRuns/' + "splineBranchDat-{:.3f}.dat".format(t)
             with open(sbpath,'r') as csvfile:
                 data  = csv.reader(csvfile,delimiter = ' ')
                 i = 0
                 for row in data:
-                    sn0x.append(float(row[0]))
-                    sn0y.append(float(row[1]))
-                    sn0r.append(float(row[2]))
-                    sn1x.append(float(row[3]))
-                    sn1y.append(float(row[4]))
-                    sn1r.append(float(row[5]))
-                    sa0.append(float(row[6]))
-                    if(len(row) > 7):
-                        sa1.append(float(row[7]))
+                    conx.append([])
+                    cony.append([])
+                    conr.append([])
+                    if i == 0:
+                        n = int(row[0])
+                    q = 0
+                    c = 3
+                    while q < n + 1:
+                        conx[i].append(float(row[c*q+1]))
+                        cony[i].append(float(row[c*q+2]))
+                        conr[i].append(float(row[c*q+3]))
+                        q += 1
                     i += 1
         except:
             print("no existing file:",sbpath)
-        #n-2 data input
-        #n = 0
-        #conx = []
-        #cony = []
-        #conr = []
-        #try:
-        #    sbpath = source + r'dbasiliskRuns/' + "splineBranchDat-{:.3f}.dat".format(t)
-        #    with open(sbpath,'r') as csvfile:
-        #        data  = csv.reader(csvfile,delimiter = ' ')
-        #        i = 0
-        #        for row in data:
-        #            print('ready')
-        #            conx.append([])
-        #            cony.append([])
-        #            conr.append([])
-        #            if i == 0:
-        #                n = int(row[0])
-        #            q = 0
-        #            c = 3
-        #            while q < n + 1:
-        #                conx[i].append(float(row[c*q+1]))
-        #                cony[i].append(float(row[c*q+2]))
-        #                conr[i].append(float(row[c*q+3]))
-        #                q += 1
-        #            i += 1
-        #except:
-        #    print("no existing file:",sbpath)
         angpath = source + r'dbasiliskRuns/' + "angDat-{:.3f}.dat".format(t)
         ax = []
         ay = []
@@ -522,8 +501,8 @@ if __name__ == '__main__':
         ndat = [npx,npy,npr,sm]
         bdat = [bnx,bny,bpx,bpy,rbnx,rbny,rbpx,rbpy,bd,drow,dcol,hasn]
         condat = [con,conid]
-        sbdat = [sn0x,sn0y,sn0r,sn1x,sn1y,sn1r,sa0,sa1]
-        #sbdat = [conx,cony,conr]
+        #sbdat = [sn0x,sn0y,sn0r,sn1x,sn1y,sn1r,sa0,sa1]
+        sbdat = [conx,cony,conr]
         print("assigned",t)
         #bdat = []
         #save = source + r'pScript/2DEvolve/' + "skeleplt-{:03d}.png".format(j)
@@ -554,7 +533,7 @@ if __name__ == '__main__':
         #Plot results
         #if len(sdat[0]) != 0:
         print("sent",t)
-        plotmirror(fig,scdat,idat,ndat,bdat,condat,sbdat,0,0,save,j,focus)
+        plotmirror(fig,scdat,idat,ndat,bdat,condat,sbdat,0,0,save,j,focus,n)
         #tries to open time step & plot
         j += 1
         t += dt

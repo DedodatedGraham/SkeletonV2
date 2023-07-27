@@ -245,7 +245,7 @@ void kdDestroy(struct kdleaf **kdstruct){
 }
 
 //Create full recursive structure of kdtree
-void CreateStructure(double **points,struct kdleaf **kdstruct,int axis,int *length,int lower,int upper){//,double *leftbound, double *rightbound){
+void CreateStructure(double **points,struct kdleaf **kdstruct,int axis,int *length,int lower,int upper,int editleng){//,double *leftbound, double *rightbound){
     //First we will sort along each needed axis
     struct kdleaf* headkdstruct = malloc(sizeof(struct kdleaf));
     if(axis == *length){
@@ -257,17 +257,17 @@ void CreateStructure(double **points,struct kdleaf **kdstruct,int axis,int *leng
         //fprintf(stdout,"c1\n");
         //Too many points, we will subdivide
         //first sorts points
-        skeleQuickSort(points,lower,upper,axis,length);
+        skeleQuickSort(points,lower,upper,axis,length,editleng);
         //choses node
         int nodeindex = (upper + lower) / 2; 
         headkdstruct->origin = malloc(sizeof(double*));
-        headkdstruct->origin[0] = malloc(sizeof(double) * (*length));
+        headkdstruct->origin[0] = malloc(sizeof(double) * (*length + editleng));
         if(headkdstruct->origin == NULL){
             fprintf(stdout,"errL1\n");
         }
         headkdstruct->origin[0][0] = points[nodeindex][0];
         headkdstruct->origin[0][1] = points[nodeindex][1];
-        if(*length == 3){
+        if( *length + editleng == 3){
             headkdstruct->origin[0][2] = points[nodeindex][2];
         }
         if(headkdstruct->origin[0] == NULL){
@@ -285,8 +285,8 @@ void CreateStructure(double **points,struct kdleaf **kdstruct,int axis,int *leng
         *headkdstruct->leng = 1;
         //points now sorted, Next applying our node point and split the list to the appropiate list
 
-        CreateStructure(points,&headkdstruct->left,axis + 1,length,lower,nodeindex - 1);
-        CreateStructure(points,&headkdstruct->right,axis+ 1,length,nodeindex + 1,upper);
+        CreateStructure(points,&headkdstruct->left,axis + 1,length,lower,nodeindex - 1,editleng);
+        CreateStructure(points,&headkdstruct->right,axis+ 1,length,nodeindex + 1,upper,editleng);
     }
     else{
         if (upper - lower > 0){
@@ -297,13 +297,13 @@ void CreateStructure(double **points,struct kdleaf **kdstruct,int axis,int *leng
             }
             for(int i = 0; i < upper - lower; i++){
                
-                headkdstruct->origin[i] = malloc(sizeof(double) * (*length));     
+                headkdstruct->origin[i] = malloc(sizeof(double) * (*length + editleng));     
                 if(headkdstruct->origin[i] == NULL){
                     fprintf(stdout,"errL2\n");
                 }
                 headkdstruct->origin[i][0] = points[lower + i][0];
                 headkdstruct->origin[i][1] = points[lower + i][1];
-                if(*length == 3){
+                if(*length + editleng == 3){
                     headkdstruct->origin[i][2] = points[lower + i][2];
                 }
             }
@@ -594,7 +594,7 @@ double **skeletize(double **points,int *length,int *dim,char path[80],double *mi
     double **skeleton; 
     //Create our kd tree for calculation
     struct kdleaf *kdstruct = NULL;
-    CreateStructure(points,&kdstruct,0,dim,0,*length);//make kd-struct
+    CreateStructure(points,&kdstruct,0,dim,0,*length,0);//make kd-struct
     if(kdstruct== NULL){
         fprintf(stdout,"error\n");
     }

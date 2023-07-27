@@ -8,7 +8,7 @@ void skeleSwap(double *a, double *b){
     *b = temp;
 }
 
-int skelePartition(double **arr, int lbound, int tbound, int axis, int *length){
+int skelePartition(double **arr, int lbound, int tbound, int axis, int *length,int mode){
     double pivot = arr[tbound][axis]; 
     int i = lbound - 1; 
     for(int j = lbound; j < tbound; j++){
@@ -18,7 +18,9 @@ int skelePartition(double **arr, int lbound, int tbound, int axis, int *length){
 	            skeleSwap(&arr[i][0], &arr[j][0]);
 	            skeleSwap(&arr[i][1], &arr[j][1]);
 	            skeleSwap(&arr[i][2], &arr[j][2]);
-	            skeleSwap(&arr[i][3], &arr[j][3]);
+                if(mode == 0){
+                    skeleSwap(&arr[i][3], &arr[j][3]);
+                }
             }
             else{
 	            skeleSwap(&arr[i][0], &arr[j][0]);
@@ -34,7 +36,9 @@ int skelePartition(double **arr, int lbound, int tbound, int axis, int *length){
 	    skeleSwap(&arr[i + 1][0], &arr[tbound][0]);
 	    skeleSwap(&arr[i + 1][1], &arr[tbound][1]);
 	    skeleSwap(&arr[i + 1][2], &arr[tbound][2]);
-	    skeleSwap(&arr[i + 1][3], &arr[tbound][3]);
+        if(mode == 0){
+	        skeleSwap(&arr[i + 1][3], &arr[tbound][3]);
+        }
     }
     else{
 	    skeleSwap(&arr[i + 1][0], &arr[tbound][0]);
@@ -48,7 +52,7 @@ int skelePartition(double **arr, int lbound, int tbound, int axis, int *length){
     return temp_pivot;
 }
 
-void skeleQuickSort(double **arr, int lbound, int tbound, int axis, int *length){
+void skeleQuickSort(double **arr, int lbound, int tbound, int axis, int *length,int mode){
     //lbound => lower bounds
     //tbound => top bounds
     //Axis is axis to sort alng
@@ -56,13 +60,13 @@ void skeleQuickSort(double **arr, int lbound, int tbound, int axis, int *length)
     //2 => y
     //3 => z
     if(lbound < tbound){
-        double pivot = skelePartition(arr, lbound, tbound, axis, length);
+        double pivot = skelePartition(arr, lbound, tbound, axis, length, mode);
         //fprintf(stdout,"got pivot at%f\n",pivot);
         if(pivot - 1 - lbound > 1){
-            skeleQuickSort(arr, lbound, pivot - 1, axis, length);
+            skeleQuickSort(arr, lbound, pivot - 1, axis, length, mode);
         }
         if(tbound - pivot + 1 > 1){
-            skeleQuickSort(arr, pivot + 1, tbound, axis, length);
+            skeleQuickSort(arr, pivot + 1, tbound, axis, length, mode);
         }
     }
 }

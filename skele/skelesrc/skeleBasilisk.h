@@ -2156,31 +2156,208 @@ sprintf (conname, "connectionDat-%5.3f.dat", t);
     *pcomboindex = comboindex;
     *sD = sd;
 }
-double basisFunction(int i, int n, double t) {
-    // Recursive calculation of B-spline basis function
-    if (n == 1) {
-        if ((t >= i) && (t < (i + 1)))
-            return 1.0;
-        return 0.0;
+//calcs needed bezier properties for optimization at given t
+double* calcBezierDC(int *n,double ***ppoints,double *t){
+    double **points = *ppoints;
+    if(*n == 1){
+        double *retpoint = malloc(3*sizeof(double));
+        retpoint[0] = points[0][0];
+        retpoint[1] = points[0][1];
+        retpoint[2] = points[0][2];
+        return retpoint;
     }
-
-    double denominator1 = (i + n - 1) - i;
-    double denominator2 = (i + n) - (i + 1);
-    double term1 = 0.0;
-    double term2 = 0.0;
-
-    if (denominator1 != 0)
-        term1 = ((t - i) / denominator1) * basisFunction(i, n - 1, t);
-    if (denominator2 != 0)
-        term2 = ((i + n - t) / denominator2) * basisFunction(i + 1, n - 1, t);
-
-    return term1 + term2;
+    else{
+        //malloc our new set of points we will calulate
+        double **newpoints = malloc((*n - 1) * sizeof(double*));
+        for(int i = 0; i < (*n - 1); i++){
+            newpoints[i] = malloc(3 * sizeof(double));
+            //De casteljau method
+            newpoints[i][0] = (1 - *t) * points[i][0] + *t * points[i + 1][0];
+            newpoints[i][1] = (1 - *t) * points[i][1] + *t * points[i + 1][1];
+            newpoints[i][2] = (1 - *t) * points[i][2] + *t * points[i + 1][2];
+        }
+        int newn = *n - 1;
+        //go one step deeper
+        double *retpoint = calcBezierDC(&newn, &newpoints, t);
+        for(int i = 0; i < (*n - 1); i++){
+            free(newpoints[i]);
+        }
+        free(newpoints);
+        return retpoint;
+    }
+}
+double calcBezierErr(struct kdleaf *kdstruct,double **comppoints, int lengpoints, int *dim){
+    struct kdleaf searchstruct = *kdstruct;
+    double error = 0.;
+    double *ignorepoint = malloc(3*sizeof(double));
+    ignorepoint[0]=100000.;ignorepoint[1]=200000;ignorepoint[2]=400200;
+    for(int i = 0; i < lengpoints; i++){
+        double thiserror = 0.;
+        int tleng = 1;
+        double lowestdis = 0.;
+        double *nearpoint = getNearest(comppoints[i],&searchstruct,&lengpoints,dim,&ignorepoint,&tleng,&lowestdis);
+        //position error 
+        for(int j = 0; j < *dim + 1; j++){
+            double dif = fabs(nearpoint[j] - comppoints[i][j]);
+            thiserror += pow(dif,2);
+        }
+        error += thiserror;
+    }
+    error = error / lengpoints;
+    free(ignorepoint);
+    return error;
 }
 //fit spline itteratively
-void findBestFit(double ***ppositioncoeff,double ***pradcoeff,double **findpoints,int comboindex,int *dim, int *n,double *tolerance){
+void findBestFit(double ***ppositioncoeff,double ***pradcoeff,double **findpoints,int comboindex,int *dim, int *n,double *tolerance,int splinediv){
     double **positioncoeff = *ppositioncoeff;
     double **radcoeff = *pradcoeff;
-    //firstly we get a knot vector
+    //We have a few things we want to do here, firstly, we want to create a spline for the given section, which can be closest to our data points
+    //so we create needed parameters
+    double dt = 1/((double)splinediv);//NOTE t changes 0->1
+    int maxitt = 100;
+    double error = 1. + *tolerance;
+    double error_last = 2. + *tolerance;
+    double error_lastlast = 3. + *tolerance;
+    double error_adjust = 2. + *tolerance;
+    double lambda = 0.5;
+    double** deltas = malloc((*n - 1) * sizeof(double*));
+    for(int i = 0; i < *n - 1; i++){
+        deltas[i] = malloc((*dim + 1) * sizeof(double));
+        for(int j = 0; j < *dim + 1; j++){
+            //makes individual delta for each point and each 
+            deltas[i][j] = 0.05;
+        }
+    }
+    //First we genrate our input values into a calculation spline
+    double **calcspline = malloc((*n + 1) * sizeof(double*));
+    for(int i = 0; i < (*n + 1); i++){
+        calcspline[i] = malloc((*dim + 1) * sizeof(double));
+        calcspline[i][0] = positioncoeff[i][0];
+        calcspline[i][1] = positioncoeff[i][1];
+        calcspline[i][2] = radcoeff[i][0];
+        //fprintf(stdout,"init-spline:%d = [%f,%f,%f]\n",i,calcspline[i][0],calcspline[i][1],calcspline[i][2]);
+    }
+    int itt = 0;
+    while(itt < maxitt && error > *tolerance){
+        //Itterate through each middle point of the data at each dim
+        int track = 0;
+        //fprintf(stdout,"lambda:%f\n",lambda);
+        for(int i = 1; i < (*n); i++){
+            error_adjust = error;
+            for(int j = 0; j < *dim + 1; j++){
+                //define variables
+                double temp = calcspline[i][j];
+                double error_pos = 0.;
+                double error_neg = 0.;
+                //try positive adjustment
+                calcspline[i][j] = temp + deltas[i - 1][j];
+                double **ntpoints = malloc(splinediv * sizeof(double*));
+                for(int p = 0; p < splinediv; p++){
+                    double t = dt * (double)p;
+                    int newn = *n + 1;
+                    ntpoints[p] = malloc((*dim + 1)*sizeof(double));
+                    double* newt = calcBezierDC(&newn,&calcspline,&t);
+                    ntpoints[p][0] = newt[0];
+                    ntpoints[p][1] = newt[1];
+                    ntpoints[p][2] = newt[2];
+                    free(newt);
+                }
+                struct kdleaf *kdstruct_petp = NULL;
+                int splinecalc = splinediv - 1;
+                CreateStructure(ntpoints,&kdstruct_petp,0,dim,0,splinecalc,1);
+                error_pos = calcBezierErr(kdstruct_petp,findpoints,comboindex,dim);
+                kdDestroy(&kdstruct_petp);
+                //Next try for negative adjustment
+                calcspline[i][j] = temp - deltas[i - 1][j];
+                for(int p = 0; p < splinediv; p++){
+                    double t = dt * (double)p;
+                    int newn = *n + 1;
+                    double* newt = calcBezierDC(&newn,&calcspline,&t);
+                    ntpoints[p][0] = newt[0];
+                    ntpoints[p][1] = newt[1];
+                    ntpoints[p][2] = newt[2];
+                    free(newt);
+                }
+                struct kdleaf *kdstruct_petn = NULL;
+                CreateStructure(ntpoints,&kdstruct_petn,0,dim,0,splinecalc,1);
+                error_neg = calcBezierErr(kdstruct_petn,findpoints,comboindex,dim);
+                kdDestroy(&kdstruct_petn);
+                //free points
+                for(int k = 0; k < splinediv; k++){
+                    free(ntpoints[k]);
+                }
+                free(ntpoints);
+                double der;
+                //Determine next steps
+                if(error_pos <= error_neg && error_pos < error_adjust){
+                    //found better solution in the positive  
+                    //we mark a point for decreasing scale later too
+                    error_adjust = error_pos;
+                    calcspline[i][j] = temp + deltas[i - 1][j] * lambda;
+                    track++;
+                    //because sucess we decrease delta for this parameter as we get closer to the solution
+                    deltas[i - 1][j] = deltas[i - 1][j] * 0.1;
+                    //fprintf(stdout,"(%d-%d) => new pos [%f,%f,%f]\n",i-1,j,calcspline[i][0],calcspline[i][1],calcspline[i][2]);
+                }
+                else if(error_neg < error_pos && error_neg < error_adjust){
+                    //found better solution in the negative 
+                    //we mark a point for decreasing scale later too
+                    error_adjust = error_neg;
+                    calcspline[i][j] = temp - deltas[i - 1][j] * lambda;
+                    track++;
+                    //because sucess we decrease delta for this parameter as we get closer to the solution
+                    deltas[i - 1][j] = deltas[i - 1][j] * 0.1;
+                    //fprintf(stdout,"(%d-%d) => new  pos [%f,%f,%f]\n",i-1,j,calcspline[i][0],calcspline[i][1],calcspline[i][2]);
+                }
+                else{
+                    //neither was a better shot, so now we reset  
+                    //we also keep delta the same
+                    calcspline[i][j] = temp;
+                    //fprintf(stdout,"(%d-%d) => miss pos\n",i-1,j);
+                }
+            }
+        }
+        if(track > 0){
+            //finally at the end if our spline is closer we decrease lambda
+            lambda = lambda * 0.1;
+            error = error_adjust;
+            if(error_last == error && error_lastlast == error){
+                //breakout as we are stuck
+                break;
+            }
+        }
+        else{
+            //we never did better than original error, so we increase lambda
+            if(error_last == error && error_lastlast == error){
+                //breakout as we are stuck
+                break;
+            }
+            else{
+                lambda = lambda * 10;
+            }
+        }
+        fprintf(stdout,"itt:%d|l:%f|e:%f|el:%f|ell:%f \n",itt,lambda,error,error_last,error_lastlast);
+        error_lastlast = error_last;
+        error_last = error;
+        itt++;
+    }
+    fprintf(stdout,"finished at:%d\n",itt);
+    for(int i = 0; i < (*n + 1); i++){
+        positioncoeff[i][0] = calcspline[i][0];
+        positioncoeff[i][1] = calcspline[i][1];
+        radcoeff[i][0] = calcspline[i][2];
+        //fprintf(stdout,"post-spline:%d = [%f,%f,%f]\n",i,calcspline[i][0],calcspline[i][1],calcspline[i][2]);
+    }
+    //cleanup
+    for(int i = 0; i < (*n + 1); i++){
+        free(calcspline[i]);
+    }
+    free(calcspline);
+    for(int i = 0; i < *n - 1; i++){
+        free(deltas[i]);
+    }
+    free(deltas);
+    //force reassign for unbreakable update
     *ppositioncoeff = positioncoeff; 
     *pradcoeff = radcoeff;      
 }
@@ -2203,14 +2380,23 @@ void getSplineCoeff(double ***ppositioncoeff,double ***pradcoeff,double **pnode0
     }
     else{
         //if n is bigger than we need to find new bestfit
-        //finally assign start & end
+        //assign start & end
         positioncoeff[0][0] = node0[0];//starting node
         positioncoeff[0][1] = node0[1];
         radcoeff[0][0] = node0[2];
-        positioncoeff[*n+1][0] = node1[0];//ending node
-        positioncoeff[*n+1][1] = node1[1];
-        radcoeff[*n+1][0] = node1[2];
-        findBestFit(&positioncoeff,&radcoeff,findpoints,comboindex,dim,n,tolerance);
+        positioncoeff[*n][0] = node1[0];//ending node
+        positioncoeff[*n][1] = node1[1];
+        radcoeff[*n][0] = node1[2];
+        //next we create initial points for our spline, we inizalize each section as 'linear'
+        double dx = (node1[0] - node0[0])/((double)*n);
+        double dy = (node1[1] - node0[1])/((double)*n);
+        double dr = (node1[2] - node0[2])/((double)*n);
+        for(int i = 1; i < *n; i++){
+            positioncoeff[i][0] = positioncoeff[i - 1][0] + dx;
+            positioncoeff[i][1] = positioncoeff[i - 1][1] + dy;
+            radcoeff[i][0] = radcoeff[i - 1][0] + dr;
+        }
+        findBestFit(&positioncoeff,&radcoeff,findpoints,comboindex,dim,n,tolerance,30);
     }
     *ppositioncoeff = positioncoeff; 
     *pradcoeff = radcoeff;      
@@ -2290,17 +2476,16 @@ void makeSpline(struct skeleDensity **sD,int *dim,double *tolerance,int *length,
     //So we will go through and calculate our approximations
     //first we define some things we want
     //given we want order 'n' we allocate accordingly
-    double ***positioncoeff;
-    double ***radcoeff;//collections of the collections of the coeffs
+    
     //allocation for coeffs
-    positioncoeff = malloc(combocount*sizeof(double**));
-    radcoeff = malloc(combocount*sizeof(double**));
+    double ***positioncoeff = malloc(combocount*sizeof(double**));
+    double ***radcoeff = malloc(combocount*sizeof(double**));//NOTE rad coeff is set to be build like position coeff to allow approximation of other var
     double **node0 = malloc(combocount*sizeof(double*));
     double **node1 = malloc(combocount*sizeof(double*));
     for(int q = 0; q < combocount; q++){
-        positioncoeff[q] = malloc((*n+2)*sizeof(double*));
-        radcoeff[q] = malloc((*n+2)*sizeof(double*));
-        for(int i = 0; i < (*n + 2); i++){
+        positioncoeff[q] = malloc((*n+1)*sizeof(double*));
+        radcoeff[q] = malloc((*n+1)*sizeof(double*));
+        for(int i = 0; i < (*n + 1); i++){
             positioncoeff[q][i] = malloc(*dim*sizeof(double));
             radcoeff[q][i] = malloc((1)*sizeof(double));
         }
@@ -2326,7 +2511,7 @@ void makeSpline(struct skeleDensity **sD,int *dim,double *tolerance,int *length,
         }
         else if(*n > 1){
             fprintf(fpindx,"%d ",*n);
-            for(int i = 0; i < *n + 2; i++){
+            for(int i = 0; i < *n + 1; i++){
                 fprintf(fpindx,"%f %f %f ",positioncoeff[q][i][0],positioncoeff[q][i][1],radcoeff[q][i][0]);
             }
             fprintf(fpindx,"\n");
@@ -2340,7 +2525,7 @@ void makeSpline(struct skeleDensity **sD,int *dim,double *tolerance,int *length,
     freeCombo(&findpoints,&comboindex,&nodeconnections,&nodeindex,&combocount,&nicount);
     free(visitcount);
     for(int i = 0; i < combocount; i++){
-        for(int j = 0; j < *n+2; j++){
+        for(int j = 0; j < *n+1; j++){
             free(positioncoeff[i][j]);
             free(radcoeff[i][j]);
         }
@@ -2349,6 +2534,12 @@ void makeSpline(struct skeleDensity **sD,int *dim,double *tolerance,int *length,
     }
     free(positioncoeff);
     free(radcoeff);
+    for(int q = 0; q < combocount; q++){
+        free(node0[q]);
+        free(node1[q]);
+    }
+    free(node0);
+    free(node1);
     for(int i = 0; i < ncount; i++){
         free(nodeid[i]);
     }   
