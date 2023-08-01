@@ -2361,6 +2361,23 @@ void findBestFit(double ***ppositioncoeff,double ***pradcoeff,double **findpoint
     *ppositioncoeff = positioncoeff; 
     *pradcoeff = radcoeff;      
 }
+double bezierBasisFunc(int *n,double x){
+
+}
+//Least square fitting splines
+void findBestFit2(double ***ppositioncoeff,double ***pradcoeff,double **findpoints,int comboindex,int *dim, int *n,double *tolerance){
+    double **positioncoeff = *ppositioncoeff;
+    double **radcoeff = *pradcoeff;
+    //Firstly Setup Matrix based on inputs :)
+    //AX = B
+    //A = comboindex x (*n + 1)
+    //B = comboindex x 2 (y , r)
+    //Solve Matrix
+
+
+    *ppositioncoeff = positioncoeff; 
+    *pradcoeff = radcoeff;      
+}
 void getSplineCoeff(double ***ppositioncoeff,double ***pradcoeff,double **pnode0,double **pnode1,int *dim,int *n,double ***pfindpoints,int *pcomboindex,double *tolerance,double inLam, double inDel){
     double **positioncoeff = *ppositioncoeff;
     double **radcoeff = *pradcoeff;

@@ -331,225 +331,235 @@ source = os.path.split(os.path.dirname(os.path.abspath(__file__)))[0] + r'/'
 if __name__ == '__main__':
     fig = plt.figure()
     case = True
+    #time var
     t = 0.01
-    #t = 0.22
+    maxt = 10000.0
     dt = 0.01
+    #overwrite if input
+    syslen = len(sys.argv)
+    if syslen > 1:
+        print('sysargs:',syslen,sys.argv)
+        t = float(sys.argv[1])/100
+        maxt = float(sys.argv[2])/100
+        print(t,maxt)
     j = 0
     focus = [0,0,0,0]
     fleng = 0;
     while(case):
-        #try:
-        ix = []
-        iy = []
-        inx = []
-        iny = []
-        col = []
-        npx = []
-        npy = []
-        npr = []
-        bnx = []
-        bny = []
-        bpx = []
-        bpy = []
-        rbnx = []
-        rbny = []
-        rbpx = []
-        rbpy = []
-        bd = []
-        hasn = []
-        drow = 0
-        dcol = 0
-        sm = []
-        #our relavant close data
-        scx = []
-        scy = []
-        scw = []
-        sch = []
-        scd = []
-        scid = []
-
-        #spline branch data
-
-        angle = np.tan(30 * 3.141592 / 180)
-        npath = source + r'dbasiliskRuns/' + "nodeDat-{:.3f}.dat".format(t)
-        with open(npath,'r') as csvfile:
-            data  = csv.reader(csvfile,delimiter = ' ')
-            i = 0
-            for row in data:
-                npx.append(float(row[0]))
-                npy.append(float(row[1]))
-                npr.append(float(row[2]))
-                sm.append(int(row[3]))
-                i += 1
-        bpath = source + r'dbasiliskRuns/' + "boxDat-{:.3f}.dat".format(t)
-        #ipath = source + r'superRuns/' + "infc-{:.3f}.dat".format(t)
-        with open(bpath,'r') as csvfile:
-            data  = csv.reader(csvfile,delimiter = ' ')
-            i = 0
-            for row in data:
-                bnx.append(float(row[0]))
-                bny.append(float(row[1]))
-                bpx.append(float(row[2]))
-                bpy.append(float(row[3]))
-                rbnx.append(float(row[4]))
-                rbny.append(float(row[5]))
-                rbpx.append(float(row[6]))
-                rbpy.append(float(row[7]))
-                bd.append(float(row[8]))
-                drow = int(row[9])
-                dcol = int(row[10])
-                hasn.append(int(row[11]))
-                i += 1
-        ipath = source + r'dbasiliskRuns/' + "intdata-{:.3f}.dat".format(t)
-        with open(ipath,'r') as csvfile:
-            data  = csv.reader(csvfile,delimiter = ' ')
-            i = 0
-            for row in data:
-                ix.append(float(row[0]))
-                iy.append(float(row[1]))
-                inx.append(float(row[2]))
-                iny.append(float(row[3]))
-                i += 1
-        scpath = source + r'dbasiliskRuns/' + "splinecalcDat-{:.3f}.dat".format(t)
-        with open(scpath,'r') as csvfile:
-            data  = csv.reader(csvfile,delimiter = ' ')
-            i = 0
-            for row in data:
-                scx.append(float(row[0]))
-                scy.append(float(row[1]))
-                scw.append(float(row[2]))
-                sch.append(float(row[3]))
-                scd.append(int(row[4]))
-                scid.append([int(row[5]),int(row[6])])
-                i += 1
-        #Load in node connections
-        con = []
-        conpath = source + r'dbasiliskRuns/' + "connectionDat-{:.3f}.dat".format(t)
-        with open(conpath,'r') as csvfile:
-            data  = csv.reader(csvfile,delimiter = ' ')
-            i = 0
-            for row in data:
-                con.append([int(row[0]),int(row[1])])
-                i += 1
-        conid = []
-        conidpath = source + r'dbasiliskRuns/' + "connectionidDat-{:.3f}.dat".format(t)
-        with open(conidpath,'r') as csvfile:
-            data  = csv.reader(csvfile,delimiter = ' ')
-            i = 0
-            for row in data:
-                conid.append([int(row[0]),int(row[1]),float(row[2]),float(row[3])])
-                i += 1
-        sbpath = ""
-        #n-1 data
-        #n0x = []
-        #n0y = []
-        #n0r = []
-        #n1x = []
-        #n1y = []
-        #n1r = []
-        #a0 = []
-        #a1 = []
-        #ry:
-        #   sbpath = source + r'dbasiliskRuns/' + "splineBranchDat-{:.3f}.dat".format(t)
-        #   with open(sbpath,'r') as csvfile:
-        #       data  = csv.reader(csvfile,delimiter = ' ')
-        #       i = 0
-        #       for row in data:
-        #           sn0x.append(float(row[0]))
-        #           sn0y.append(float(row[1]))
-        #           sn0r.append(float(row[2]))
-        #           sn1x.append(float(row[3]))
-        #           sn1y.append(float(row[4]))
-        #           sn1r.append(float(row[5]))
-        #           sa0.append(float(row[6]))
-        #           if(len(row) > 7):
-        #               sa1.append(float(row[7]))
-        #           i += 1
-        #xcept:
-        #   print("no existing file:",sbpath)
-        #n-2 data input
-        n = 0
-        conx = []
-        cony = []
-        conr = []
         try:
-            sbpath = source + r'dbasiliskRuns/' + "splineBranchDat-{:.3f}.dat".format(t)
-            with open(sbpath,'r') as csvfile:
+            ix = []
+            iy = []
+            inx = []
+            iny = []
+            col = []
+            npx = []
+            npy = []
+            npr = []
+            bnx = []
+            bny = []
+            bpx = []
+            bpy = []
+            rbnx = []
+            rbny = []
+            rbpx = []
+            rbpy = []
+            bd = []
+            hasn = []
+            drow = 0
+            dcol = 0
+            sm = []
+            #our relavant close data
+            scx = []
+            scy = []
+            scw = []
+            sch = []
+            scd = []
+            scid = []
+
+            #spline branch data
+
+            angle = np.tan(30 * 3.141592 / 180)
+            npath = source + r'dbasiliskRuns/' + "nodeDat-{:.3f}.dat".format(t)
+            with open(npath,'r') as csvfile:
                 data  = csv.reader(csvfile,delimiter = ' ')
                 i = 0
                 for row in data:
-                    conx.append([])
-                    cony.append([])
-                    conr.append([])
-                    if i == 0:
-                        n = int(row[0])
-                    q = 0
-                    c = 3
-                    while q < n + 1:
-                        conx[i].append(float(row[c*q+1]))
-                        cony[i].append(float(row[c*q+2]))
-                        conr[i].append(float(row[c*q+3]))
-                        q += 1
+                    npx.append(float(row[0]))
+                    npy.append(float(row[1]))
+                    npr.append(float(row[2]))
+                    sm.append(int(row[3]))
                     i += 1
-        except:
-            print("no existing file:",sbpath)
-        angpath = source + r'dbasiliskRuns/' + "angDat-{:.3f}.dat".format(t)
-        ax = []
-        ay = []
-        aa = []
-        try:
-            with open(angpath,'r') as csvfile:
+            bpath = source + r'dbasiliskRuns/' + "boxDat-{:.3f}.dat".format(t)
+            #ipath = source + r'superRuns/' + "infc-{:.3f}.dat".format(t)
+            with open(bpath,'r') as csvfile:
                 data  = csv.reader(csvfile,delimiter = ' ')
                 i = 0
                 for row in data:
-                    ax.append(float(row[0]))
-                    ay.append(float(row[1]))
-                    aa.append(float(row[2]))
+                    bnx.append(float(row[0]))
+                    bny.append(float(row[1]))
+                    bpx.append(float(row[2]))
+                    bpy.append(float(row[3]))
+                    rbnx.append(float(row[4]))
+                    rbny.append(float(row[5]))
+                    rbpx.append(float(row[6]))
+                    rbpy.append(float(row[7]))
+                    bd.append(float(row[8]))
+                    drow = int(row[9])
+                    dcol = int(row[10])
+                    hasn.append(int(row[11]))
                     i += 1
+            ipath = source + r'dbasiliskRuns/' + "intdata-{:.3f}.dat".format(t)
+            with open(ipath,'r') as csvfile:
+                data  = csv.reader(csvfile,delimiter = ' ')
+                i = 0
+                for row in data:
+                    ix.append(float(row[0]))
+                    iy.append(float(row[1]))
+                    inx.append(float(row[2]))
+                    iny.append(float(row[3]))
+                    i += 1
+            scpath = source + r'dbasiliskRuns/' + "splinecalcDat-{:.3f}.dat".format(t)
+            with open(scpath,'r') as csvfile:
+                data  = csv.reader(csvfile,delimiter = ' ')
+                i = 0
+                for row in data:
+                    scx.append(float(row[0]))
+                    scy.append(float(row[1]))
+                    scw.append(float(row[2]))
+                    sch.append(float(row[3]))
+                    scd.append(int(row[4]))
+                    scid.append([int(row[5]),int(row[6])])
+                    i += 1
+            #Load in node connections
+            con = []
+            conpath = source + r'dbasiliskRuns/' + "connectionDat-{:.3f}.dat".format(t)
+            with open(conpath,'r') as csvfile:
+                data  = csv.reader(csvfile,delimiter = ' ')
+                i = 0
+                for row in data:
+                    con.append([int(row[0]),int(row[1])])
+                    i += 1
+            conid = []
+            conidpath = source + r'dbasiliskRuns/' + "connectionidDat-{:.3f}.dat".format(t)
+            with open(conidpath,'r') as csvfile:
+                data  = csv.reader(csvfile,delimiter = ' ')
+                i = 0
+                for row in data:
+                    conid.append([int(row[0]),int(row[1]),float(row[2]),float(row[3])])
+                    i += 1
+            sbpath = ""
+            #n-1 data
+            #n0x = []
+            #n0y = []
+            #n0r = []
+            #n1x = []
+            #n1y = []
+            #n1r = []
+            #a0 = []
+            #a1 = []
+            #ry:
+            #   sbpath = source + r'dbasiliskRuns/' + "splineBranchDat-{:.3f}.dat".format(t)
+            #   with open(sbpath,'r') as csvfile:
+            #       data  = csv.reader(csvfile,delimiter = ' ')
+            #       i = 0
+            #       for row in data:
+            #           sn0x.append(float(row[0]))
+            #           sn0y.append(float(row[1]))
+            #           sn0r.append(float(row[2]))
+            #           sn1x.append(float(row[3]))
+            #           sn1y.append(float(row[4]))
+            #           sn1r.append(float(row[5]))
+            #           sa0.append(float(row[6]))
+            #           if(len(row) > 7):
+            #               sa1.append(float(row[7]))
+            #           i += 1
+            #xcept:
+            #   print("no existing file:",sbpath)
+            #n-2 data input
+            n = 0
+            conx = []
+            cony = []
+            conr = []
+            try:
+                sbpath = source + r'dbasiliskRuns/' + "splineBranchDat-{:.3f}.dat".format(t)
+                with open(sbpath,'r') as csvfile:
+                    data  = csv.reader(csvfile,delimiter = ' ')
+                    i = 0
+                    for row in data:
+                        conx.append([])
+                        cony.append([])
+                        conr.append([])
+                        if i == 0:
+                            n = int(row[0])
+                        q = 0
+                        c = 3
+                        while q < n + 1:
+                            conx[i].append(float(row[c*q+1]))
+                            cony[i].append(float(row[c*q+2]))
+                            conr[i].append(float(row[c*q+3]))
+                            q += 1
+                        i += 1
+            except:
+                print("no existing file:",sbpath)
+            angpath = source + r'dbasiliskRuns/' + "angDat-{:.3f}.dat".format(t)
+            ax = []
+            ay = []
+            aa = []
+            try:
+                with open(angpath,'r') as csvfile:
+                    data  = csv.reader(csvfile,delimiter = ' ')
+                    i = 0
+                    for row in data:
+                        ax.append(float(row[0]))
+                        ay.append(float(row[1]))
+                        aa.append(float(row[2]))
+                        i += 1
+            except:
+                print("couldnt load ang")
+            print("loaded:",t)
+            scdat = [scx,scy,scw,sch,scd,scid]
+            idat = [ix,iy,inx,iny]
+            ndat = [npx,npy,npr,sm]
+            bdat = [bnx,bny,bpx,bpy,rbnx,rbny,rbpx,rbpy,bd,drow,dcol,hasn]
+            condat = [con,conid]
+            #sbdat = [sn0x,sn0y,sn0r,sn1x,sn1y,sn1r,sa0,sa1]
+            sbdat = [conx,cony,conr]
+            print("assigned",t)
+            #bdat = []
+            #save = source + r'pScript/2DEvolve/' + "skeleplt-{:03d}.png".format(j)
+            save = r'2DEvolve/' + "skele2intplt-{:03d}.png".format(j)
+            t = round(t,2)
+            #find focus
+            focus[0] = min(idat[0])
+            focus[1] = max(idat[0])
+            focus[2] = min(idat[1])
+            focus[3] = max(idat[1])
+            fx = focus[1]-focus[0]#lx
+            fy = focus[3]-focus[2]#ly
+            mx = (focus[1]+focus[0]) / 2 #mid point x
+            my = (focus[3]+focus[2]) / 2 #mid point y
+            #Make const Square bounds; fleng is the square width
+            if j == 0:
+                if fx > fy:
+                    fleng = fx*2
+                else:
+                    fleng = fy*2
+            #Adjust square as moves
+            if fx < fleng:
+                focus[0] = mx - fleng/2
+                focus[1] = mx + fleng/2
+            if fy < fleng:
+                focus[2] = my - fleng/2
+                focus[3] = my + fleng/2
+            #Plot results
+            #if len(sdat[0]) != 0:
+            print("sent",t)
+            plotmirror(fig,scdat,idat,ndat,bdat,condat,sbdat,0,0,save,j,focus,n)
+            #tries to open time step & plot
+            j += 1
+            t += dt
+            if t > maxt:
+                case = False
         except:
-            print("couldnt load ang")
-        print("loaded:",t)
-        scdat = [scx,scy,scw,sch,scd,scid]
-        idat = [ix,iy,inx,iny]
-        ndat = [npx,npy,npr,sm]
-        bdat = [bnx,bny,bpx,bpy,rbnx,rbny,rbpx,rbpy,bd,drow,dcol,hasn]
-        condat = [con,conid]
-        #sbdat = [sn0x,sn0y,sn0r,sn1x,sn1y,sn1r,sa0,sa1]
-        sbdat = [conx,cony,conr]
-        print("assigned",t)
-        #bdat = []
-        #save = source + r'pScript/2DEvolve/' + "skeleplt-{:03d}.png".format(j)
-        save = r'2DEvolve/' + "skele2intplt-{:03d}.png".format(j)
-        t = round(t,2)
-        #find focus
-        focus[0] = min(idat[0])
-        focus[1] = max(idat[0])
-        focus[2] = min(idat[1])
-        focus[3] = max(idat[1])
-        fx = focus[1]-focus[0]#lx
-        fy = focus[3]-focus[2]#ly
-        mx = (focus[1]+focus[0]) / 2 #mid point x
-        my = (focus[3]+focus[2]) / 2 #mid point y
-        #Make const Square bounds; fleng is the square width
-        if j == 0:
-            if fx > fy:
-                fleng = fx*2
-            else:
-                fleng = fy*2
-        #Adjust square as moves
-        if fx < fleng:
-            focus[0] = mx - fleng/2
-            focus[1] = mx + fleng/2
-        if fy < fleng:
-            focus[2] = my - fleng/2
-            focus[3] = my + fleng/2
-        #Plot results
-        #if len(sdat[0]) != 0:
-        print("sent",t)
-        plotmirror(fig,scdat,idat,ndat,bdat,condat,sbdat,0,0,save,j,focus,n)
-        #tries to open time step & plot
-        j += 1
-        t += dt
-        #except:
-        #    case = False
+            case = False
     print("done")

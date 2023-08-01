@@ -1,17 +1,17 @@
 parent_path=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
 cd "$parent_path"
+echo "Plotting..."
 #clear
 if [ $# -eq 0 ]
   then
-    save_name="2DEvolve.mp4"
+    time_start=0
+    time_end=39
 else
-    save_name="$1"
-    if [ $2 -eq 1 ]
-        then
-            ./clean.sh
-    fi
+    time_start="$1"
+    time_end="$2"
 fi
-echo $save_name
+dif="$(($time_end-$time_start))"
+
 #reg
 #python3 skeleTrace.py
 #ffmpeg -r 72 -y -threads 4 -i 2DEvolve/skeleplt-%03d.png -pix_fmt yuv420p 2DEvolve.mp4
@@ -21,7 +21,11 @@ echo $save_name
 #ffmpeg -r 4 -y -threads 4 -i 2DEvolve/svofplt-%03d.png -pix_fmt yuv420p 2DEvolve.mp4
 
 #inttrace
-python3 splinecalc.py
+python3 splinecalc.py $time_start $time_end
 
-
-ffmpeg -r 5 -y -threads 4 -i 2DEvolve/skele2intplt-%03d.png -pix_fmt yuv420p $save_name
+if [ $dif -eq 0 ]
+  then
+    echo "cant animate because time error"
+else
+    ffmpeg -r 5 -y -threads 4 -i 2DEvolve/skele2intplt-%03d.png -pix_fmt yuv420p $save_name
+fi

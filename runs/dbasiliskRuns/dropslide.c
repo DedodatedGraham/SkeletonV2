@@ -32,8 +32,8 @@ double maxruntime = 60;
 
 double i_start = 0.;
 double i_end = 39.;
-//double i_start = 22.;
-//double i_end = 23.;
+//double i_start = 27.;
+//double i_end = 27.;
 double i_gap = 1.;
 int i = 0.;
 double mindis = 0.0;
@@ -46,13 +46,28 @@ int main(int argc, char * argv[])
     double inLam = 0.8;
     double inDel = 0.05;
     //Note We scale parameters in here bc annoying comand line
+    //Time Start, Time End, Lambda, Delta
     if( argc > 1 ){
-        sscanf(argv[1],"%lf",&inLam);
-        inLam = inLam / 10.;
-        if( argc > 2 ){
-            sscanf(argv[2],"%lf",&inDel);
-            inDel = inDel / 100.;
+        sscanf(argv[1],"%lf",&i_start);
+        if(i_start < 0){
+            fprintf(stdout,"error corrected start");
+            i_start = 0.;
         }
+    }
+    if( argc > 2 ){
+        sscanf(argv[2],"%lf",&i_end);
+        if(i_end > 39){
+            fprintf(stdout,"error corrected start");
+            i_end = 39.;
+        }
+    }
+    if( argc > 3 ){
+        sscanf(argv[3],"%lf",&inLam);
+        inLam = inLam / 10.;
+    }
+    if( argc > 4 ){
+        sscanf(argv[4],"%lf",&inDel);
+        inDel = inDel / 100.;
     }
     fprintf(stdout,"inLam:%f inDel:%f\n",inLam,inDel);
     char name[80];
