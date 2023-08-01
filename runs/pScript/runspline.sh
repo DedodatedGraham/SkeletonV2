@@ -24,4 +24,4 @@ echo $save_name
 python3 splinecalc.py
 
 
-ffmpeg -r 5 -y -threads 4 -i 2DEvolve/skele2intplt-%03d.png -pix_fmt yuv420p $save_name
+ffmpeg -r 5 -y -threads 4 -i 2DEvolve/skele2intplt-%03d.png -pix_fmt yuv420p $save_name &

@@ -39,10 +39,22 @@ int i = 0.;
 double mindis = 0.0;
 int slevel = 0.;
 
-void runSkeleton(double ti);
+void runSkeleton(double ti,double inLam, double inDel);
 
 int main(int argc, char * argv[])
 {
+    double inLam = 0.8;
+    double inDel = 0.05;
+    //Note We scale parameters in here bc annoying comand line
+    if( argc > 1 ){
+        sscanf(argv[1],"%lf",&inLam);
+        inLam = inLam / 10.;
+        if( argc > 2 ){
+            sscanf(argv[2],"%lf",&inDel);
+            inDel = inDel / 100.;
+        }
+    }
+    fprintf(stdout,"inLam:%f inDel:%f\n",inLam,inDel);
     char name[80];
     for (i = i_start; i <= i_end; i += i_gap) {
         double ti = ((double)i)/100;
@@ -50,7 +62,7 @@ int main(int argc, char * argv[])
         fprintf (ferr, "Trying file %s, t = %f\n",name,ti);
         restore(file = name);
         fprintf (ferr, "Opening file %s, i=%d \n",name,i);
-        runSkeleton(ti);
+        runSkeleton(ti,inLam,inDel);
     }
 }
 
@@ -63,7 +75,7 @@ void output_skeleinterface(char name[80],double **list,int length){
     fclose(fp);
 }
 
-void runSkeleton(double ti){
+void runSkeleton(double ti,double inLam, double inDel){
     //get minimumdistance
     fprintf(stdout,"\n");
     if(slevel == 0 || slevel < max_level){
@@ -111,7 +123,7 @@ void runSkeleton(double ti){
     //double del = 0.05;
     double del = 0.05/4;
     int n = 3;
-    skeleReduce(skeleton,del,&minbranchlength,&snr,&snd,&mxpt,ti,n);
+    skeleReduce(skeleton,del,&minbranchlength,&snr,&snd,&mxpt,ti,n,inLam,inDel);
     
     end = clock();
     calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for skeleton  

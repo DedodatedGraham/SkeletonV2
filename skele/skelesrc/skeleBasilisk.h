@@ -2208,7 +2208,7 @@ double calcBezierErr(struct kdleaf *kdstruct,double **comppoints, int lengpoints
     return error;
 }
 //fit spline itteratively
-void findBestFit(double ***ppositioncoeff,double ***pradcoeff,double **findpoints,int comboindex,int *dim, int *n,double *tolerance,int splinediv){
+void findBestFit(double ***ppositioncoeff,double ***pradcoeff,double **findpoints,int comboindex,int *dim, int *n,double *tolerance,int splinediv,double inLam, double inDel){
     double **positioncoeff = *ppositioncoeff;
     double **radcoeff = *pradcoeff;
     //We have a few things we want to do here, firstly, we want to create a spline for the given section, which can be closest to our data points
@@ -2219,13 +2219,13 @@ void findBestFit(double ***ppositioncoeff,double ***pradcoeff,double **findpoint
     double error_last = 2. + *tolerance;
     double error_lastlast = 3. + *tolerance;
     double error_adjust = 2. + *tolerance;
-    double lambda = 0.5;
+    double lambda = inLam;
     double** deltas = malloc((*n - 1) * sizeof(double*));
     for(int i = 0; i < *n - 1; i++){
         deltas[i] = malloc((*dim + 1) * sizeof(double));
         for(int j = 0; j < *dim + 1; j++){
             //makes individual delta for each point and each 
-            deltas[i][j] = 0.05;
+            deltas[i][j] = inDel;
         }
     }
     //First we genrate our input values into a calculation spline
@@ -2361,7 +2361,7 @@ void findBestFit(double ***ppositioncoeff,double ***pradcoeff,double **findpoint
     *ppositioncoeff = positioncoeff; 
     *pradcoeff = radcoeff;      
 }
-void getSplineCoeff(double ***ppositioncoeff,double ***pradcoeff,double **pnode0,double **pnode1,int *dim,int *n,double ***pfindpoints,int *pcomboindex,double *tolerance){
+void getSplineCoeff(double ***ppositioncoeff,double ***pradcoeff,double **pnode0,double **pnode1,int *dim,int *n,double ***pfindpoints,int *pcomboindex,double *tolerance,double inLam, double inDel){
     double **positioncoeff = *ppositioncoeff;
     double **radcoeff = *pradcoeff;
     double *node0 = *pnode0;
@@ -2396,13 +2396,13 @@ void getSplineCoeff(double ***ppositioncoeff,double ***pradcoeff,double **pnode0
             positioncoeff[i][1] = positioncoeff[i - 1][1] + dy;
             radcoeff[i][0] = radcoeff[i - 1][0] + dr;
         }
-        findBestFit(&positioncoeff,&radcoeff,findpoints,comboindex,dim,n,tolerance,30);
+        findBestFit(&positioncoeff,&radcoeff,findpoints,comboindex,dim,n,tolerance,30,inLam,inDel);
     }
     *ppositioncoeff = positioncoeff; 
     *pradcoeff = radcoeff;      
 }
 //Splining method, for merging unessicary nodes, and creating a spline
-void makeSpline(struct skeleDensity **sD,int *dim,double *tolerance,int *length,double t,int *n){
+void makeSpline(struct skeleDensity **sD,int *dim,double *tolerance,int *length,double t,int *n,double inLam, double inDel){
     //Here the only node points are Skeleton points ends, we move from these
     //along the region of interest 
     struct skeleDensity *sDmain = *sD;
@@ -2499,7 +2499,7 @@ void makeSpline(struct skeleDensity **sD,int *dim,double *tolerance,int *length,
             node0[q][p] = (sDmain->sB[i0][j0][k0]).nodepoint[p];
             node1[q][p] = (sDmain->sB[i1][j1][k1]).nodepoint[p];
         }
-        getSplineCoeff(&positioncoeff[q],&radcoeff[q],&node0[q],&node1[q],dim,n,&findpoints[q],&comboindex[q],tolerance);
+        getSplineCoeff(&positioncoeff[q],&radcoeff[q],&node0[q],&node1[q],dim,n,&findpoints[q],&comboindex[q],tolerance,inLam,inDel);
     }
     for(int q = 0; q < combocount; q++){
         char indxname[80];
@@ -2554,7 +2554,7 @@ void makeSpline(struct skeleDensity **sD,int *dim,double *tolerance,int *length,
     free(ids);
     *sD = sDmain;
 }
-void skeleReduce(double **skeleton,double delta,double *minblen,int *length,int *dim,int *mxpt,double t,int n){
+void skeleReduce(double **skeleton,double delta,double *minblen,int *length,int *dim,int *mxpt,double t,int n,double inLam, double inDel){
     //We will have to brute force our data, however we will target area of data max & mins
     double xmax = -HUGE;
     double xmin = HUGE;
@@ -2598,7 +2598,7 @@ void skeleReduce(double **skeleton,double delta,double *minblen,int *length,int 
     struct skeleDensity *sD;
     createSD(&sD,skeleton,length,dim,delta,xmax,xmin,ymax,ymin,zmax,zmin);
     makeNodePoint(&sD,dim);
-    makeSpline(&sD,dim,&tolerance,length,t,&n);
+    makeSpline(&sD,dim,&tolerance,length,t,&n,inLam,inDel);
     ///////////////////////////////////////////////////////////////////////Clearance
     //adapt_wavelet({hsd,hnpt,hlpt,hrpt},(double[]) {tolerance,tolerance,tolerance,tolerance}, sd.level,sd.level);
     //adapt_wavelet2({hsd,hnpt,hlpt,hrpt},(double[]) {tolerance,tolerance,tolerance,tolerance},calclevel,calclevel);

@@ -223,7 +223,7 @@ def plotmirror(fig,scdat,idat,ndat,bdat,condat,sbdat,mirroraxi,mirrorval,save,t,
                 #fill volume
                 j = 0
                 while j < len(sx):
-                    drawcirc = plt.Circle((sx[j],sy[j]),sr[j])
+                    drawcirc = plt.Circle((sx[j],sy[j]),sr[j],zorder=-1)
                     ax.add_artist(drawcirc)
                     j += 1
                 #draw Splines
@@ -236,15 +236,28 @@ def plotmirror(fig,scdat,idat,ndat,bdat,condat,sbdat,mirroraxi,mirrorval,save,t,
                     tpx.append(sx[j+1])
                     tpy.append(sy[j+1])
                     color = plt.cm.get_cmap('hsv')(((sr[j] + sr[j+1])/2)/mr)
-                    ax.plot(tpx,tpy,linewidth=4,color=color)
+                    ax.plot(tpx,tpy,linewidth=4,color=color,zorder=0)
                     j += 1
                 #draw lines
+                i += 1
+            i = 0
+            while i < len(sbdat[0]):
+                j = 0
+                control_points = []
+                while j < len(sbdat[0][i]):
+                    control_points.append([sbdat[0][i][j],sbdat[1][i][j],sbdat[2][i][j]])
+                    j += 1
                 j = 0
                 cpscatx = []
                 cpscaty = []
+                npscatx = []
+                npscaty = []
                 while j < len(control_points):
                     cpscatx.append(control_points[j][0])
                     cpscaty.append(control_points[j][1])
+                    if (j == 0) or (j == len(control_points) - 1):
+                        npscatx.append(control_points[j][0])
+                        npscaty.append(control_points[j][1])
                     if(j < len(control_points) - 1):
                         tpx = []
                         tpy = []
@@ -253,12 +266,12 @@ def plotmirror(fig,scdat,idat,ndat,bdat,condat,sbdat,mirroraxi,mirrorval,save,t,
                         tpx.append(control_points[j + 1][0])
                         tpy.append(control_points[j + 1][1])
                         color = plt.cm.get_cmap('hsv')(((control_points[j][2] + control_points[j + 1][2])/2)/mr)
-                        ax.plot(tpx,tpy,linewidth=1,color='black')
+                        ax.plot(tpx,tpy,linewidth=2,color='black',zorder=1)
                     j += 1
-                ax.scatter(cpscatx,cpscaty,c='black',s=5)
+                ax.scatter(cpscatx,cpscaty,c='black',s=4,zorder=2)
+                ax.scatter(npscatx,npscaty,c='red',s=4,zorder=2)
                 i += 1
-
-        ax.scatter(idat[0],idat[1],c='black',s=2)
+        ax.scatter(idat[0],idat[1],c='black',s=2,zorder=1)
         #print("scattered")
         #if(len(sbdat[0]) > 0):
         #    i = 0
