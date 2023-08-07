@@ -25,7 +25,7 @@ def calcbfunc(n,points,t):
             i += 1
         return calcbfunc(n-1,npoints,t)
 
-def plotmirror(fig,scdat,idat,ndat,bdat,condat,sbdat,mirroraxi,mirrorval,save,t,focus,n):
+def plotmirror(fig,sdat,scdat,idat,ndat,bdat,condat,sbdat,mirroraxi,mirrorval,save,t,focus,n):
     #We will mirror results here
     #First find focus box
     plt.clf()
@@ -223,7 +223,7 @@ def plotmirror(fig,scdat,idat,ndat,bdat,condat,sbdat,mirroraxi,mirrorval,save,t,
                 #fill volume
                 j = 0
                 while j < len(sx):
-                    drawcirc = plt.Circle((sx[j],sy[j]),sr[j],zorder=-1)
+                    drawcirc = plt.Circle((sx[j],sy[j]),sr[j],color='cornflowerblue',zorder=-1)
                     ax.add_artist(drawcirc)
                     j += 1
                 #draw Splines
@@ -235,8 +235,9 @@ def plotmirror(fig,scdat,idat,ndat,bdat,condat,sbdat,mirroraxi,mirrorval,save,t,
                     tpy.append(sy[j])
                     tpx.append(sx[j+1])
                     tpy.append(sy[j+1])
-                    color = plt.cm.get_cmap('hsv')(((sr[j] + sr[j+1])/2)/mr)
-                    ax.plot(tpx,tpy,linewidth=4,color=color,zorder=0)
+                    #color = plt.cm.get_cmap('hsv')(((sr[j] + sr[j+1])/2)/mr)
+                    #ax.plot(tpx,tpy,linewidth=4,color=color,zorder=0)
+                    ax.plot(tpx,tpy,linewidth=1,color='white',zorder=0)
                     j += 1
                 #draw lines
                 i += 1
@@ -266,12 +267,13 @@ def plotmirror(fig,scdat,idat,ndat,bdat,condat,sbdat,mirroraxi,mirrorval,save,t,
                         tpx.append(control_points[j + 1][0])
                         tpy.append(control_points[j + 1][1])
                         color = plt.cm.get_cmap('hsv')(((control_points[j][2] + control_points[j + 1][2])/2)/mr)
-                        ax.plot(tpx,tpy,linewidth=2,color='black',zorder=1)
+                        #ax.plot(tpx,tpy,linewidth=2,color='black',zorder=1)
                     j += 1
-                ax.scatter(cpscatx,cpscaty,c='black',s=4,zorder=2)
+                #ax.scatter(cpscatx,cpscaty,c='pink',s=4,zorder=2)
                 ax.scatter(npscatx,npscaty,c='red',s=4,zorder=2)
                 i += 1
         ax.scatter(idat[0],idat[1],c='black',s=2,zorder=1)
+        #ax.scatter(sdat[0],sdat[1],c='green',s=2,zorder=0)
         #print("scattered")
         #if(len(sbdat[0]) > 0):
         #    i = 0
@@ -328,25 +330,39 @@ def plotmirror(fig,scdat,idat,ndat,bdat,condat,sbdat,mirroraxi,mirrorval,save,t,
 
 
 source = os.path.split(os.path.dirname(os.path.abspath(__file__)))[0] + r'/'
+nsource = source + r'dbasiliskRuns/'
 if __name__ == '__main__':
     fig = plt.figure()
     case = True
     #time var
+    j = 1
+    startj = 1
     t = 0.01
     maxt = 10000.0
     dt = 0.01
     #overwrite if input
     syslen = len(sys.argv)
+    isfile = False
+    isfolder = True
     if syslen > 1:
         print('sysargs:',syslen,sys.argv)
         t = float(sys.argv[1])/100
+        j = int(sys.argv[1])
+        startj = int(sys.argv[1])
         maxt = float(sys.argv[2])/100
-        print(t,maxt)
-    j = 0
+        if syslen > 3:
+            infile = str(sys.argv[3]) + r'/'
+            nsource = nsource + infile
+            isfile = True
+            print(nsource)
+            if syslen > 4 and int(sys.argv[4]) == 1:
+                isfolder = False
     focus = [0,0,0,0]
     fleng = 0;
     while(case):
         try:
+            sx = []
+            sy = []
             ix = []
             iy = []
             inx = []
@@ -379,7 +395,15 @@ if __name__ == '__main__':
             #spline branch data
 
             angle = np.tan(30 * 3.141592 / 180)
-            npath = source + r'dbasiliskRuns/' + "nodeDat-{:.3f}.dat".format(t)
+            datpath = nsource + "reducedskeleton-{:.3f}.dat".format(t)
+            with open(datpath,'r') as csvfile:
+                data  = csv.reader(csvfile,delimiter = ' ')
+                i = 0
+                for row in data:
+                    sx.append(float(row[0]))
+                    sy.append(float(row[1]))
+                    i += 1
+            npath = nsource + "nodeDat-{:.3f}.dat".format(t)
             with open(npath,'r') as csvfile:
                 data  = csv.reader(csvfile,delimiter = ' ')
                 i = 0
@@ -389,7 +413,7 @@ if __name__ == '__main__':
                     npr.append(float(row[2]))
                     sm.append(int(row[3]))
                     i += 1
-            bpath = source + r'dbasiliskRuns/' + "boxDat-{:.3f}.dat".format(t)
+            bpath = nsource + "boxDat-{:.3f}.dat".format(t)
             #ipath = source + r'superRuns/' + "infc-{:.3f}.dat".format(t)
             with open(bpath,'r') as csvfile:
                 data  = csv.reader(csvfile,delimiter = ' ')
@@ -408,7 +432,7 @@ if __name__ == '__main__':
                     dcol = int(row[10])
                     hasn.append(int(row[11]))
                     i += 1
-            ipath = source + r'dbasiliskRuns/' + "intdata-{:.3f}.dat".format(t)
+            ipath = nsource + "intdata-{:.3f}.dat".format(t)
             with open(ipath,'r') as csvfile:
                 data  = csv.reader(csvfile,delimiter = ' ')
                 i = 0
@@ -418,7 +442,7 @@ if __name__ == '__main__':
                     inx.append(float(row[2]))
                     iny.append(float(row[3]))
                     i += 1
-            scpath = source + r'dbasiliskRuns/' + "splinecalcDat-{:.3f}.dat".format(t)
+            scpath = nsource + "splinecalcDat-{:.3f}.dat".format(t)
             with open(scpath,'r') as csvfile:
                 data  = csv.reader(csvfile,delimiter = ' ')
                 i = 0
@@ -432,7 +456,7 @@ if __name__ == '__main__':
                     i += 1
             #Load in node connections
             con = []
-            conpath = source + r'dbasiliskRuns/' + "connectionDat-{:.3f}.dat".format(t)
+            conpath = nsource + "connectionDat-{:.3f}.dat".format(t)
             with open(conpath,'r') as csvfile:
                 data  = csv.reader(csvfile,delimiter = ' ')
                 i = 0
@@ -440,7 +464,7 @@ if __name__ == '__main__':
                     con.append([int(row[0]),int(row[1])])
                     i += 1
             conid = []
-            conidpath = source + r'dbasiliskRuns/' + "connectionidDat-{:.3f}.dat".format(t)
+            conidpath = nsource + "connectionidDat-{:.3f}.dat".format(t)
             with open(conidpath,'r') as csvfile:
                 data  = csv.reader(csvfile,delimiter = ' ')
                 i = 0
@@ -458,7 +482,7 @@ if __name__ == '__main__':
             #a0 = []
             #a1 = []
             #ry:
-            #   sbpath = source + r'dbasiliskRuns/' + "splineBranchDat-{:.3f}.dat".format(t)
+            #   sbpath = nsource + "splineBranchDat-{:.3f}.dat".format(t)
             #   with open(sbpath,'r') as csvfile:
             #       data  = csv.reader(csvfile,delimiter = ' ')
             #       i = 0
@@ -481,7 +505,7 @@ if __name__ == '__main__':
             cony = []
             conr = []
             try:
-                sbpath = source + r'dbasiliskRuns/' + "splineBranchDat-{:.3f}.dat".format(t)
+                sbpath = nsource + "splineBranchDat-{:.3f}.dat".format(t)
                 with open(sbpath,'r') as csvfile:
                     data  = csv.reader(csvfile,delimiter = ' ')
                     i = 0
@@ -501,7 +525,7 @@ if __name__ == '__main__':
                         i += 1
             except:
                 print("no existing file:",sbpath)
-            angpath = source + r'dbasiliskRuns/' + "angDat-{:.3f}.dat".format(t)
+            angpath = nsource + "angDat-{:.3f}.dat".format(t)
             ax = []
             ay = []
             aa = []
@@ -517,6 +541,7 @@ if __name__ == '__main__':
             except:
                 print("couldnt load ang")
             print("loaded:",t)
+            sdat = [sx,sy]
             scdat = [scx,scy,scw,sch,scd,scid]
             idat = [ix,iy,inx,iny]
             ndat = [npx,npy,npr,sm]
@@ -527,7 +552,13 @@ if __name__ == '__main__':
             print("assigned",t)
             #bdat = []
             #save = source + r'pScript/2DEvolve/' + "skeleplt-{:03d}.png".format(j)
-            save = r'2DEvolve/' + "skele2intplt-{:03d}.png".format(j)
+            if isfile:
+                if isfolder:
+                    save = infile + infile.strip('/') + "-{:03d}.png".format(j)
+                else:
+                    save = infile.strip('/') + "-{:03d}.png".format(j)
+            else:
+                save = r'2DEvolve/' + "skele2intplt-{:03d}.png".format(j)
             t = round(t,2)
             #find focus
             focus[0] = min(idat[0])
@@ -539,7 +570,7 @@ if __name__ == '__main__':
             mx = (focus[1]+focus[0]) / 2 #mid point x
             my = (focus[3]+focus[2]) / 2 #mid point y
             #Make const Square bounds; fleng is the square width
-            if j == 0:
+            if j == startj:
                 if fx > fy:
                     fleng = fx*2
                 else:
@@ -554,7 +585,7 @@ if __name__ == '__main__':
             #Plot results
             #if len(sdat[0]) != 0:
             print("sent",t)
-            plotmirror(fig,scdat,idat,ndat,bdat,condat,sbdat,0,0,save,j,focus,n)
+            plotmirror(fig,sdat,scdat,idat,ndat,bdat,condat,sbdat,0,0,save,j,focus,n)
             #tries to open time step & plot
             j += 1
             t += dt

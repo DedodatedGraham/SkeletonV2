@@ -4,8 +4,8 @@ cd "$parent_path"
 clear
 ./clean.sh
 ./compile.sh
-#valgrind ./drop
-./drop
+#valgrind ./drop 0 39 3
+./drop 0 39 3
 ./../pScript/run.sh
 end=`date +%s.%N`
 runtime=$( echo "$end - $start" | bc -l )

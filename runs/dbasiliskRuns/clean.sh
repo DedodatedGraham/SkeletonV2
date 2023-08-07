@@ -1,3 +1,5 @@
+parent_path=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
+cd "$parent_path"
 rm -r dump* 2> /dev/null
 rm -r snapshot* 2> /dev/null
 rm -r ../src 2> /dev/null
@@ -18,3 +20,4 @@ rm -r .qcc* 2> /dev/null
 rm -r infc* 2> /dev/null
 rm -r mtrace* 2> /dev/null
 rm drop 2> /dev/null
+rm -r N*D*/ 2> /dev/null

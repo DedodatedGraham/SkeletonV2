@@ -27,5 +27,5 @@ if [ $dif -eq 0 ]
   then
     echo "cant animate because time error"
 else
-    ffmpeg -r 5 -y -threads 4 -i 2DEvolve/skele2intplt-%03d.png -pix_fmt yuv420p $save_name
+    ffmpeg -r 5 -y -threads 4 -i 2DEvolve/skele2intplt-%03d.png -pix_fmt yuv420p SplineEvolve.mp4
 fi

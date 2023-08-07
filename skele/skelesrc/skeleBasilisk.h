@@ -2,7 +2,8 @@
 #include "skeletize.h"
 #include "../basiliskfunctions/adapt2.h"
 //Extract the interfacial points. here we are extracting the center of the cut surface
-double** thinSkeleton(double **skeleton,int *dim,int *length,double *alpha){
+void thinSkeleton(double ***pskeleton,int *dim,int *length,double *alpha){
+    double **skeleton = *pskeleton;
     fprintf(stdout,"oldL=%d\n",*length);
     //fprintf(stdout,"alpha=%f\n",*alpha);
     //fprintf(stdout,"b4:");
@@ -51,14 +52,13 @@ double** thinSkeleton(double **skeleton,int *dim,int *length,double *alpha){
         free(skeleton[i]);
     }
     free(skeleton);
-    skeleton = newskeleton;
+    *pskeleton = newskeleton;
     fprintf(stdout,"newL=%d\n",*length);
     //fprintf(stdout,"af:");
     //for(int i = 0; i < *length;i++){
     //    fprintf(stdout,"[%f,%f][%f,%f] , ",skeleton[i][0],skeleton[i][1],skeleton[i][2],skeleton[i][3]);
     //}
     //fprintf(stdout,"\n");
-    return skeleton;
 }
 
 
@@ -2107,8 +2107,8 @@ void pathNodes(struct skeleDensity **sD,int *dim,int **nodeid, int *nodeidcount,
     int **nodeconnections = *pnodeconnections;
     int *comboindex = *pcomboindex;
     for(int i = 0; i < *nodeidcount; i++){
-        int **visited = malloc(*(sd->pcount) * sizeof(int*));
-        for(int j = 0; j < *(sd->pcount); j++){
+        int **visited = malloc((*(sd->pcount) + 1) * sizeof(int*));
+        for(int j = 0; j < (*(sd->pcount) + 1); j++){
             visited[j] = calloc(3,sizeof(int));
         }
         visited[0][0] = nodeid[i][0];
@@ -2361,24 +2361,58 @@ void findBestFit(double ***ppositioncoeff,double ***pradcoeff,double **findpoint
     *ppositioncoeff = positioncoeff; 
     *pradcoeff = radcoeff;      
 }
-double bezierBasisFunc(int *n,double x){
-
-}
 //Least square fitting splines
 void findBestFit2(double ***ppositioncoeff,double ***pradcoeff,double **findpoints,int comboindex,int *dim, int *n,double *tolerance){
+    //note can only handle cubic splines as of now
     double **positioncoeff = *ppositioncoeff;
     double **radcoeff = *pradcoeff;
-    //Firstly Setup Matrix based on inputs :)
-    //AX = B
-    //A = comboindex x (*n + 1)
-    //B = comboindex x 2 (y , r)
-    //Solve Matrix
+    //using least square to solve for spline
+    double A1 = 0.; 
+    double A2 = 0.; 
+    double A12 = 0.; 
+    double *C1 = calloc(*dim + 1,sizeof(double)); 
+    double *C2 = calloc(*dim + 1,sizeof(double)); 
+    //construct t for finding values
+    double *t = malloc(comboindex * sizeof(double));
+    for(int i = 0; i < comboindex; i++){
+        t[i] = (double)i / (comboindex - 1);
+    }
+    //Next itterate through each of the points & solve
+    for(int i = 0; i < comboindex; i++){
+        double tt = 1. - t[i];
+        //Find B values
+        double B0 = pow(tt,3);
+        double B1 = (3 * t[i] * pow(tt,2));
+        double B2 = (3 * pow(t[i],2) * tt);
+        double B3 = pow(t[i],3);
 
-
+        //Next compute A&C
+        A1 = A1 + pow(B1,2);
+        A2 = A2 + pow(B2,2);
+        A12 = A12 + B1*B2;
+        for(int j = 0; j < *dim; j++){
+            C1[j] = C1[j] + B1 * (findpoints[i][j] - B0*positioncoeff[0][j] - B3*positioncoeff[*n][j]);
+            C2[j] = C2[j] + B2 * (findpoints[i][j] - B0*positioncoeff[0][j] - B3*positioncoeff[*n][j]);
+        }
+        C1[*dim] = C1[*dim] + B1 * (findpoints[i][*dim] - B0*radcoeff[0][0] - B3*radcoeff[*n][0]);
+        C2[*dim] = C2[*dim] + B2 * (findpoints[i][*dim] - B0*radcoeff[0][0] - B3*radcoeff[*n][0]);
+    }
+    double denom = (A1*A2 - A12*A12);
+    //assign
+    for(int i = 0; i < *dim; i++){
+        positioncoeff[1][i] = (A2*C1[i] - A12 * C2[i]) / denom;
+        positioncoeff[2][i] = (A1*C2[i] - A12 * C1[i]) / denom;
+    }
+    radcoeff[1][0] = (A2*C1[*dim] - A12 * C2[*dim]) / denom;
+    radcoeff[2][0] = (A1*C2[*dim] - A12 * C1[*dim]) / denom;
+    //Free
+    free(t);
+    free(C1);
+    free(C2);
     *ppositioncoeff = positioncoeff; 
     *pradcoeff = radcoeff;      
 }
-void getSplineCoeff(double ***ppositioncoeff,double ***pradcoeff,double **pnode0,double **pnode1,int *dim,int *n,double ***pfindpoints,int *pcomboindex,double *tolerance,double inLam, double inDel){
+void getSplineCoeff(double ***ppositioncoeff,double ***pradcoeff,double **pnode0,double **pnode1,int *dim,int *n,double ***pfindpoints,int *pcomboindex,double *tolerance){
     double **positioncoeff = *ppositioncoeff;
     double **radcoeff = *pradcoeff;
     double *node0 = *pnode0;
@@ -2413,13 +2447,43 @@ void getSplineCoeff(double ***ppositioncoeff,double ***pradcoeff,double **pnode0
             positioncoeff[i][1] = positioncoeff[i - 1][1] + dy;
             radcoeff[i][0] = radcoeff[i - 1][0] + dr;
         }
-        findBestFit(&positioncoeff,&radcoeff,findpoints,comboindex,dim,n,tolerance,30,inLam,inDel);
+        //Only Output spline if enough points, otherwise we change
+        if(comboindex > *n){
+            //findBestFit(&positioncoeff,&radcoeff,findpoints,comboindex,dim,n,tolerance,30,inLam,inDel);
+            findBestFit2(&positioncoeff,&radcoeff,findpoints,comboindex,dim,n,tolerance);
+        }
+        else{
+            fprintf(stdout,"error too little input points defaulting spline to linear/input\n");
+            if(comboindex == 1){
+                for(int i = 1; i < *n; i++){
+                    positioncoeff[i][0] = findpoints[0][0];
+                    positioncoeff[i][1] = findpoints[0][1];
+                    radcoeff[i][0] = findpoints[0][2];
+                }
+            }
+            else{
+                int mid = (int)floor((*n + 1) / 2);
+                for(int i = 1; i < *n; i++){
+                    if(i < mid){
+                        positioncoeff[i][0] = findpoints[0][0];
+                        positioncoeff[i][1] = findpoints[0][1];
+                        radcoeff[i][0] = findpoints[0][2];
+                    }
+                    else{
+                        positioncoeff[i][0] = findpoints[comboindex - 1][0];
+                        positioncoeff[i][1] = findpoints[comboindex - 1][1];
+                        radcoeff[i][0] = findpoints[comboindex - 1][2];
+                    }
+                }
+
+            }
+        }
     }
     *ppositioncoeff = positioncoeff; 
     *pradcoeff = radcoeff;      
 }
 //Splining method, for merging unessicary nodes, and creating a spline
-void makeSpline(struct skeleDensity **sD,int *dim,double *tolerance,int *length,double t,int *n,double inLam, double inDel){
+void makeSpline(struct skeleDensity **sD,int *dim,double *tolerance,int *length,double t,int *n){
     //Here the only node points are Skeleton points ends, we move from these
     //along the region of interest 
     struct skeleDensity *sDmain = *sD;
@@ -2516,7 +2580,7 @@ void makeSpline(struct skeleDensity **sD,int *dim,double *tolerance,int *length,
             node0[q][p] = (sDmain->sB[i0][j0][k0]).nodepoint[p];
             node1[q][p] = (sDmain->sB[i1][j1][k1]).nodepoint[p];
         }
-        getSplineCoeff(&positioncoeff[q],&radcoeff[q],&node0[q],&node1[q],dim,n,&findpoints[q],&comboindex[q],tolerance,inLam,inDel);
+        getSplineCoeff(&positioncoeff[q],&radcoeff[q],&node0[q],&node1[q],dim,n,&findpoints[q],&comboindex[q],tolerance);
     }
     for(int q = 0; q < combocount; q++){
         char indxname[80];
@@ -2571,7 +2635,7 @@ void makeSpline(struct skeleDensity **sD,int *dim,double *tolerance,int *length,
     free(ids);
     *sD = sDmain;
 }
-void skeleReduce(double **skeleton,double delta,double *minblen,int *length,int *dim,int *mxpt,double t,int n,double inLam, double inDel){
+void skeleReduce(double **skeleton,double delta,double *minblen,int *length,int *dim,int *mxpt,double t,int n){
     //We will have to brute force our data, however we will target area of data max & mins
     double xmax = -HUGE;
     double xmin = HUGE;
@@ -2615,7 +2679,7 @@ void skeleReduce(double **skeleton,double delta,double *minblen,int *length,int 
     struct skeleDensity *sD;
     createSD(&sD,skeleton,length,dim,delta,xmax,xmin,ymax,ymin,zmax,zmin);
     makeNodePoint(&sD,dim);
-    makeSpline(&sD,dim,&tolerance,length,t,&n,inLam,inDel);
+    makeSpline(&sD,dim,&tolerance,length,t,&n);
     ///////////////////////////////////////////////////////////////////////Clearance
     //adapt_wavelet({hsd,hnpt,hlpt,hrpt},(double[]) {tolerance,tolerance,tolerance,tolerance}, sd.level,sd.level);
     //adapt_wavelet2({hsd,hnpt,hlpt,hrpt},(double[]) {tolerance,tolerance,tolerance,tolerance},calclevel,calclevel);
