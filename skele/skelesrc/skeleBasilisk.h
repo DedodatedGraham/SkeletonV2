@@ -2361,54 +2361,86 @@ void findBestFit(double ***ppositioncoeff,double ***pradcoeff,double **findpoint
     *ppositioncoeff = positioncoeff; 
     *pradcoeff = radcoeff;      
 }
+//factorial
+double getFactorial(int num){
+    int ret = 1;
+    for(int i = 2; i < num; i++){
+        ret *= ret;
+    }
+    return (double)ret;
+}
 //Least square fitting splines
 void findBestFit2(double ***ppositioncoeff,double ***pradcoeff,double **findpoints,int comboindex,int *dim, int *n,double *tolerance){
     //note can only handle cubic splines as of now
     double **positioncoeff = *ppositioncoeff;
     double **radcoeff = *pradcoeff;
     //using least square to solve for spline
-    double A1 = 0.; 
-    double A2 = 0.; 
-    double A12 = 0.; 
-    double *C1 = calloc(*dim + 1,sizeof(double)); 
-    double *C2 = calloc(*dim + 1,sizeof(double)); 
+    double *B = calloc(*n + 1,sizeof(double));
+    //collection terms
+    double **coldims = malloc((*n + 1) * sizeof(double*));
+    for(int i = 0; i < *n + 1; i++){
+        coldims[i] = calloc(*dim + 1,sizeof(double));
+    }
+    double **A = malloc(*n * sizeof(double*));
+    for(int i = 0; i < *n; i++){
+        A[i] = calloc(*n, sizeof(double));
+    }
     //construct t for finding values
     double *t = malloc(comboindex * sizeof(double));
     for(int i = 0; i < comboindex; i++){
-        t[i] = (double)i / (comboindex - 1);
+        //for each data point try and guess the t value of the data based on linear sampling
+        //allows for least square method to match up best guess spline points to data better based on flucuations
+        double tx = (positioncoeff[0][0] - findpoints[i][0]) / (positioncoeff[0][0] - positioncoeff[*n][0]);
+        double ty = (positioncoeff[0][1] - findpoints[i][1]) / (positioncoeff[0][1] - positioncoeff[*n][1]);
+        double tr = (radcoeff[0][0] - findpoints[i][2]) / (radcoeff[0][0] - radcoeff[*n][0]);
+        if(*dim == 2){
+            t[i] = (tx + ty + tr) / 3;
+        }
+        else{
+            fprintf(stdout,"error not implemented-3D :(((( \n");
+        }
+        //t[i] = (double)i / (comboindex - 1);
     }
-    //Next itterate through each of the points & solve
+    //Next we calc using least square partials :)
     for(int i = 0; i < comboindex; i++){
         double tt = 1. - t[i];
-        //Find B values
-        double B0 = pow(tt,3);
-        double B1 = (3 * t[i] * pow(tt,2));
-        double B2 = (3 * pow(t[i],2) * tt);
-        double B3 = pow(t[i],3);
-
-        //Next compute A&C
-        A1 = A1 + pow(B1,2);
-        A2 = A2 + pow(B2,2);
-        A12 = A12 + B1*B2;
-        for(int j = 0; j < *dim; j++){
-            C1[j] = C1[j] + B1 * (findpoints[i][j] - B0*positioncoeff[0][j] - B3*positioncoeff[*n][j]);
-            C2[j] = C2[j] + B2 * (findpoints[i][j] - B0*positioncoeff[0][j] - B3*positioncoeff[*n][j]);
+        //Find B values at current points approx t
+        for(int j = 0; j < (*n + 1); j++){
+            B[j] = pow(tt,*n) * (t[i],*n) * (getFactorial(*n) / (getFactorial(j) * getFactorial(*n - j)));
         }
-        C1[*dim] = C1[*dim] + B1 * (findpoints[i][*dim] - B0*radcoeff[0][0] - B3*radcoeff[*n][0]);
-        C2[*dim] = C2[*dim] + B2 * (findpoints[i][*dim] - B0*radcoeff[0][0] - B3*radcoeff[*n][0]);
+        for(int j = 1; j < *n; j++){
+            for(int q = 0; q < *dim; q++){
+                coldims[j][q] += B[j] * (findpoints[i][q] - B[0] * positioncoeff[0][q] - B[*n] * positioncoeff[*n][q]);
+            }
+            coldims[j][*dim] += B[j] * (findpoints[i][*dim] - B[0] * radcoeff[0][0] - B[*n] * radcoeff[*n][0]);
+        }
+        for(int j = 0; j < *n + 1; j++){
+            for(int q = 0; q < *n + 1; q++){
+                //Sum A terms for common denom
+                A[j][q] += B[j] * B[q];
+            }
+        }
     }
-    double denom = (A1*A2 - A12*A12);
-    //assign
-    for(int i = 0; i < *dim; i++){
-        positioncoeff[1][i] = (A2*C1[i] - A12 * C2[i]) / denom;
-        positioncoeff[2][i] = (A1*C2[i] - A12 * C1[i]) / denom;
+    //Next we take the determinate of A
+    double denom = 0.;
+
+    //finally solve for spline points
+    for(int i = 1; i < *n; i++){
+
     }
-    radcoeff[1][0] = (A2*C1[*dim] - A12 * C2[*dim]) / denom;
-    radcoeff[2][0] = (A1*C2[*dim] - A12 * C1[*dim]) / denom;
+    //for(int i = 0; i < *dim; i++){
+    //    positioncoeff[1][i] = (A2*C1[i] - A12 * C2[i]) / denom;
+    //    positioncoeff[2][i] = (A1*C2[i] - A12 * C1[i]) / denom;
+    //}
+    //radcoeff[1][0] = (A2*C1[*dim] - A12 * C2[*dim]) / denom;
+    //radcoeff[2][0] = (A1*C2[*dim] - A12 * C1[*dim]) / denom;
     //Free
     free(t);
-    free(C1);
-    free(C2);
+    for(int i = 0; i < (*n + 1); i++){
+        free(C[i]);
+    }
+    free(C);
+    free(B);
     *ppositioncoeff = positioncoeff; 
     *pradcoeff = radcoeff;      
 }
