@@ -19,9 +19,9 @@ else
 fi
 ./clean.sh
 ./compile.sh
-#valgrind ./drop
+#valgrind ./drop $time_start $time_end
 ./drop $time_start $time_end
-./../pScript/run.sh $time_start $time_end
+#./../pScript/run.sh $time_start $time_end
 end=`date +%s.%N`
 runtime=$( echo "$end - $start" | bc -l )
 echo $runtime

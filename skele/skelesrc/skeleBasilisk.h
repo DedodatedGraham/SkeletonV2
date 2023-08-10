@@ -947,7 +947,6 @@ void makeNodePoint(struct skeleDensity **sd,int *dim){
                         searchid[q] = calloc(3 , sizeof(int));//initalize all as [0,0,0]
                     }
                     int len = 0;
-                    int nodecount = 0;
                     for(int ic = -1; ic <= 1; ic++){
                         for(int jc = -1; jc <= 1; jc++){
                             for(int kc = -1; kc <= 1; kc++){
@@ -2287,7 +2286,6 @@ void findBestFit(double ***ppositioncoeff,double ***pradcoeff,double **findpoint
                     free(ntpoints[k]);
                 }
                 free(ntpoints);
-                double der;
                 //Determine next steps
                 if(error_pos <= error_neg && error_pos < error_adjust){
                     //found better solution in the positive  
@@ -2361,6 +2359,35 @@ void findBestFit(double ***ppositioncoeff,double ***pradcoeff,double **findpoint
     *ppositioncoeff = positioncoeff; 
     *pradcoeff = radcoeff;      
 }
+double getDetN(double ***pA,int *n){
+    double **A = *pA;
+    double ret = 0.;
+    double factor = 1.;
+    if(*n == 1){
+        return **A;
+    }
+    for(int i = 0; i < *n; i++){
+        //Malloc our new A
+        double **newA = malloc((*n - 1) * sizeof(double*));
+        for(int j = 0; j < (*n - 1); j++){
+            newA[j] = malloc((*n - 1) * sizeof(double));
+        }
+        for(int j = 1; j < *n;j++){
+            for(int k = 0; k < *n; k++){
+                if(k==i) continue;
+                newA[j-1][k<i?k:(k-1)]=A[j][k];
+            }
+        }
+        int newn = *n - 1;
+        ret += factor*A[0][i]*getDetN(&newA,&newn);
+        factor *= -1.0;
+        for(int j = 0; j < *n - 1; j++){
+            free(newA[j]);
+        }
+        free(newA);
+    }
+    return ret;
+}
 //factorial
 double getFactorial(int num){
     int ret = 1;
@@ -2377,13 +2404,11 @@ void findBestFit2(double ***ppositioncoeff,double ***pradcoeff,double **findpoin
     //using least square to solve for spline
     double *B = calloc(*n + 1,sizeof(double));
     //collection terms
-    double **coldims = malloc((*n + 1) * sizeof(double*));
-    for(int i = 0; i < *n + 1; i++){
-        coldims[i] = calloc(*dim + 1,sizeof(double));
-    }
-    double **A = malloc(*n * sizeof(double*));
-    for(int i = 0; i < *n; i++){
-        A[i] = calloc(*n, sizeof(double));
+    double **coldims = malloc((*n - 1) * sizeof(double*));
+    double **A = malloc((*n - 1) * sizeof(double*));
+    for(int i = 0; i < *n - 1; i++){
+        A[i] = calloc(*n - 1, sizeof(double));
+        coldims[i] = calloc(*dim - 1,sizeof(double));
     }
     //construct t for finding values
     double *t = malloc(comboindex * sizeof(double));
@@ -2395,6 +2420,13 @@ void findBestFit2(double ***ppositioncoeff,double ***pradcoeff,double **findpoin
         double tr = (radcoeff[0][0] - findpoints[i][2]) / (radcoeff[0][0] - radcoeff[*n][0]);
         if(*dim == 2){
             t[i] = (tx + ty + tr) / 3;
+            if(t[i] <= 0.){
+                t[i] = 0.00001;
+            }
+            else if(t[i] >= 1.){
+                t[i] = 0.99999;
+            }
+            fprintf(stdout,"gott t-%d:%f\n",i,t[i]);
         }
         else{
             fprintf(stdout,"error not implemented-3D :(((( \n");
@@ -2403,43 +2435,78 @@ void findBestFit2(double ***ppositioncoeff,double ***pradcoeff,double **findpoin
     }
     //Next we calc using least square partials :)
     for(int i = 0; i < comboindex; i++){
+        fprintf(stdout,"\n(%d/%d)\n",i,comboindex-1);
         double tt = 1. - t[i];
         //Find B values at current points approx t
+        fprintf(stdout,"B[");
         for(int j = 0; j < (*n + 1); j++){
-            B[j] = pow(tt,*n) * (t[i],*n) * (getFactorial(*n) / (getFactorial(j) * getFactorial(*n - j)));
+            //fprintf(stdout,"makingB%d\n",j);
+            B[j] = pow(tt,*n - j) * pow(t[i],*n) * (getFactorial(*n) / (getFactorial(j) * getFactorial(*n - j)));
+            fprintf(stdout," B%d-%f,",j,B[j]);
         }
-        for(int j = 1; j < *n; j++){
+        fprintf(stdout,"]\n");
+        fprintf(stdout,"coldims[:\n");
+        for(int j = 0; j < *n - 1; j++){
             for(int q = 0; q < *dim; q++){
-                coldims[j][q] += B[j] * (findpoints[i][q] - B[0] * positioncoeff[0][q] - B[*n] * positioncoeff[*n][q]);
+                coldims[j][q] += B[j+1] * (findpoints[i][q] - B[0] * positioncoeff[0][q] - B[*n] * positioncoeff[*n][q]);
             }
-            coldims[j][*dim] += B[j] * (findpoints[i][*dim] - B[0] * radcoeff[0][0] - B[*n] * radcoeff[*n][0]);
+            coldims[j][*dim] += B[j+1] * (findpoints[i][*dim] - B[0] * radcoeff[0][0] - B[*n] * radcoeff[*n][0]);
+            fprintf(stdout,"[%f,%f,%f]\n",coldims[j][0],coldims[j][1],coldims[j][2]);
         }
-        for(int j = 0; j < *n + 1; j++){
-            for(int q = 0; q < *n + 1; q++){
+        fprintf(stdout,":]\n");
+        fprintf(stdout,"A:\n[");
+        for(int j = 0; j < *n - 1; j++){
+            fprintf(stdout,"[");
+            for(int q = 0; q < *n - 1; q++){
                 //Sum A terms for common denom
-                A[j][q] += B[j] * B[q];
+                //fprintf(stdout,"using B%d B%d\n",j,q);
+                A[j][q] += B[j+1] * B[q+1];
+                fprintf(stdout," %f,",A[j][q]);
             }
+            fprintf(stdout,"]\n");
+        }
+        fprintf(stdout,"]\n");
+    }
+    int newn = *n - 1;
+    double denom = getDetN(&A,&newn);
+    fprintf(stdout,"det:%f\n",denom);
+    //Firstly create the inverse A matrix 
+    double **Ainv = malloc((*n - 1) * sizeof(double*));
+    for(int i = 0; i < *n - 1; i++){
+        Ainv[i] = malloc((*n - 1) * sizeof(double*));
+        for(int j = 0; j < *n - 1; j++){
+
         }
     }
-    //Next we take the determinate of A
-    double denom = 0.;
-
-    //finally solve for spline points
-    for(int i = 1; i < *n; i++){
-
+    for(int i = 0; i < *dim + 1; i++){
+        //finally we go through each dimension of the problem and solve for the appropiate value 
     }
-    //for(int i = 0; i < *dim; i++){
-    //    positioncoeff[1][i] = (A2*C1[i] - A12 * C2[i]) / denom;
-    //    positioncoeff[2][i] = (A1*C2[i] - A12 * C1[i]) / denom;
+    //for(int i = 0; i < *n - 1; i++){
+    //    //finally we will go though each point we want to approximate and assign it
+    //    //i represents each output point
+    //    double num;
+    //    for(int j = 0; j < *dim; j++){
+    //        num = 0.;
+    //        for(int k = 0; k < *n - 1; k++){
+    //            num += (A[k][i]) * coldims[k][j];
+    //        }
+    //        //itterate through each dim
+    //        positioncoeff[i+1][j] = num / denom;
+    //    }
+    //    num = 0.;
+    //    for(int k = 0; k < *n - 1; k++){
+    //        num += (A[k][i]) * coldims[k][*dim];
+    //    }
+    //    radcoeff[i+1][0] = num / denom;
     //}
-    //radcoeff[1][0] = (A2*C1[*dim] - A12 * C2[*dim]) / denom;
-    //radcoeff[2][0] = (A1*C2[*dim] - A12 * C1[*dim]) / denom;
     //Free
     free(t);
-    for(int i = 0; i < (*n + 1); i++){
-        free(C[i]);
+    for(int i = 0; i < (*n - 1); i++){
+        free(coldims[i]);
+        free(A[i]);
     }
-    free(C);
+    free(coldims);
+    free(A);
     free(B);
     *ppositioncoeff = positioncoeff; 
     *pradcoeff = radcoeff;      
@@ -2482,33 +2549,43 @@ void getSplineCoeff(double ***ppositioncoeff,double ***pradcoeff,double **pnode0
         //Only Output spline if enough points, otherwise we change
         if(comboindex > *n){
             //findBestFit(&positioncoeff,&radcoeff,findpoints,comboindex,dim,n,tolerance,30,inLam,inDel);
+            fprintf(stdout,"Spline before: ");
+            for(int i = 0; i < *n + 1; i++){
+                fprintf(stdout,"[%f,%f,%f]",positioncoeff[i][0],positioncoeff[i][1],radcoeff[i][0]);
+            }
+            fprintf(stdout,"\n");
             findBestFit2(&positioncoeff,&radcoeff,findpoints,comboindex,dim,n,tolerance);
+            fprintf(stdout,"Spline after: ");
+            for(int i = 0; i < *n + 1; i++){
+                fprintf(stdout,"[%f,%f,%f]",positioncoeff[i][0],positioncoeff[i][1],radcoeff[i][0]);
+            }
+            fprintf(stdout,"\n");
         }
         else{
             fprintf(stdout,"error too little input points defaulting spline to linear/input\n");
-            if(comboindex == 1){
-                for(int i = 1; i < *n; i++){
-                    positioncoeff[i][0] = findpoints[0][0];
-                    positioncoeff[i][1] = findpoints[0][1];
-                    radcoeff[i][0] = findpoints[0][2];
-                }
-            }
-            else{
-                int mid = (int)floor((*n + 1) / 2);
-                for(int i = 1; i < *n; i++){
-                    if(i < mid){
-                        positioncoeff[i][0] = findpoints[0][0];
-                        positioncoeff[i][1] = findpoints[0][1];
-                        radcoeff[i][0] = findpoints[0][2];
-                    }
-                    else{
-                        positioncoeff[i][0] = findpoints[comboindex - 1][0];
-                        positioncoeff[i][1] = findpoints[comboindex - 1][1];
-                        radcoeff[i][0] = findpoints[comboindex - 1][2];
-                    }
-                }
+            //if(comboindex == 1){
+            //    for(int i = 1; i < *n; i++){
+            //        positioncoeff[i][0] = findpoints[0][0];
+            //        positioncoeff[i][1] = findpoints[0][1];
+            //        radcoeff[i][0] = findpoints[0][2];
+            //    }
+            //}
+            //else{
+            //    int mid = (int)floor((*n + 1) / 2);
+            //    for(int i = 1; i < *n; i++){
+            //        if(i < mid){
+            //            positioncoeff[i][0] = findpoints[0][0];
+            //            positioncoeff[i][1] = findpoints[0][1];
+            //            radcoeff[i][0] = findpoints[0][2];
+            //        }
+            //        else{
+            //            positioncoeff[i][0] = findpoints[comboindex - 1][0];
+            //            positioncoeff[i][1] = findpoints[comboindex - 1][1];
+            //            radcoeff[i][0] = findpoints[comboindex - 1][2];
+            //        }
+            //    }
 
-            }
+            //}
         }
     }
     *ppositioncoeff = positioncoeff; 
