@@ -930,6 +930,122 @@ bool connectingROI(double **roi1,double**roi2,int *dim,double *tolerance){
 //    }
 //    return false;
 //}
+//
+void thinNodePoint(struct skeleDensity **sd,int *dim,int **nodeid, int *nodeidcount,double ****pfindpoints,int **pcomboindex,int ***pnodeconnections,int ***pnodeindex,int *combocount,int *nicount,int *mxpt, double t){
+    //Thins our structure removing points with only 2 connections
+    struct skeleDensity *sDmain = *sd;
+    double ***findpoints = *pfindpoints;
+    int **nodeindex = *pnodeindex;
+    int **nodeconnections = *pnodeconnections;
+    int *comboindex = *pcomboindex;
+    //firstly we will allocate a count list for each index id, this will give us an idea of how  many nodes we are getting rid of and where they are located
+    fprintf(stdout,"ni=%d nic=%d\n",*nicount,*nodeidcount);
+    for(int i = 0; i < *combocount; i++){
+        fprintf(stdout,"[%d - %d , %d ]\n",i,nodeconnections[i][0],nodeconnections[i][1]);
+    }
+    int *countIDs = calloc(*nicount , sizeof(int));
+    int **trackIDs = malloc(*nicount * sizeof(int*));
+    for(int i = 0; i < *nicount; i++){
+        trackIDs[i] = calloc(4 , sizeof(int));//holds each [id00,id01,id10,id11]
+    }
+    int numtwo = 0;
+    for(int i = 0; i < *combocount; i++){
+        countIDs[nodeconnections[i][0]]++;
+        countIDs[nodeconnections[i][1]]++;
+    }
+    for(int i = 0; i < *combocount; i++){
+        if(countIDs[i] == 2){
+            //Here we have a node which only has 2 connections, this means we can remove it safely without much risk of breaking the system :)
+            numtwo++;
+            //here we grab the useful id & assign it
+            int locid = 0;
+            for(int j = 0; j < *combocount; j++){
+                if(nodeconnections[j][0] == i){
+                    trackIDs[i][locid] = j;
+                    locid++;
+                    trackIDs[i][locid] = 0;
+                    locid++;
+                }
+                else if(nodeconnections[j][1] == i){
+                    trackIDs[i][locid] = j;
+                    locid++;
+                    trackIDs[i][locid] = 1;
+                    locid++;
+                }
+            }
+        }
+    }
+    //After were done counting we will alloc 
+    int tnncount = 0;
+    int **tempnewnode = malloc(numtwo * sizeof(int*));//for new nodeconnections
+    double ***tempnewfind = malloc(numtwo * sizeof(double**));//allocs new vectors for new findpoints:)
+    int *tempfindcount = calloc(numtwo, sizeof(int));//for new comboindex
+    int *destroyindex = calloc(numtwo, sizeof(int));//short for destroy IDS on stack
+    int ti = 0;
+    for(int i = 0 ; i < *combocount; i++){
+        if(countIDs[i] == 2){
+            int countfind = (comboindex[trackIDs[i][0]]) + (comboindex[trackIDs[i][2]]);//combines count of points for proper space
+            tempfindcount[ti] = countfind;
+            tempnewnode[ti] = calloc(2 , sizeof(int));
+            tempnewfind[ti] = malloc(countfind * sizeof(double*));
+            for(int j = 0; j < countfind; j++){
+                tempnewfind[ti][j] = calloc(*dim + 1, sizeof(double));
+            }
+            ti++;
+        }
+    }
+    //then we will run through each two vector and combine it into our temp
+    for(int i = 0; i < *combocount; i++){
+        if(countIDs[i] == 2){
+            //if equal to two then we create our new values
+            tempnewnode[tnncount][0] = nodeconnections[trackIDs[i][0]][!trackIDs[i][1]];
+            tempnewnode[tnncount][1] = nodeconnections[trackIDs[i][2]][!trackIDs[i][3]];
+            //mark destroy
+            destroyindex[tnncount] = i;
+            //adds in points from list in trackID[0] ie the first points vector 
+            int tj = 0;//position in tempnewfind
+            for(int j = 0; j < comboindex[trackIDs[i][0]]; j++){
+                for(int k = 0; k < *dim + 1; k++){
+                    tempnewfind[tnncount][tj][k] = findpoints[trackIDs[i][0]][j][k];
+                }
+                tj++;
+            }
+            //next add trackID[2] ie second point vector
+            for(int j = 0; j < comboindex[trackIDs[i][2]]; j++){
+                for(int k = 0; k < *dim + 1; k++){
+                    tempnewfind[tnncount][tj][k] = findpoints[trackIDs[i][2]][j][k];
+                }
+                tj++;
+            }
+            //go onto next
+            tnncount++;
+        }
+    }
+    //next fit our new values into existing structures :)
+    fprintf(stdout,"error%d/%d \n",numtwo,*combocount); 
+    //finally free and reassign needed pointers
+    free(countIDs);
+    for(int i = 0; i < *combocount; i++){
+        free(trackIDs[i]);
+    }
+    free(trackIDs);
+    for (int i = 0; i < numtwo; i++) {
+        free(tempnewnode[i]);
+        for (int j = 0; j < tempfindcount[i]; j++) {
+            free(tempnewfind[i][j]);
+        }
+        free(tempnewfind[i]);
+    }
+    free(tempnewnode);
+    free(tempnewfind);
+    free(tempfindcount);
+    free(destroyindex);
+    *pfindpoints = findpoints;
+    *pnodeindex = nodeindex;
+    *pnodeconnections = nodeconnections;
+    *pcomboindex = comboindex;
+    *sd = sDmain;
+}
 void makeNodePoint(struct skeleDensity **sd,int *dim){
     struct skeleDensity *sDmain = *sd;
     for(int i = 0; i < *sDmain->row; i++){
@@ -1635,9 +1751,11 @@ void addCombo(int *masterid,int *indexCombo,int *comboCount,int ***pnodeconnecti
     //First calc needed alloc space
     int nialloc = 0;
     if(im == -1){
+        fprintf(stdout,"im\n");
         nialloc++;
     }
     if(ic == -1){
+        fprintf(stdout,"ic\n");
         nialloc++;
     }
     int **tempnodeindex = malloc((nialloc + *nicount) * sizeof(int*));
@@ -2131,7 +2249,7 @@ void pathNodes(struct skeleDensity **sD,int *dim,int **nodeid, int *nodeidcount,
     //output data
     //connection ID's
     char conname[80];
-sprintf (conname, "connectionDat-%5.3f.dat", t);
+    sprintf (conname, "connectionDat-%5.3f.dat", t);
     FILE * fpcon = fopen (conname, "w");
     for(int i = 0; i < *combocount;i++){
         fprintf(fpcon,"%d %d\n",nodeconnections[i][0],nodeconnections[i][1]);
@@ -2391,96 +2509,545 @@ double getDetN(double ***pA,int *n){
 //factorial
 double getFactorial(int num){
     int ret = 1;
-    for(int i = 2; i < num; i++){
-        ret *= ret;
+    for(int i = 1; i <= num; i++){
+        ret *= i;
     }
     return (double)ret;
 }
+////carrier data :)
+//struct bezData{
+//    double **points;
+//    double **Bval;
+//    int *npoints;
+//    int *cpoints;
+//    int *dims;
+//};
+////alloc and dealloc functions for bezData
+//void createbezData(struct bezData *bd,double **datapoints,int *datalength,double **bvalues,int *dim,int *degree){
+//    //creating data struct
+//    struct bezData newbez = malloc(sizeof(struct bezData));
+//    newbez.points = datapoints;
+//    newbez.Bval = bvalues;
+//    newbez.dims = dim;
+//    newbez.npoints = datalength;
+//    newbez.cpoints = degree;
+//    bd = &newbez;
+//}
+//void destroybezData(struct bezData *bd){
+//    //destroying data struct
+//    free(bd);
+//}
+//model functions :)
+//double B_obj_func(const gsl_vector *x, void *params) {
+//    struct bezData *pbd = (struct bezData*)params;
+//    double **B = (*pbd).Bval;
+//    double **data = (*pbd).points;
+//    double dev = 0.;
+//    int divmat = *(pbd->npoints) / *(pbd->dims);
+//    for(int i = 0; i < *(pbd->npoints); i++){
+//        //itterate through each point :0
+//        double dd = 0.;
+//        for(int j = 0; j < *(pbd->dims);j++){
+//            double error = 0.;
+//            double calcbez = 0.;
+//            for(int k = 0; k < *(pbd->cpoints); k++){
+//                //calc the sum bez point for comparison on dim
+//                calcbez += B[i][k] * gsl_vector_get(x,k+j*divmat);
+//            }
+//            error = calcbez - data[i][j];
+//            dd += pow(error,2);
+//        }
+//        dev += dd;
+//    }
+//    //total error = sqrt (1/N * sum errors square)
+//    dev = sqrt( ( 1. / (double)(*(pbd->cpoints))) * (dev));
+//    return dev;
+//}
+//void getCoeffBNLC(double **datapoints,int lengdata,double **B,int *dim,int n){
+//    //solve bezier for non-linear constrained problem
+//    //using multimin optimzation function
+//    //Assing struct
+//    struct bezData bd;
+//    createbezData(&bd,datapoints,&lengdata,B,dim,&n);
+//
+//    //setup solver
+//    gsl_multimin_function min_func;
+//    min_func.n = *dim * n;
+//    min_func.f = B_obj_func;
+//    min_func.params = &bd;
+//     
+//    //free/destroy
+//    destroybezData(&bd);
+//}
+void getCoeffBL(int row, int col, double ***pa, double **px,double **pp,int dim){
+    //solve bezier for linear non constrained problem
+    //finally we solve the equation A*P=X
+    //alloc for gsl
+    double **a = *pa;
+    double *x = *px;
+    double *p = *pp; 
+    gsl_matrix *A = gsl_matrix_alloc(row,col); 
+    gsl_vector *X = gsl_vector_alloc(row); 
+    gsl_vector *P = gsl_vector_alloc(col);
+    gsl_matrix *cov = gsl_matrix_alloc(row,row);
+    int divmat = col / dim;
+    fprintf(stdout,"div=%d\n",divmat);
+    for(int i = 0; i < dim; i++){
+        gsl_vector_set(P,i*divmat,x[i*divmat]);
+        gsl_vector_set(P,(divmat-1)+i*divmat,x[(divmat-1)+i*divmat]);
+    }
+    for(int i = 0; i < row; i++){
+        for(int j = 0; j < col; j++){
+            gsl_matrix_set(A,i,j,a[i][j]);
+        }
+        gsl_vector_set(X,i,x[i]);
+    }
+    double chisq = 0.;
+    gsl_multifit_linear_workspace *work = gsl_multifit_linear_alloc(row, col);
+    gsl_multifit_linear(A, X, P, cov, &chisq, work);
+    gsl_multifit_linear_free(work);
+    for(int i = 0; i < col; i++){
+        (p[i]) = gsl_vector_get(P,i);
+    }
+    //free up values
+    gsl_matrix_free(A);
+    gsl_vector_free(X);
+    gsl_vector_free(P);
+    gsl_matrix_free(cov);
+    *pa = a;
+    *px = x;
+    *pp = p;
+}
+void getCoeffBLW(int row, int col, double ***pa, double **px,double **pp,int dim){
+    //solve bezier for linear non constrained *With Weights* problem
+    //finally we solve the equation A*P=X
+    //alloc for gsl
+    double **a = *pa;
+    double *x = *px;
+    double *p = *pp; 
+    gsl_matrix *A = gsl_matrix_alloc(row,col); 
+    gsl_vector *X = gsl_vector_alloc(row); 
+    gsl_vector *P = gsl_vector_alloc(col);
+    gsl_vector *W = gsl_vector_alloc(row);
+    gsl_matrix *cov = gsl_matrix_alloc(row,row);
+    for(int i = 0; i < row; i++){
+        for(int j = 0; j < col; j++){
+            gsl_matrix_set(A,i,j,a[i][j]);
+        }
+        gsl_vector_set(X,i,x[i]);
+        if(i % (row / dim) == 0){
+            gsl_vector_set(W,i,2);
+        } 
+        else if(i % (row / dim) == (row/dim) - 1){
+            gsl_vector_set(W,i,2);
+        }
+        else{
+            gsl_vector_set(W,i,0.1);
+        }
+    }
+    double chisq = 0.;
+    gsl_multifit_linear_workspace *work = gsl_multifit_linear_alloc(row, col);
+    gsl_multifit_wlinear(A, W, X, P, cov, &chisq, work);
+    gsl_multifit_linear_free(work);
+    for(int i = 0; i < col; i++){
+        (p[i]) = gsl_vector_get(P,i);
+    }
+    //free up values
+    gsl_matrix_free(A);
+    gsl_vector_free(X);
+    gsl_vector_free(P);
+    gsl_vector_free(W);
+    gsl_matrix_free(cov);
+    *pa = a;
+    *px = x;
+    *pp = p;
+}
+void getCoeffBLWBC(int row, int col, double ***pa, double **px,double **pp,int dim,double **applyGradient,int aGradlen){
+    //solve bezier for linear non constrained *With Weights* problem
+    //finally we solve the equation A*P=X
+    //alloc for gsl
+    double **a = *pa;
+    double *x = *px;
+    double *p = *pp; 
+    gsl_matrix *A = gsl_matrix_alloc(row,col); 
+    gsl_vector *X = gsl_vector_alloc(row); 
+    gsl_vector *P = gsl_vector_alloc(col);
+    gsl_vector *W = gsl_vector_alloc(row);
+    gsl_matrix *cov = gsl_matrix_alloc(row,row);
+    int rd = row/dim;
+    int cd = col/dim;
+    for(int i = 0; i < row; i++){
+        for(int j = 0; j < col; j++){
+            gsl_matrix_set(A,i,j,a[i][j]);
+        }
+        gsl_vector_set(X,i,x[i]);
+        if(i % rd == 0){//at 0 positions
+            gsl_vector_set(W,i,1);
+        } 
+        else if(i % rd == rd - 1){//at n positions
+            gsl_vector_set(W,i,1);
+        }
+        else{
+            gsl_vector_set(W,i,0.1);
+        }
+    }
+    //Next we sort and apply boundary conditions
+    if(aGradlen == 1){
+        if(applyGradient[0][0] != 0. && applyGradient[1][0] == 0.){
+            //if resctriction to start of spline
+            for(int i = 0; i < dim; i++){
+                //goes through each dimension
+                for(int j = 0; j < rd; j++){
+                    for(int k = 0; k < cd; k++){
+                        if(k == 0){
+                            gsl_matrix_set(A,j+i*rd,k+i*cd,gsl_matrix_get(A,j+i*rd,k+i*cd)+gsl_matrix_get(A,j+i*rd,(k + 1)+i*cd));//sets B0 to be B0+B1
+                        }
+                        else if(k == 1){
+                            gsl_matrix_set(A,j+i*rd,k+i*cd,gsl_matrix_get(A,j+i*rd,k+i*cd)*applyGradient[0][i]);//sets B1 to to be B1*d
+                        }
+                        //Our system is now in the form of (B0*P0+B1*(P1=P0+TP1*der)+...+BnPn) thus all P0's now haeve a B0&B1 componenet
+                        //P1 converts to tempPoint TP1 and der represents the direction vector defined for this point
+                        //After fitting we must convert back into usable points using this P1=P0+TP1*der; 
+                        //TP1 essentially will be the fitting distance along the gradient :)
+                    }
+                }
+            }
+            fprintf(stdout,"sucess on gradient convert\n");
+        }
+        else if(applyGradient[1][0] != 0. && applyGradient[0][0] == 0.){
+            //resctriciton on end of spline
+            for(int i = 0; i < dim; i++){
+                //goes through each dimension
+                for(int j = 0; j < rd; j++){
+                    for(int k = 0; k < cd; k++){
+                        if(k == cd - 1){
+                            gsl_matrix_set(A,j+i*rd,k+i*cd,gsl_matrix_get(A,j+i*rd,k+i*cd)+gsl_matrix_get(A,j+i*rd,(k - 1)+i*cd));//sets Bn to be Bn+Bn-1
+                        }
+                        else if(k == cd - 2){
+                            gsl_matrix_set(A,j+i*rd,k+i*cd,gsl_matrix_get(A,j+i*rd,k+i*cd)*applyGradient[1][i]);//sets Bn-1 to be Bn-1*d
+                        }
+                    }
+                }
+            }
+            fprintf(stdout,"sucess on gradient convert 2 [error]\n");
+        }
+        else{
+            fprintf(stdout,"error no applicable gradient error\n");
+        }
+    }
+    else{
+        //we have a gradient on both vectors ;)
+        //resctriciton on end of spline
+        for(int i = 0; i < dim; i++){
+            //goes through each dimension
+            for(int j = 0; j < rd; j++){
+                for(int k = 0; k < cd; k++){
+                    if(k == 0){
+                        gsl_matrix_set(A,j+i*rd,k+i*cd,gsl_matrix_get(A,j+i*rd,k+i*cd)+gsl_matrix_get(A,j+i*rd,(k + 1)+i*cd));//sets B0 to be B0+B1
+                    }
+                    else if(k == 1){
+                        gsl_matrix_set(A,j+i*rd,k+i*cd,gsl_matrix_get(A,j+i*rd,k+i*cd)*applyGradient[0][i]);//sets B1 to to be B1*d
+                    }
+                    else if(k == cd - 1){
+                        gsl_matrix_set(A,j+i*rd,k+i*cd,gsl_matrix_get(A,j+i*rd,k+i*cd)+gsl_matrix_get(A,j+i*rd,(k - 1)+i*cd));//sets Bn to be Bn+Bn-1
+                    }
+                    else if(k == cd - 2){
+                        gsl_matrix_set(A,j+i*rd,k+i*cd,gsl_matrix_get(A,j+i*rd,k+i*cd)*applyGradient[1][i]);//sets Bn-1 to be Bn-1*d
+                    }
+                }
+            }
+        }
+        fprintf(stdout,"sucess on double gradient convert\n");
+    }
+    double chisq = 0.;
+    gsl_multifit_linear_workspace *work = gsl_multifit_linear_alloc(row, col);
+    gsl_multifit_wlinear(A, W, X, P, cov, &chisq, work);
+    gsl_multifit_linear_free(work);
+    //finally convert back to our control points
+    if(aGradlen == 1){
+        if(applyGradient[0][0] != 0. && applyGradient[1][0] == 0.){
+            //if resctriction to start of spline
+            for(int i = 0; i < dim; i++){
+                //goes through each dimension
+                for(int k = 0; k < cd; k++){
+                    if(k == 1){
+                        gsl_vector_set(P,k+i*cd,gsl_vector_get(P,(k-1)+i*cd) + gsl_vector_get(P,k+i*cd) * applyGradient[0][i]);//sets P1 to P1 = P0 + TP1 * d 
+                    }
+                }
+            }
+            fprintf(stdout,"sucess on gradient convert  back\n");
+        }
+        else if(applyGradient[1][0] != 0. && applyGradient[0][0] == 0.){
+            //resctriciton on end of spline
+            for(int i = 0; i < dim; i++){
+                //goes through each dimension
+                for(int k = 0; k < cd; k++){
+                    if(k == cd - 2){
+                        gsl_vector_set(P,k+i*cd,gsl_vector_get(P,(k+1)+i*cd) + gsl_vector_get(P,k+i*cd) * applyGradient[1][i]);//sets Pn-1 to Pn-1 = Pn + TPn-1 * d 
+                    }
+                }
+            }
+            fprintf(stdout,"sucess on gradient convert back\n");
+        }
+        else{
+            fprintf(stdout,"error no applicable gradient error\n");
+        }
+    }
+    else{
+        //we have a gradient on both vectors ;)
+        //resctriciton on end of spline
+        for(int i = 0; i < dim; i++){
+            //goes through each dimension
+            for(int k = 0; k < cd; k++){
+                if(k == 1){
+                    gsl_vector_set(P,k+i*cd,gsl_vector_get(P,(k-1)+i*cd) + gsl_vector_get(P,k+i*cd) * applyGradient[0][i]);//sets P1 to P1 = P0 + TP1 * d 
+                }
+                else if(k == cd - 2){
+                    gsl_vector_set(P,k+i*cd,gsl_vector_get(P,(k+1)+i*cd) + gsl_vector_get(P,k+i*cd) * applyGradient[1][i]);//sets Pn-1 to Pn-1 = Pn + TPn-1 * d 
+                }
+            }
+        }
+        fprintf(stdout,"sucess on double gradient convert back\n");
+    }
+
+    for(int i = 0; i < col; i++){
+        (p[i]) = gsl_vector_get(P,i);
+    }
+    //free up values
+    gsl_matrix_free(A);
+    gsl_vector_free(X);
+    gsl_vector_free(P);
+    gsl_vector_free(W);
+    gsl_matrix_free(cov);
+    *pa = a;
+    *px = x;
+    *pp = p;
+}
 //Least square fitting splines
 void findBestFit2(double ***ppositioncoeff,double ***pradcoeff,double **findpoints,int comboindex,int *dim, int *n,double *tolerance){
-    //note can only handle cubic splines as of now
     double **positioncoeff = *ppositioncoeff;
     double **radcoeff = *pradcoeff;
-    //using least square to solve for spline
-    double *B = calloc(*n + 1,sizeof(double));
-    //collection terms
-    double **coldims = malloc((*n - 1) * sizeof(double*));
-    double **A = malloc((*n - 1) * sizeof(double*));
-    for(int i = 0; i < *n - 1; i++){
-        A[i] = calloc(*n - 1, sizeof(double));
-        coldims[i] = calloc(*dim - 1,sizeof(double));
+    //we have B matrix which collects all of our desired B values for each datapoint
+    double **B = malloc((comboindex)*sizeof(double*));
+    for(int i = 0; i < comboindex; i++){
+        B[i] = calloc((*n + 1),sizeof(double));
     }
     //construct t for finding values
     double *t = malloc(comboindex * sizeof(double));
+    int calcskip = 0;
     for(int i = 0; i < comboindex; i++){
         //for each data point try and guess the t value of the data based on linear sampling
         //allows for least square method to match up best guess spline points to data better based on flucuations
-        double tx = (positioncoeff[0][0] - findpoints[i][0]) / (positioncoeff[0][0] - positioncoeff[*n][0]);
-        double ty = (positioncoeff[0][1] - findpoints[i][1]) / (positioncoeff[0][1] - positioncoeff[*n][1]);
-        double tr = (radcoeff[0][0] - findpoints[i][2]) / (radcoeff[0][0] - radcoeff[*n][0]);
+        //int denomt = *dim + 1;
+        //double tx = (positioncoeff[0][0] - findpoints[i][0]) / (positioncoeff[0][0] - positioncoeff[*n][0]);
+        //if(tx > 1.){
+        //    tx = 0.99;
+        //}
+        //else if(tx < 0.){
+        //    tx = 0.01;
+        //}
+        //double ty = (positioncoeff[0][1] - findpoints[i][1]) / (positioncoeff[0][1] - positioncoeff[*n][1]);
+        //if(ty > 1.){
+        //    ty = 0.99;
+        //}
+        //else if(ty < 0.){
+        //    ty = 0.01;
+        //}
+        //double tr = (radcoeff[0][0] - findpoints[i][2]) / (radcoeff[0][0] - radcoeff[*n][0]);
+        //if(tr > 1.){
+        //    tr = 0.99;
+        //}
+        //else if(tr < 0.){
+        //    tr = 0.01;
+        //}
         if(*dim == 2){
-            t[i] = (tx + ty + tr) / 3;
-            if(t[i] <= 0.){
-                t[i] = 0.00001;
-            }
-            else if(t[i] >= 1.){
-                t[i] = 0.99999;
-            }
-            fprintf(stdout,"gott t-%d:%f\n",i,t[i]);
+            t[i] = (double)(i) / (double)comboindex;
+            //fprintf(stdout,"got t-%d/%d: %f\n",i,comboindex,t[i]);
+            //if the calced t value is a bad take or past the endpoint average, we will 
+            //if(denomt == 0){
+            //    //all values have no linear t value :(
+            //    t[i] = -1.;
+            //    calcskip++;
+            //}
+            //else{
+            //    t[i] = (tx + ty + tr) / denomt;
+      
+            //if(t[i] < 0.01 || t[i] > 0.99){
+            //    //    t[i] = -1.;
+            //    //    calcskip++;
+            //    //}
+            //}
+            //fprintf(stdout,"gott t-%d: %f = (%f + %f + %f) / %d\n",i,t[i],(positioncoeff[0][0] - findpoints[i][0]) / (positioncoeff[0][0] - positioncoeff[*n][0]),(positioncoeff[0][1] - findpoints[i][1]) / (positioncoeff[0][1] - positioncoeff[*n][1]),(radcoeff[0][0] - findpoints[i][2]) / (radcoeff[0][0] - radcoeff[*n][0]),denomt);
         }
         else{
             fprintf(stdout,"error not implemented-3D :(((( \n");
         }
-        //t[i] = (double)i / (comboindex - 1);
     }
-    //Next we calc using least square partials :)
+    t[0] = 0.;//apply boundary equation to system
+    t[comboindex-1] = 1.;//initzalize correct start & end chord length
+    //Next we calc our B function:)
     for(int i = 0; i < comboindex; i++){
-        fprintf(stdout,"\n(%d/%d)\n",i,comboindex-1);
+        //blocks off bad t's from being calc
+        //if(t[i] != -1.){
         double tt = 1. - t[i];
-        //Find B values at current points approx t
-        fprintf(stdout,"B[");
+        //Find B values at current points approx
         for(int j = 0; j < (*n + 1); j++){
-            //fprintf(stdout,"makingB%d\n",j);
-            B[j] = pow(tt,*n - j) * pow(t[i],*n) * (getFactorial(*n) / (getFactorial(j) * getFactorial(*n - j)));
-            fprintf(stdout," B%d-%f,",j,B[j]);
+            B[i][j] = pow(tt,(*n) - j) * pow(t[i],(j)) * (getFactorial(*n) / (getFactorial(j) * getFactorial((*n) - j)));
+            //fprintf(stdout,"calcB%d(%f) => %f = %f * %f * %f\n",j,t[i],B[i][j],pow(tt,(*n) - j),pow(t[i],(j)),(getFactorial(*n) / (getFactorial(j) * getFactorial((*n) - j))));
         }
-        fprintf(stdout,"]\n");
-        fprintf(stdout,"coldims[:\n");
-        for(int j = 0; j < *n - 1; j++){
-            for(int q = 0; q < *dim; q++){
-                coldims[j][q] += B[j+1] * (findpoints[i][q] - B[0] * positioncoeff[0][q] - B[*n] * positioncoeff[*n][q]);
+        //}
+    }
+    //solve system
+    int newci = comboindex - calcskip;
+    //Solve all 3 Dim + extra at once for no BC
+    int solscale = *dim + 1;
+    double **calcB = malloc((solscale * newci)*sizeof(double*));
+    double *calcD = calloc(solscale * newci,sizeof(double));
+    double *calcP = calloc(solscale * (*n + 1),sizeof(double));
+    for(int i = 0; i < solscale*newci; i++){
+        calcB[i] = calloc(solscale * (*n + 1),sizeof(double));
+    }
+    for(int q = 0; q < solscale; q++){
+        for(int i = 0; i < newci; i++){
+            for(int j = 0; j < *n + 1; j++){
+                calcB[i+q*newci][j+q*(*n + 1)] = B[i][j];
             }
-            coldims[j][*dim] += B[j+1] * (findpoints[i][*dim] - B[0] * radcoeff[0][0] - B[*n] * radcoeff[*n][0]);
-            fprintf(stdout,"[%f,%f,%f]\n",coldims[j][0],coldims[j][1],coldims[j][2]);
-        }
-        fprintf(stdout,":]\n");
-        fprintf(stdout,"A:\n[");
-        for(int j = 0; j < *n - 1; j++){
-            fprintf(stdout,"[");
-            for(int q = 0; q < *n - 1; q++){
-                //Sum A terms for common denom
-                //fprintf(stdout,"using B%d B%d\n",j,q);
-                A[j][q] += B[j+1] * B[q+1];
-                fprintf(stdout," %f,",A[j][q]);
+            if(i == 0){
+                if(q < *dim){
+                    calcD[i+q*newci] = positioncoeff[0][q];
+                }
+                else{
+                    calcD[i+q*newci] = radcoeff[0][q-*dim];
+                }
             }
-            fprintf(stdout,"]\n");
-        }
-        fprintf(stdout,"]\n");
-    }
-    int newn = *n - 1;
-    double denom = getDetN(&A,&newn);
-    fprintf(stdout,"det:%f\n",denom);
-    //Firstly create the inverse A matrix 
-    double **Ainv = malloc((*n - 1) * sizeof(double*));
-    for(int i = 0; i < *n - 1; i++){
-        Ainv[i] = malloc((*n - 1) * sizeof(double*));
-        for(int j = 0; j < *n - 1; j++){
-
+            else if(i == newci - 1){
+                if(q < *dim){
+                    calcD[i+q*newci] = positioncoeff[*n][q];
+                }
+                else{
+                    calcD[i+q*newci] = radcoeff[*n][q-*dim];
+                }
+            }
+            else{
+              calcD[i+q*newci] = findpoints[i][q];
+            }
         }
     }
-    for(int i = 0; i < *dim + 1; i++){
-        //finally we go through each dimension of the problem and solve for the appropiate value 
+    //before pushing to the solution we consider adding in boundary conditions
+    getCoeffBLW(solscale*newci,solscale*(*n+1),&calcB,&calcD,&calcP,solscale);
+    //if(aGradlen > 0){
+    //    //note we adjust solution variables inside of the function, we get output useable variables in the same format
+    //    getCoeffBLWBC(solscale*newci,solscale*(*n+1),&calcB,&calcD,&calcP,solscale,applyGradient,aGradlen);
+    //}
+    //else{
+    //}
+    for(int i = 0; i < solscale; i++){
+        for(int j = 1; j < *n; j++){
+            //fprintf(stdout,"P%d:%d => %f\n",j,i,calcP[j + i * (*n + 1)]);
+            if(i < *dim){
+                positioncoeff[j][i] = calcP[j + i * (*n + 1)]; 
+            }
+            else{
+                radcoeff[j][i-*dim] = calcP[j + i * (*n + 1)]; 
+            }
+        } 
     }
+    for(int j = 0; j < solscale*newci; j++){
+        free(calcB[j]);
+    }
+    free(calcB);
+    free(calcD);
+    free(calcP);
+    //for(int i = 0; i < *dim + 1; i++){
+    //    //Next we create & solve a linear system along each dimension
+    //    double **calcB = malloc((newci) * sizeof(double*));
+    //    double *calcD = calloc((newci) , sizeof(double));
+    //    double *calcP = calloc((*n + 1) , sizeof(double));
+    //    //fprintf(stdout,"\n");
+    //    for(int j = 0; j < *n + 1; j++){
+    //        //fprintf(stdout,"calcP%d=%f\n",j,calcP[j]);
+    //    }
+    //    //fprintf(stdout,"\n");
+    //    int j = 0;
+    //    for(int ittj = 0; ittj < comboindex; ittj++){
+    //        //blocks off bad t's from being calc
+    //        if(t[ittj] != -1.){
+    //            calcB[j] = calloc(*n + 1,sizeof(double));
+    //            for(int q = 0; q < (*n + 1); q++){
+    //                //assign calcB values
+    //                calcB[j][q] = B[ittj][q];
+    //            }
+    //            calcD[j] = findpoints[ittj][i];
+    //            j++;
+    //        }
+    //    }
+    //    //finally set BC's on calcP :)
+    //    if(i < *dim){
+    //        calcP[0]  = positioncoeff[0][i];
+    //        calcP[*n] = positioncoeff[*n][i];
+    //    }
+    //    else{
+    //        calcP[0]  = radcoeff[0][0];
+    //        calcP[*n] = radcoeff[*n][0];
+    //    }
+    //    //int midpoint = (int)ceil(newci/2);
+    //    //fprintf(stdout,"Starting Calc on Dim %d\n",i);
+    //    //for(int j = 0; j < newci; j++){
+    //    //    //print B portion of matrix
+    //    //    fprintf(stdout,"[ ");
+    //    //    for(int k = 0; k < (*n + 1); k++){
+    //    //        if(k != *n){
+    //    //            fprintf(stdout,"%f , ",calcB[j][k]);
+    //    //        }
+    //    //        else{
+    //    //            fprintf(stdout,"%f ",calcB[j][k]);
+    //    //        }
+    //    //    }
+    //    //    fprintf(stdout,"] ");
+    //    //    //print P's and spaces
+    //    //    if(j == midpoint && midpoint < (*n + 1)){
+    //    //        fprintf(stdout," [ P%d:%d ]  =====>  ",midpoint,i);
+    //    //    }
+    //    //    else if( j == midpoint){
+    //    //        fprintf(stdout,"          =====>     ");
+    //    //    }
+    //    //    else if(j < (*n + 1)){
+    //    //        if(j == 0){
+    //    //            fprintf(stdout," [ P%d:%d %f ]            ",j,i,calcP[0]);
+    //    //        }
+    //    //        else if(j == *n){
+    //    //            fprintf(stdout," [ P%d:%d %f ]            ",j,i,calcP[*n]);
+    //    //        }
+    //    //        else{
+    //    //            fprintf(stdout," [ P%d:%d ]            ",j,i);
+    //    //        }
+    //    //    }
+    //    //    else{
+    //    //        fprintf(stdout,"                     ");
+    //    //    }
+    //    //    //print D matrix
+    //    //    fprintf(stdout,"[ %f ] \n",calcD[j]);
+    //    //}
+    //    //now we have defined both calcD and calcP so we will use gausian elimation to find the solutions
+    //    if(newci> *n+1){
+    //        getCoeffB(newci,*n+1,&calcB,&calcD,&calcP);
+    //        for(int j = 1; j < *n; j++){
+    //            fprintf(stdout,"P%d:%d => %f\n",j,i,calcP[j]);
+    //            if(i < *dim){
+    //                positioncoeff[j][i] = calcP[j]; 
+    //            }
+    //            else{
+    //                radcoeff[j][i-*dim] = calcP[j]; 
+    //            }
+    //        }
+    //    }
+    //    for(int j = 0; j < newci; j++){
+    //        free(calcB[j]);
+    //    }
+    //    free(calcB);
+    //    free(calcD);
+    //    free(calcP);
+    //}
     //for(int i = 0; i < *n - 1; i++){
     //    //finally we will go though each point we want to approximate and assign it
     //    //i represents each output point
@@ -2501,12 +3068,6 @@ void findBestFit2(double ***ppositioncoeff,double ***pradcoeff,double **findpoin
     //}
     //Free
     free(t);
-    for(int i = 0; i < (*n - 1); i++){
-        free(coldims[i]);
-        free(A[i]);
-    }
-    free(coldims);
-    free(A);
     free(B);
     *ppositioncoeff = positioncoeff; 
     *pradcoeff = radcoeff;      
@@ -2559,7 +3120,7 @@ void getSplineCoeff(double ***ppositioncoeff,double ***pradcoeff,double **pnode0
             for(int i = 0; i < *n + 1; i++){
                 fprintf(stdout,"[%f,%f,%f]",positioncoeff[i][0],positioncoeff[i][1],radcoeff[i][0]);
             }
-            fprintf(stdout,"\n");
+            fprintf(stdout,"\n\n");
         }
         else{
             fprintf(stdout,"error too little input points defaulting spline to linear/input\n");
@@ -2607,7 +3168,7 @@ void makeSpline(struct skeleDensity **sD,int *dim,double *tolerance,int *length,
     int stackcount = 0;//allocates max needed space in our stack
     //make adjustments if needed
     fprintf(stdout,"nodepoints b4 = %d\n",ncount);
-    if(*(sDmain->row) > 7 || *(sDmain->col) > 7 || *(sDmain->dep) > 7){
+    if(*(sDmain->row) > 5 || *(sDmain->col) > 5 || *(sDmain->dep) > 5){
         reduceLocalMax(sD,dim);
     }
     fprintf(stdout,"nodepoints af = %d\n",*sDmain->ncount);
@@ -2662,8 +3223,11 @@ void makeSpline(struct skeleDensity **sD,int *dim,double *tolerance,int *length,
     int combocount = 0;
     int nicount = 0;
     pathNodes(sD,dim,nodeid,&localcount,&findpoints,&comboindex,&nodeconnections,&nodeindex,&combocount,&nicount,length,t);
-    //Now weve assigned nodes & collected splines approx points
-    //So we will go through and calculate our approximations
+    //Now weve assigned nodes & collected splines approx points, we will combine branches = 2 into larger sections
+    if(combocount > 1){
+        thinNodePoint(sD,dim,nodeid,&localcount,&findpoints,&comboindex,&nodeconnections,&nodeindex,&combocount,&nicount,length,t);
+    }
+    //Next we will go through and calculate our approximations
     //first we define some things we want
     //given we want order 'n' we allocate accordingly
     
@@ -2672,13 +3236,44 @@ void makeSpline(struct skeleDensity **sD,int *dim,double *tolerance,int *length,
     double ***radcoeff = malloc(combocount*sizeof(double**));//NOTE rad coeff is set to be build like position coeff to allow approximation of other var
     double **node0 = malloc(combocount*sizeof(double*));
     double **node1 = malloc(combocount*sizeof(double*));
-    for(int q = 0; q < combocount; q++){
-        positioncoeff[q] = malloc((*n+1)*sizeof(double*));
-        radcoeff[q] = malloc((*n+1)*sizeof(double*));
-        for(int i = 0; i < (*n + 1); i++){
-            positioncoeff[q][i] = malloc(*dim*sizeof(double));
-            radcoeff[q][i] = malloc((1)*sizeof(double));
+    double mindis = *sDmain->xmax - *sDmain->xmin;
+    double mindisy = *sDmain->ymax - *sDmain->ymin;
+    if(mindisy < mindis){
+        mindis = mindisy;
+    }
+    if(*dim == 3){
+        double mindisz = *sDmain->ymax - *sDmain->ymin;
+        if(mindisz < mindis){
+            mindis = mindisz;
         }
+    }
+    int *newn = calloc(combocount,sizeof(int));
+    //double **markGradient = malloc(localcount * sizeof(double*));//markgradient holds the index positio's node gradient :) 
+    //int *hasGradient = calloc(localcount , sizeof(int));//holds 0 for not calculated; 1 for 2 connections or wanted gradient; -1 for 1 or more than 2 connections
+    //for(int q = 0; q  < localcount; q++){
+    //    fprintf(stdout,"markGrad alloc %d-%d\n",q,*dim + 1);
+    //    markGradient[q] = calloc((*dim + 1) , sizeof(double));
+    //}
+    for(int q = 0; q < combocount; q++){
+        //add already calculated gradients into solution steps :)
+        //note keeps one and then two index, fills other with zero; 
+        //double **applyGradient = malloc(2*sizeof(double*));
+        //int aGradlen = 0;
+        //if(hasGradient[nodeconnections[q][0]] == 1){
+        //    applyGradient[0] = markGradient[nodeconnections[q][0]];
+        //    aGradlen++;
+        //}
+        //else{
+        //    applyGradient[0] = markGradient[nodeconnections[q][0]];
+        //}
+        //if(hasGradient[nodeconnections[q][1]] == 1){
+        //    applyGradient[1] = markGradient[nodeconnections[q][1]];
+        //    aGradlen++;
+        //}
+        //else{
+        //    applyGradient[1] = markGradient[nodeconnections[q][1]];
+        //}
+
         //Now we have the space for our current coefficients so next we grab the relevant points and calculate them
         int extra = 1;
         int i0=nodeindex[nodeconnections[q][0]][0],j0=nodeindex[nodeconnections[q][0]][1],k0=nodeindex[nodeconnections[q][0]][2];
@@ -2689,19 +3284,96 @@ void makeSpline(struct skeleDensity **sD,int *dim,double *tolerance,int *length,
             node0[q][p] = (sDmain->sB[i0][j0][k0]).nodepoint[p];
             node1[q][p] = (sDmain->sB[i1][j1][k1]).nodepoint[p];
         }
-        getSplineCoeff(&positioncoeff[q],&radcoeff[q],&node0[q],&node1[q],dim,n,&findpoints[q],&comboindex[q],tolerance);
+        //Next we rank n based on knowndistance, our smallest dimensional parameter
+        double dist = getDistance(node0[q],node1[q],dim);//distance between known points
+        //fprintf(stdout,"mindis=%f; dis=%f\n",mindis,dist);
+        //next we find min distance of sD
+        newn[q] = (int)ceil(*n * dist / mindis);
+        if(newn[q] > *n){
+            newn[q] = *n;
+        }
+        //fprintf(stdout,"calcnewN = %d\n",newn[q]);
+        positioncoeff[q] = malloc((newn[q] + 1)*sizeof(double*));
+        radcoeff[q] = malloc((newn[q] + 1)*sizeof(double*));
+        for(int i = 0; i < (newn[q] + 1); i++){
+            positioncoeff[q][i] = malloc(*dim*sizeof(double));
+            radcoeff[q][i] = malloc((1)*sizeof(double));
+        }
+
+        getSplineCoeff(&positioncoeff[q],&radcoeff[q],&node0[q],&node1[q],dim,&newn[q],&findpoints[q],&comboindex[q],tolerance);
+        //after each calculation we look at gradients to see if we need to update with a new one    
+        //firstly add in determination if can even have a gradient :)
+        //then add gradient calculations :)
+        //if(hasGradient[nodeconnections[q][0]] == 0){
+        //    //unclassified for this node, thus we will itterate and define with a gradient
+        //    int countcc = 0;
+        //    for(int i = 0; i < combocount; i++){
+        //        if(nodeconnections[i][0] == nodeconnections[q][0]){
+        //            //id 1 matches current look so add
+        //            countcc++;
+        //        }
+        //        else if(nodeconnections[i][1] == nodeconnections[q][0]){
+        //            //id 2 matches current look so add
+        //            countcc++;
+        //        }
+        //    }
+        //    if(countcc == 2){
+        //        hasGradient[nodeconnections[q][0]] = 1;
+        //        //we have marked it has a gradient as thus need to add in a gradient :)
+        //        for(int i = 0; i < *dim + 1; i++){
+        //            //note since nodeconnections[q][0]; we get from p1 to p0 
+        //            if(i < *dim){
+        //                markGradient[nodeconnections[q][0]][i] = positioncoeff[q][0][i] - positioncoeff[q][1][i];
+        //            }
+        //            else{
+        //                markGradient[nodeconnections[q][0]][i] = radcoeff[q][0][i-*dim] - radcoeff[q][1][i-*dim];
+        //            }
+        //        }
+        //    }
+        //    else{
+        //        hasGradient[nodeconnections[q][0]] = -1;
+        //    }
+        //}
+        //if(hasGradient[nodeconnections[q][1]] == 0){
+        //    //unclassified for this node, thus we will itterate and define with a gradient
+        //    int countcc = 0;
+        //    for(int i = 0; i < combocount; i++){
+        //        if(nodeconnections[i][0] == nodeconnections[q][1]){
+        //            //id 1 matches current look so add
+        //            countcc++;
+        //        }
+        //        else if(nodeconnections[i][1] == nodeconnections[q][1]){
+        //            //id 2 matches current look so add
+        //            countcc++;
+        //        }
+        //    }
+        //    if(countcc == 2){
+        //        hasGradient[nodeconnections[q][1]] = 1;
+        //        //we have marked it has a gradient as thus need to add in a gradient :)
+        //        for(int i = 0; i < *dim + 1; i++){
+        //            //note since nodeconnections[q][1]; we get from pn-1 to pn 
+        //            if(i < *dim){
+        //                markGradient[nodeconnections[q][1]][i] = positioncoeff[q][newn[q]][i] - positioncoeff[q][newn[q] - 1][i];
+        //            }
+        //            else{
+        //                markGradient[nodeconnections[q][1]][i] = radcoeff[q][newn[q]][i-*dim] - radcoeff[q][newn[q] - 1][i-*dim];
+        //            }
+        //        }
+        //    }
+        //    else{
+        //        hasGradient[nodeconnections[q][1]] = -1;
+        //    }
+        //}
+        //free(applyGradient);
     }
     for(int q = 0; q < combocount; q++){
         char indxname[80];
         sprintf (indxname, "splineBranchDat-%5.3f.dat", t);
         FILE * fpindx = fopen (indxname, "a");
         //Out puts node0(x,y) , node1(x,y) , and then if n coeff
-        if(*n == 1){
-            fprintf(fpindx,"%f %f %f %f %f %f %f %f\n",node0[q][0],node0[q][1],node0[q][2],node1[q][0],node1[q][1],node1[q][2],positioncoeff[q][0][0],radcoeff[q][0][0]);
-        }
-        else if(*n > 1){
-            fprintf(fpindx,"%d ",*n);
-            for(int i = 0; i < *n + 1; i++){
+        if(newn[q] > 0){
+            fprintf(fpindx,"%d ",newn[q]);
+            for(int i = 0; i < newn[q] + 1; i++){
                 fprintf(fpindx,"%f %f %f ",positioncoeff[q][i][0],positioncoeff[q][i][1],radcoeff[q][i][0]);
             }
             fprintf(fpindx,"\n");
@@ -2715,7 +3387,7 @@ void makeSpline(struct skeleDensity **sD,int *dim,double *tolerance,int *length,
     freeCombo(&findpoints,&comboindex,&nodeconnections,&nodeindex,&combocount,&nicount);
     free(visitcount);
     for(int i = 0; i < combocount; i++){
-        for(int j = 0; j < *n+1; j++){
+        for(int j = 0; j < newn[i] + 1; j++){
             free(positioncoeff[i][j]);
             free(radcoeff[i][j]);
         }
@@ -2724,6 +3396,7 @@ void makeSpline(struct skeleDensity **sD,int *dim,double *tolerance,int *length,
     }
     free(positioncoeff);
     free(radcoeff);
+    free(newn);
     for(int q = 0; q < combocount; q++){
         free(node0[q]);
         free(node1[q]);
@@ -2742,6 +3415,11 @@ void makeSpline(struct skeleDensity **sD,int *dim,double *tolerance,int *length,
         free(ids[i]);
     }
     free(ids);
+    //for(int q = 0; q  < localcount; q++){
+    //    free(markGradient[q]);
+    //}
+    //free(markGradient);
+    //free(hasGradient);
     *sD = sDmain;
 }
 void skeleReduce(double **skeleton,double delta,double *minblen,int *length,int *dim,int *mxpt,double t,int n){

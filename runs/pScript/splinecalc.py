@@ -115,9 +115,9 @@ def plotmirror(fig,sdat,scdat,idat,ndat,bdat,condat,sbdat,mirroraxi,mirrorval,sa
 
     #i = 0
     #while i < len(plotboxx):
-    #    ax.plot(plotboxx[i],plotboxy[i],c='black',linewidth=0.6)
+    #    ax.plot(plotboxx[i],plotboxy[i],c='saddlebrown',linewidth=0.6,zorder=0)
     #    i += 1
-    #i = 0
+    i = 0
     #while i < len(plotboxx):
     #    #plt.plot(rplotboxx[i],rplotboxy[i],c='red')
     #    i += 1
@@ -216,7 +216,7 @@ def plotmirror(fig,sdat,scdat,idat,ndat,bdat,condat,sbdat,mirroraxi,mirrorval,sa
                     j += 1
                 ts = np.linspace(0,1, num=100)
                 for param in ts:
-                    spline_point = calcbfunc(n+1,control_points,param)
+                    spline_point = calcbfunc(n[i]+1,control_points,param)
                     sx.append(spline_point[0])
                     sy.append(spline_point[1])
                     sr.append(spline_point[2])
@@ -235,9 +235,9 @@ def plotmirror(fig,sdat,scdat,idat,ndat,bdat,condat,sbdat,mirroraxi,mirrorval,sa
                     tpy.append(sy[j])
                     tpx.append(sx[j+1])
                     tpy.append(sy[j+1])
-                    #color = plt.cm.get_cmap('hsv')(((sr[j] + sr[j+1])/2)/mr)
-                    #ax.plot(tpx,tpy,linewidth=4,color=color,zorder=0)
-                    ax.plot(tpx,tpy,linewidth=1,color='white',zorder=0)
+                    color = plt.cm.get_cmap('hsv')(((sr[j] + sr[j+1])/2)/1)
+                    ax.plot(tpx,tpy,linewidth=2,color=color,zorder=1)
+                    #ax.plot(tpx,tpy,linewidth=1,color='white',zorder=1)
                     j += 1
                 #draw lines
                 i += 1
@@ -266,14 +266,20 @@ def plotmirror(fig,sdat,scdat,idat,ndat,bdat,condat,sbdat,mirroraxi,mirrorval,sa
                         tpy.append(control_points[j][1])
                         tpx.append(control_points[j + 1][0])
                         tpy.append(control_points[j + 1][1])
-                        color = plt.cm.get_cmap('hsv')(((control_points[j][2] + control_points[j + 1][2])/2)/mr)
+                        #color = plt.cm.get_cmap('hsv')(((control_points[j][2] + control_points[j + 1][2])/2)/1.5)
                         #ax.plot(tpx,tpy,linewidth=2,color='black',zorder=1)
                     j += 1
                 #ax.scatter(cpscatx,cpscaty,c='pink',s=4,zorder=2)
-                ax.scatter(npscatx,npscaty,c='red',s=4,zorder=2)
+                #ax.scatter(npscatx,npscaty,c='red',s=4,zorder=2)
+                ax.scatter(npscatx,npscaty,c='black',s=4,zorder=2)
                 i += 1
         ax.scatter(idat[0],idat[1],c='black',s=2,zorder=1)
         #ax.scatter(sdat[0],sdat[1],c='green',s=2,zorder=0)
+        norm = plt.Normalize(vmin=0, vmax=1)  # Adjust vmin and vmax based on your data range
+        sm = plt.cm.ScalarMappable(cmap='hsv', norm=norm)
+        sm.set_array([])
+        cbar = plt.colorbar(sm,ax=ax)
+        cbar.set_label('r')
         #print("scattered")
         #if(len(sbdat[0]) > 0):
         #    i = 0
@@ -360,237 +366,236 @@ if __name__ == '__main__':
     focus = [0,0,0,0]
     fleng = 0;
     while(case):
+        #try:
+        sx = []
+        sy = []
+        ix = []
+        iy = []
+        inx = []
+        iny = []
+        col = []
+        npx = []
+        npy = []
+        npr = []
+        bnx = []
+        bny = []
+        bpx = []
+        bpy = []
+        rbnx = []
+        rbny = []
+        rbpx = []
+        rbpy = []
+        bd = []
+        hasn = []
+        drow = 0
+        dcol = 0
+        sm = []
+        #our relavant close data
+        scx = []
+        scy = []
+        scw = []
+        sch = []
+        scd = []
+        scid = []
+
+        #spline branch data
+
+        angle = np.tan(30 * 3.141592 / 180)
+        datpath = nsource + "reducedskeleton-{:.3f}.dat".format(t)
+        with open(datpath,'r') as csvfile:
+            data  = csv.reader(csvfile,delimiter = ' ')
+            i = 0
+            for row in data:
+                sx.append(float(row[0]))
+                sy.append(float(row[1]))
+                i += 1
+        npath = nsource + "nodeDat-{:.3f}.dat".format(t)
+        with open(npath,'r') as csvfile:
+            data  = csv.reader(csvfile,delimiter = ' ')
+            i = 0
+            for row in data:
+                npx.append(float(row[0]))
+                npy.append(float(row[1]))
+                npr.append(float(row[2]))
+                sm.append(int(row[3]))
+                i += 1
+        bpath = nsource + "boxDat-{:.3f}.dat".format(t)
+        #ipath = source + r'superRuns/' + "infc-{:.3f}.dat".format(t)
+        with open(bpath,'r') as csvfile:
+            data  = csv.reader(csvfile,delimiter = ' ')
+            i = 0
+            for row in data:
+                bnx.append(float(row[0]))
+                bny.append(float(row[1]))
+                bpx.append(float(row[2]))
+                bpy.append(float(row[3]))
+                rbnx.append(float(row[4]))
+                rbny.append(float(row[5]))
+                rbpx.append(float(row[6]))
+                rbpy.append(float(row[7]))
+                bd.append(float(row[8]))
+                drow = int(row[9])
+                dcol = int(row[10])
+                hasn.append(int(row[11]))
+                i += 1
+        ipath = nsource + "intdata-{:.3f}.dat".format(t)
+        with open(ipath,'r') as csvfile:
+            data  = csv.reader(csvfile,delimiter = ' ')
+            i = 0
+            for row in data:
+                ix.append(float(row[0]))
+                iy.append(float(row[1]))
+                inx.append(float(row[2]))
+                iny.append(float(row[3]))
+                i += 1
+        scpath = nsource + "splinecalcDat-{:.3f}.dat".format(t)
+        with open(scpath,'r') as csvfile:
+            data  = csv.reader(csvfile,delimiter = ' ')
+            i = 0
+            for row in data:
+                scx.append(float(row[0]))
+                scy.append(float(row[1]))
+                scw.append(float(row[2]))
+                sch.append(float(row[3]))
+                scd.append(int(row[4]))
+                scid.append([int(row[5]),int(row[6])])
+                i += 1
+        #Load in node connections
+        con = []
+        conpath = nsource + "connectionDat-{:.3f}.dat".format(t)
+        with open(conpath,'r') as csvfile:
+            data  = csv.reader(csvfile,delimiter = ' ')
+            i = 0
+            for row in data:
+                con.append([int(row[0]),int(row[1])])
+                i += 1
+        conid = []
+        conidpath = nsource + "connectionidDat-{:.3f}.dat".format(t)
+        with open(conidpath,'r') as csvfile:
+            data  = csv.reader(csvfile,delimiter = ' ')
+            i = 0
+            for row in data:
+                conid.append([int(row[0]),int(row[1]),float(row[2]),float(row[3])])
+                i += 1
+        sbpath = ""
+        #n-1 data
+        #n0x = []
+        #n0y = []
+        #n0r = []
+        #n1x = []
+        #n1y = []
+        #n1r = []
+        #a0 = []
+        #a1 = []
+        #ry:
+        #   sbpath = nsource + "splineBranchDat-{:.3f}.dat".format(t)
+        #   with open(sbpath,'r') as csvfile:
+        #       data  = csv.reader(csvfile,delimiter = ' ')
+        #       i = 0
+        #       for row in data:
+        #           sn0x.append(float(row[0]))
+        #           sn0y.append(float(row[1]))
+        #           sn0r.append(float(row[2]))
+        #           sn1x.append(float(row[3]))
+        #           sn1y.append(float(row[4]))
+        #           sn1r.append(float(row[5]))
+        #           sa0.append(float(row[6]))
+        #           if(len(row) > 7):
+        #               sa1.append(float(row[7]))
+        #           i += 1
+        #xcept:
+        #   print("no existing file:",sbpath)
+        #n-2 data input
+        n = []
+        conx = []
+        cony = []
+        conr = []
         try:
-            sx = []
-            sy = []
-            ix = []
-            iy = []
-            inx = []
-            iny = []
-            col = []
-            npx = []
-            npy = []
-            npr = []
-            bnx = []
-            bny = []
-            bpx = []
-            bpy = []
-            rbnx = []
-            rbny = []
-            rbpx = []
-            rbpy = []
-            bd = []
-            hasn = []
-            drow = 0
-            dcol = 0
-            sm = []
-            #our relavant close data
-            scx = []
-            scy = []
-            scw = []
-            sch = []
-            scd = []
-            scid = []
-
-            #spline branch data
-
-            angle = np.tan(30 * 3.141592 / 180)
-            datpath = nsource + "reducedskeleton-{:.3f}.dat".format(t)
-            with open(datpath,'r') as csvfile:
+            sbpath = nsource + "splineBranchDat-{:.3f}.dat".format(t)
+            with open(sbpath,'r') as csvfile:
                 data  = csv.reader(csvfile,delimiter = ' ')
                 i = 0
                 for row in data:
-                    sx.append(float(row[0]))
-                    sy.append(float(row[1]))
+                    conx.append([])
+                    cony.append([])
+                    conr.append([])
+                    n.append(int(row[0]))
+                    q = 0
+                    c = 3
+                    while q < n[i] + 1:
+                        conx[i].append(float(row[c*q+1]))
+                        cony[i].append(float(row[c*q+2]))
+                        conr[i].append(float(row[c*q+3]))
+                        q += 1
                     i += 1
-            npath = nsource + "nodeDat-{:.3f}.dat".format(t)
-            with open(npath,'r') as csvfile:
-                data  = csv.reader(csvfile,delimiter = ' ')
-                i = 0
-                for row in data:
-                    npx.append(float(row[0]))
-                    npy.append(float(row[1]))
-                    npr.append(float(row[2]))
-                    sm.append(int(row[3]))
-                    i += 1
-            bpath = nsource + "boxDat-{:.3f}.dat".format(t)
-            #ipath = source + r'superRuns/' + "infc-{:.3f}.dat".format(t)
-            with open(bpath,'r') as csvfile:
-                data  = csv.reader(csvfile,delimiter = ' ')
-                i = 0
-                for row in data:
-                    bnx.append(float(row[0]))
-                    bny.append(float(row[1]))
-                    bpx.append(float(row[2]))
-                    bpy.append(float(row[3]))
-                    rbnx.append(float(row[4]))
-                    rbny.append(float(row[5]))
-                    rbpx.append(float(row[6]))
-                    rbpy.append(float(row[7]))
-                    bd.append(float(row[8]))
-                    drow = int(row[9])
-                    dcol = int(row[10])
-                    hasn.append(int(row[11]))
-                    i += 1
-            ipath = nsource + "intdata-{:.3f}.dat".format(t)
-            with open(ipath,'r') as csvfile:
-                data  = csv.reader(csvfile,delimiter = ' ')
-                i = 0
-                for row in data:
-                    ix.append(float(row[0]))
-                    iy.append(float(row[1]))
-                    inx.append(float(row[2]))
-                    iny.append(float(row[3]))
-                    i += 1
-            scpath = nsource + "splinecalcDat-{:.3f}.dat".format(t)
-            with open(scpath,'r') as csvfile:
-                data  = csv.reader(csvfile,delimiter = ' ')
-                i = 0
-                for row in data:
-                    scx.append(float(row[0]))
-                    scy.append(float(row[1]))
-                    scw.append(float(row[2]))
-                    sch.append(float(row[3]))
-                    scd.append(int(row[4]))
-                    scid.append([int(row[5]),int(row[6])])
-                    i += 1
-            #Load in node connections
-            con = []
-            conpath = nsource + "connectionDat-{:.3f}.dat".format(t)
-            with open(conpath,'r') as csvfile:
-                data  = csv.reader(csvfile,delimiter = ' ')
-                i = 0
-                for row in data:
-                    con.append([int(row[0]),int(row[1])])
-                    i += 1
-            conid = []
-            conidpath = nsource + "connectionidDat-{:.3f}.dat".format(t)
-            with open(conidpath,'r') as csvfile:
-                data  = csv.reader(csvfile,delimiter = ' ')
-                i = 0
-                for row in data:
-                    conid.append([int(row[0]),int(row[1]),float(row[2]),float(row[3])])
-                    i += 1
-            sbpath = ""
-            #n-1 data
-            #n0x = []
-            #n0y = []
-            #n0r = []
-            #n1x = []
-            #n1y = []
-            #n1r = []
-            #a0 = []
-            #a1 = []
-            #ry:
-            #   sbpath = nsource + "splineBranchDat-{:.3f}.dat".format(t)
-            #   with open(sbpath,'r') as csvfile:
-            #       data  = csv.reader(csvfile,delimiter = ' ')
-            #       i = 0
-            #       for row in data:
-            #           sn0x.append(float(row[0]))
-            #           sn0y.append(float(row[1]))
-            #           sn0r.append(float(row[2]))
-            #           sn1x.append(float(row[3]))
-            #           sn1y.append(float(row[4]))
-            #           sn1r.append(float(row[5]))
-            #           sa0.append(float(row[6]))
-            #           if(len(row) > 7):
-            #               sa1.append(float(row[7]))
-            #           i += 1
-            #xcept:
-            #   print("no existing file:",sbpath)
-            #n-2 data input
-            n = 0
-            conx = []
-            cony = []
-            conr = []
-            try:
-                sbpath = nsource + "splineBranchDat-{:.3f}.dat".format(t)
-                with open(sbpath,'r') as csvfile:
-                    data  = csv.reader(csvfile,delimiter = ' ')
-                    i = 0
-                    for row in data:
-                        conx.append([])
-                        cony.append([])
-                        conr.append([])
-                        if i == 0:
-                            n = int(row[0])
-                        q = 0
-                        c = 3
-                        while q < n + 1:
-                            conx[i].append(float(row[c*q+1]))
-                            cony[i].append(float(row[c*q+2]))
-                            conr[i].append(float(row[c*q+3]))
-                            q += 1
-                        i += 1
-            except:
-                print("no existing file:",sbpath)
-            angpath = nsource + "angDat-{:.3f}.dat".format(t)
-            ax = []
-            ay = []
-            aa = []
-            try:
-                with open(angpath,'r') as csvfile:
-                    data  = csv.reader(csvfile,delimiter = ' ')
-                    i = 0
-                    for row in data:
-                        ax.append(float(row[0]))
-                        ay.append(float(row[1]))
-                        aa.append(float(row[2]))
-                        i += 1
-            except:
-                print("couldnt load ang")
-            print("loaded:",t)
-            sdat = [sx,sy]
-            scdat = [scx,scy,scw,sch,scd,scid]
-            idat = [ix,iy,inx,iny]
-            ndat = [npx,npy,npr,sm]
-            bdat = [bnx,bny,bpx,bpy,rbnx,rbny,rbpx,rbpy,bd,drow,dcol,hasn]
-            condat = [con,conid]
-            #sbdat = [sn0x,sn0y,sn0r,sn1x,sn1y,sn1r,sa0,sa1]
-            sbdat = [conx,cony,conr]
-            print("assigned",t)
-            #bdat = []
-            #save = source + r'pScript/2DEvolve/' + "skeleplt-{:03d}.png".format(j)
-            if isfile:
-                if isfolder:
-                    save = infile + infile.strip('/') + "-{:03d}.png".format(j)
-                else:
-                    save = infile.strip('/') + "-{:03d}.png".format(j)
-            else:
-                save = r'2DEvolve/' + "skele2intplt-{:03d}.png".format(j)
-            t = round(t,2)
-            #find focus
-            focus[0] = min(idat[0])
-            focus[1] = max(idat[0])
-            focus[2] = min(idat[1])
-            focus[3] = max(idat[1])
-            fx = focus[1]-focus[0]#lx
-            fy = focus[3]-focus[2]#ly
-            mx = (focus[1]+focus[0]) / 2 #mid point x
-            my = (focus[3]+focus[2]) / 2 #mid point y
-            #Make const Square bounds; fleng is the square width
-            if j == startj:
-                if fx > fy:
-                    fleng = fx*2
-                else:
-                    fleng = fy*2
-            #Adjust square as moves
-            if fx < fleng:
-                focus[0] = mx - fleng/2
-                focus[1] = mx + fleng/2
-            if fy < fleng:
-                focus[2] = my - fleng/2
-                focus[3] = my + fleng/2
-            #Plot results
-            #if len(sdat[0]) != 0:
-            print("sent",t)
-            plotmirror(fig,sdat,scdat,idat,ndat,bdat,condat,sbdat,0,0,save,j,focus,n)
-            #tries to open time step & plot
-            j += 1
-            t += dt
-            if t > maxt:
-                case = False
         except:
+            print("no existing file:",sbpath)
+        angpath = nsource + "angDat-{:.3f}.dat".format(t)
+        ax = []
+        ay = []
+        aa = []
+        try:
+            with open(angpath,'r') as csvfile:
+                data  = csv.reader(csvfile,delimiter = ' ')
+                i = 0
+                for row in data:
+                    ax.append(float(row[0]))
+                    ay.append(float(row[1]))
+                    aa.append(float(row[2]))
+                    i += 1
+        except:
+            print("couldnt load ang")
+        print("loaded:",t)
+        sdat = [sx,sy]
+        scdat = [scx,scy,scw,sch,scd,scid]
+        idat = [ix,iy,inx,iny]
+        ndat = [npx,npy,npr,sm]
+        bdat = [bnx,bny,bpx,bpy,rbnx,rbny,rbpx,rbpy,bd,drow,dcol,hasn]
+        condat = [con,conid]
+        #sbdat = [sn0x,sn0y,sn0r,sn1x,sn1y,sn1r,sa0,sa1]
+        sbdat = [conx,cony,conr]
+        print("assigned",t)
+        #bdat = []
+        #save = source + r'pScript/2DEvolve/' + "skeleplt-{:03d}.png".format(j)
+        if isfile:
+            if isfolder:
+                save = infile + infile.strip('/') + "-{:03d}.png".format(j)
+            else:
+                save = infile.strip('/') + "-{:03d}.png".format(j)
+        else:
+            save = r'2DEvolve/' + "skele2intplt-{:03d}.png".format(j)
+        t = round(t,2)
+        #find focus
+        focus[0] = min(idat[0])
+        focus[1] = max(idat[0])
+        focus[2] = min(idat[1])
+        focus[3] = max(idat[1])
+        fx = focus[1]-focus[0]#lx
+        fy = focus[3]-focus[2]#ly
+        mx = (focus[1]+focus[0]) / 2 #mid point x
+        my = (focus[3]+focus[2]) / 2 #mid point y
+        #Make const Square bounds; fleng is the square width
+        if j == startj:
+            if fx > fy:
+                fleng = fx*2
+            else:
+                fleng = fy*2
+        #Adjust square as moves
+        if fx < fleng:
+            focus[0] = mx - fleng/2
+            focus[1] = mx + fleng/2
+        if fy < fleng:
+            focus[2] = my - fleng/2
+            focus[3] = my + fleng/2
+        #Plot results
+        #if len(sdat[0]) != 0:
+        print("sent",t)
+        plotmirror(fig,sdat,scdat,idat,ndat,bdat,condat,sbdat,0,0,save,j,focus,n)
+        #tries to open time step & plot
+        j += 1
+        t += dt
+        if t > maxt:
             case = False
+        #except:
+        #    case = False
     print("done")

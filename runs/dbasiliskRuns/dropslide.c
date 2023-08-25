@@ -30,6 +30,7 @@ double uemax = 0.001;
 double maxruntime = 60;
 //time var
 
+
 //spline parameter
 double del = 0.05/4;
 
@@ -41,7 +42,7 @@ double i_gap = 1.;
 int i = 0.;
 double mindis = 0.0;
 int slevel = 0.;
-
+int skelen = 4;
 void runSkeleton(double ti);
 
 int main(int argc, char * argv[])
@@ -67,8 +68,8 @@ int main(int argc, char * argv[])
     if( argc > 3 ){
         //in del changed how small it is
         //like level so del will be 0.05 / del <- int from command line ie (1,4,100,ect.)
-        sscanf(argv[3],"%lf",&del);
-        del = 0.05 / del;
+        skelen = atoi(argv[3]);
+        fprintf(stdout,"n=%d\n",skelen);
     }
     bool rename = false;
     if( argc > 4 ){
@@ -91,6 +92,8 @@ int main(int argc, char * argv[])
         }
         fprintf (ferr, "Trying file %s, t = %f\n",name,ti);
         restore(file = name);
+        del = pow(2,(max_level - 1));
+        del = L/del;
         fprintf (ferr, "Opening file %s, i=%d \n",name,i);
         runSkeleton(ti);
     }
@@ -152,8 +155,8 @@ void runSkeleton(double ti){
     //run reduce
     //double del = 0.05;
     //double del = 0.05/4;
-    int n = 3;
-    skeleReduce(skeleton,del,&minbranchlength,&snr,&snd,&mxpt,ti,n);
+    //skelen = 4;
+    skeleReduce(skeleton,del,&minbranchlength,&snr,&snd,&mxpt,ti,skelen);
     
     end = clock();
     calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for skeleton  

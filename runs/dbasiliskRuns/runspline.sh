@@ -10,24 +10,22 @@ clear
 if [ $# -eq 0 ]
   then
     echo "No Input"
+    tstart=0
+    tend=39
 else
     tstart="$1"
     tend="$2"
 fi
-for D in $(seq 1 1 10)
+for D in $(seq 1 1 8)
 do
-    #./cleanspline.sh
-    save="N3"
-    saveD="D"
-    saveD="$saveD$D"
-    mdir="$save$saveD"
+    save="N$D"
+    mdir="$save"
     saveForm="-s.mp4"
-    save="$save$saveD$saveForm"
+    save="$save$saveForm"
     mdir=$(echo $mdir | tr -d '\r')
     echo $mdir
     echo $save
     mkdir $mdir
-    #cp drop $mdir
     echo $(pwd)
     cd "$mdir"
     echo $(pwd)

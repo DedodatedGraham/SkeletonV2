@@ -34,5 +34,5 @@ if [ $dif -eq 0 ]
 else
     mkdir "$adjust_path"
     python3 splinecalc.py $time_start $time_end $adjust_path
-    ffmpeg -r 5 -y -threads 4 -i $adjust_path/skele2intplt-%03d.png -pix_fmt yuv420p $save_name &
+    ffmpeg -r 5 -y -threads 4 -i $adjust_path/$adjust_path-%03d.png -pix_fmt yuv420p $save_name &
 fi

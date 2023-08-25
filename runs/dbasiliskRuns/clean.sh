@@ -21,3 +21,4 @@ rm -r infc* 2> /dev/null
 rm -r mtrace* 2> /dev/null
 rm drop 2> /dev/null
 rm -r N*D*/ 2> /dev/null
+rm -r N*/ 2> /dev/null

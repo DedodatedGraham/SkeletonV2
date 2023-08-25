@@ -8,4 +8,5 @@ rm -r 2DEvolve/compplt*.png 2> /dev/null
 rm -r 2DEvolve/svofplt*.png 2> /dev/null
 rm *.mp4 2> /dev/null
 rm fig.* 2> /dev/null
-rm -r N*D* 2> /dev/null
+rm -r N*D*/ 2> /dev/null
+rm -r N*/ 2> /dev/null
