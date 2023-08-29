@@ -267,11 +267,11 @@ def plotmirror(fig,sdat,scdat,idat,ndat,bdat,condat,sbdat,mirroraxi,mirrorval,sa
                         tpx.append(control_points[j + 1][0])
                         tpy.append(control_points[j + 1][1])
                         #color = plt.cm.get_cmap('hsv')(((control_points[j][2] + control_points[j + 1][2])/2)/1.5)
-                        ax.plot(tpx,tpy,linewidth=2,color='black',zorder=1)
+                        #ax.plot(tpx,tpy,linewidth=2,color='black',zorder=1)
                     j += 1
-                ax.scatter(cpscatx,cpscaty,c='pink',s=4,zorder=2)
+                #ax.scatter(cpscatx,cpscaty,c='pink',s=4,zorder=2)
                 #ax.scatter(npscatx,npscaty,c='red',s=4,zorder=2)
-                ax.scatter(npscatx,npscaty,c='black',s=4,zorder=2)
+                #ax.scatter(npscatx,npscaty,c='black',s=4,zorder=2)
                 i += 1
         ax.scatter(idat[0],idat[1],c='black',s=2,zorder=-3)
         #ax.scatter(sdat[0],sdat[1],c='green',s=2,zorder=0)
