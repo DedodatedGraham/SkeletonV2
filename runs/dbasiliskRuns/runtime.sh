@@ -29,9 +29,9 @@ fi
 ./clean.sh
 ./../pScript/clean.sh
 ./compile.sh
-valgrind ./drop $time_start $time_end $delta
-#./drop $time_start $time_end $delta
-#./../pScript/run.sh $time_start $time_end
+#valgrind ./drop $time_start $time_end $delta
+./drop $time_start $time_end $delta
+./../pScript/run.sh $time_start $time_end
 end=`date +%s.%N`
 runtime=$( echo "$end - $start" | bc -l )
 echo $runtime

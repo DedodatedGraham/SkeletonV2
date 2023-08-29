@@ -931,15 +931,53 @@ bool connectingROI(double **roi1,double**roi2,int *dim,double *tolerance){
 //    return false;
 //}
 //
-void thinNodePoint(struct skeleDensity **sd,int *dim,int **nodeid, int *nodeidcount,double ****pfindpoints,int **pcomboindex,int ***pnodeconnections,int ***pnodeindex,int *combocount,int *nicount,int *mxpt, double t){
+//handles deallocation of combos
+void freeCombo(double ****pfindpoints,int **pcomboindex,int ***pnodeconnections,int ***pnodeindex,int *combocount,int *nicount){
+    double ***findpoints = *pfindpoints;
+    int **nodeindex = *pnodeindex;
+    int **nodeconnections = *pnodeconnections;
+    int *comboindex = *pcomboindex;
+    bool clearfind = false;
+    if(findpoints != NULL){
+        clearfind = true;
+    }
+    //frees connections & points if needed
+    for(int i = 0; i < *combocount; i++){
+        free(nodeconnections[i]);
+        if(clearfind){
+            free(findpoints[i]);
+        }
+    }
+    if(*pnodeconnections != NULL && nodeconnections != NULL){
+        free(nodeconnections);
+    }
+    if(clearfind){
+        free(findpoints);
+    }
+    for(int i = 0; i < *nicount; i++){
+        free(nodeindex[i]);
+    }
+    if(nodeindex != NULL){
+        free(nodeindex);
+    }
+    if(comboindex != NULL){
+        free(comboindex);
+    }
+    *pfindpoints = NULL;
+    *pnodeindex = NULL;
+    *pnodeconnections = NULL;
+    *pcomboindex = NULL;
+}
+void thinNodePoint(struct skeleDensity **sd,int *dim,double ****pfindpoints,int **pcomboindex,int ***pnodeconnections,int ***pnodeindex,int *combocount,int *nicount,int *mxpt, double t){
     //Thins our structure removing points with only 2 connections
+    fprintf(stdout,"\n\nThinning... watch for error\n");
     struct skeleDensity *sDmain = *sd;
     double ***findpoints = *pfindpoints;
     int **nodeindex = *pnodeindex;
     int **nodeconnections = *pnodeconnections;
     int *comboindex = *pcomboindex;
     //firstly we will allocate a count list for each index id, this will give us an idea of how  many nodes we are getting rid of and where they are located
-    fprintf(stdout,"ni=%d nic=%d\n",*nicount,*nodeidcount);
+    fprintf(stdout,"cc=%d,ni=%d\n",*combocount,*nicount);
     for(int i = 0; i < *combocount; i++){
         fprintf(stdout,"[%d - %d , %d ]\n",i,nodeconnections[i][0],nodeconnections[i][1]);
     }
@@ -953,7 +991,14 @@ void thinNodePoint(struct skeleDensity **sd,int *dim,int **nodeid, int *nodeidco
         countIDs[nodeconnections[i][0]]++;
         countIDs[nodeconnections[i][1]]++;
     }
+    //here we adjust places where we have twos touching as we done want both points, doing it before count and track allows us to stay memeory safe 
     for(int i = 0; i < *combocount; i++){
+        if(countIDs[nodeconnections[i][0]] == 2 && countIDs[nodeconnections[i][1]] == 2){
+            //add a fake count to position 1 in a double to prevent any redoing
+            countIDs[nodeconnections[i][0]]++;
+        }
+    }
+    for(int i = 0; i < *nicount; i++){
         if(countIDs[i] == 2){
             //Here we have a node which only has 2 connections, this means we can remove it safely without much risk of breaking the system :)
             numtwo++;
@@ -975,71 +1020,213 @@ void thinNodePoint(struct skeleDensity **sd,int *dim,int **nodeid, int *nodeidco
             }
         }
     }
+    fprintf(stdout,"numtwos = %d\n",numtwo);
     //After were done counting we will alloc 
-    int tnncount = 0;
-    int **tempnewnode = malloc(numtwo * sizeof(int*));//for new nodeconnections
-    double ***tempnewfind = malloc(numtwo * sizeof(double**));//allocs new vectors for new findpoints:)
-    int *tempfindcount = calloc(numtwo, sizeof(int));//for new comboindex
-    int *destroyindex = calloc(numtwo, sizeof(int));//short for destroy IDS on stack
-    int ti = 0;
-    for(int i = 0 ; i < *combocount; i++){
-        if(countIDs[i] == 2){
-            int countfind = (comboindex[trackIDs[i][0]]) + (comboindex[trackIDs[i][2]]);//combines count of points for proper space
-            tempfindcount[ti] = countfind;
-            tempnewnode[ti] = calloc(2 , sizeof(int));
-            tempnewfind[ti] = malloc(countfind * sizeof(double*));
-            for(int j = 0; j < countfind; j++){
-                tempnewfind[ti][j] = calloc(*dim + 1, sizeof(double));
-            }
-            ti++;
-        }
-    }
-    //then we will run through each two vector and combine it into our temp
-    for(int i = 0; i < *combocount; i++){
-        if(countIDs[i] == 2){
-            //if equal to two then we create our new values
-            tempnewnode[tnncount][0] = nodeconnections[trackIDs[i][0]][!trackIDs[i][1]];
-            tempnewnode[tnncount][1] = nodeconnections[trackIDs[i][2]][!trackIDs[i][3]];
-            //mark destroy
-            destroyindex[tnncount] = i;
-            //adds in points from list in trackID[0] ie the first points vector 
-            int tj = 0;//position in tempnewfind
-            for(int j = 0; j < comboindex[trackIDs[i][0]]; j++){
-                for(int k = 0; k < *dim + 1; k++){
-                    tempnewfind[tnncount][tj][k] = findpoints[trackIDs[i][0]][j][k];
+    if(numtwo > 0){
+        int tnncount = 0;
+        int **tempnewnode = malloc(numtwo * sizeof(int*));//for new nodeconnections
+        double ***tempnewfind = malloc(numtwo * sizeof(double**));//allocs new vectors for new findpoints:)
+        int *tempfindcount = calloc(numtwo, sizeof(int));//for new comboindex
+        int ti = 0;
+        for(int i = 0 ; i < *nicount; i++){
+            if(countIDs[i] == 2){
+                int countfind = (comboindex[trackIDs[i][0]]) + (comboindex[trackIDs[i][2]]);//combines count of points for proper space
+                tempfindcount[ti] = countfind;
+                tempnewnode[ti] = calloc(2 , sizeof(int));
+                tempnewfind[ti] = malloc(countfind * sizeof(double*));
+                for(int j = 0; j < countfind; j++){
+                    tempnewfind[ti][j] = calloc(*dim + 1, sizeof(double));
                 }
-                tj++;
+                ti++;
             }
-            //next add trackID[2] ie second point vector
-            for(int j = 0; j < comboindex[trackIDs[i][2]]; j++){
-                for(int k = 0; k < *dim + 1; k++){
-                    tempnewfind[tnncount][tj][k] = findpoints[trackIDs[i][2]][j][k];
+        }
+        //then we will run through each two vector and combine it into our temp
+        for(int i = 0; i < *nicount; i++){
+            if(countIDs[i] == 2){
+                //if equal to two then we create our new values
+                tempnewnode[tnncount][0] = nodeconnections[trackIDs[i][0]][!trackIDs[i][1]];
+                tempnewnode[tnncount][1] = nodeconnections[trackIDs[i][2]][!trackIDs[i][3]];
+                //adds in points from list in trackID[0] ie the first points vector 
+                int tj = 0;//position in tempnewfind
+                for(int j = 0; j < comboindex[trackIDs[i][0]]; j++){
+                    for(int k = 0; k < *dim + 1; k++){
+                        tempnewfind[tnncount][tj][k] = findpoints[trackIDs[i][0]][j][k];
+                    }
+                    tj++;
                 }
-                tj++;
+                //next add trackID[2] ie second point vector
+                for(int j = 0; j < comboindex[trackIDs[i][2]]; j++){
+                    for(int k = 0; k < *dim + 1; k++){
+                        tempnewfind[tnncount][tj][k] = findpoints[trackIDs[i][2]][j][k];
+                    }
+                    tj++;
+                }
+                //go onto next
+                tnncount++;
             }
-            //go onto next
-            tnncount++;
         }
-    }
-    //next fit our new values into existing structures :)
-    fprintf(stdout,"error%d/%d \n",numtwo,*combocount); 
-    //finally free and reassign needed pointers
-    free(countIDs);
-    for(int i = 0; i < *combocount; i++){
-        free(trackIDs[i]);
-    }
-    free(trackIDs);
-    for (int i = 0; i < numtwo; i++) {
-        free(tempnewnode[i]);
-        for (int j = 0; j < tempfindcount[i]; j++) {
-            free(tempnewfind[i][j]);
+        //next fit our new values into existing structures :)
+        //aka adjust everything into the same formate but without nodes that equal two :)
+        
+        //first allocate for new 
+        int newcombocount = *combocount - numtwo;
+        int newnicount = *nicount - numtwo;
+        fprintf(stdout,"new counts => %d %d\n",newcombocount,newnicount);
+        int **newnodeconnections = malloc(newcombocount * sizeof(int*));//for new nodeconnections
+        int **newnodeindex = malloc(newnicount * sizeof(int*));//for new nodeindex
+        int nni = 0;
+        double ***newfindpoints = malloc(newcombocount * sizeof(double**));//allocs new vectors for new findpoints:)
+        int nfpi = 0;//keeps track of current newfindpoints location
+        int *newcomboindex = calloc(newcombocount, sizeof(int));//for new comboindex
+        for(int i = 0; i < newnicount; i++){
+            newnodeindex[i] = malloc(3 * sizeof(int));
         }
-        free(tempnewfind[i]);
-    }
-    free(tempnewnode);
-    free(tempnewfind);
-    free(tempfindcount);
-    free(destroyindex);
+        for(int i = 0; i < newcombocount; i++){
+            newnodeconnections[i] = calloc(2,sizeof(int));
+        }
+        //next go through old and add in if allowable, note we will reclassify id's :/ unfortunate but makes life easier later
+        //to mitigate cringe we can add in unclassified olds and then news, as news opperate on different dimensiions anyways
+        for(int i = 0; i < *combocount; i++){
+            fprintf(stdout,"loop1 i:%d, nni:%d, newnicount:%d:\n",i,nni,newnicount);
+            //check both are clear to be added
+            if(countIDs[nodeconnections[i][0]] != 2 && countIDs[nodeconnections[i][1]] != 2){
+                //identify if need to add id0 or id1 to index/ assing existing index
+                bool pass0 = true;
+                int i0 = 0;
+                bool pass1 = true;
+                int i1 = 0;
+                for(int j = 0; j < nni; j++){
+                    fprintf(stdout,"\ncomparing [%d,%d,%d] to [%d,%d,%d] \n\n",newnodeindex[j][0],newnodeindex[j][1],newnodeindex[j][2],nodeindex[nodeconnections[i][0]][0],nodeindex[nodeconnections[i][0]][1],nodeindex[nodeconnections[i][0]][2]);
+                    fprintf(stdout,"\ncomparing [%d,%d,%d] to [%d,%d,%d] \n\n",newnodeindex[j][0],newnodeindex[j][1],newnodeindex[j][2],nodeindex[nodeconnections[i][1]][0],nodeindex[nodeconnections[i][1]][1],nodeindex[nodeconnections[i][1]][2]);
+                    if(newnodeindex[j][0] == nodeindex[nodeconnections[i][0]][0] && newnodeindex[j][1] == nodeindex[nodeconnections[i][0]][1] && newnodeindex[j][2] == nodeindex[nodeconnections[i][0]][2]){
+                        fprintf(stdout,"no pass0-0\n");
+                        pass0 = false;//current 0 hit as already made into an id
+                        i0 = j;
+                    }
+                    if(newnodeindex[j][0] == nodeindex[nodeconnections[i][1]][0] && newnodeindex[j][1] == nodeindex[nodeconnections[i][1]][1] && newnodeindex[j][2] == nodeindex[nodeconnections[i][1]][2]){
+                        fprintf(stdout,"no pass0-1\n");
+                        pass1 = false;//current 0 hit as already made into an id
+                        i1 = j;
+                    }
+                }
+                if(pass0){
+                    newnodeindex[nni][0] = nodeindex[nodeconnections[i][0]][0];
+                    newnodeindex[nni][1] = nodeindex[nodeconnections[i][0]][1];
+                    newnodeindex[nni][2] = nodeindex[nodeconnections[i][0]][2];
+                    fprintf(stdout,"passed0-0 with [%d,%d,%d]\n", newnodeindex[nni][0],newnodeindex[nni][1],newnodeindex[nni][2]);
+                    i0 = nni;
+                    nni++;
+                }
+                if(pass1){
+                    newnodeindex[nni][0] = nodeindex[nodeconnections[i][1]][0];
+                    newnodeindex[nni][1] = nodeindex[nodeconnections[i][1]][1];
+                    newnodeindex[nni][2] = nodeindex[nodeconnections[i][1]][2];
+                    fprintf(stdout,"passed0-1 with [%d,%d,%d]\n", newnodeindex[nni][0],newnodeindex[nni][1],newnodeindex[nni][2]);
+                    i1 = nni;
+                    nni++;
+                }
+                //next alloc and assign find points and length, as should be 1 to 1
+                newfindpoints[nfpi] = malloc(comboindex[i] * sizeof(double*));
+                for(int j = 0; j < comboindex[i]; j++){
+                    newfindpoints[nfpi][j] = calloc(*dim + 1,sizeof(double));
+                    for(int k = 0; k < *dim + 1; k++){
+                        newfindpoints[nfpi][j][k] = findpoints[i][j][k];
+                    }
+                }
+                newcomboindex[nfpi] = comboindex[i];
+                //finally set the node connections
+                newnodeconnections[nfpi][0] = i0;
+                newnodeconnections[nfpi][1] = i1;
+                nfpi++;
+            }
+        }
+        //next we go through and add in our temp/ combination variables 
+        //we do after to apply different resctrictions
+        for(int i = 0; i < numtwo; i++){
+            fprintf(stdout,"loop2 i:%d, nni:%d, newnicount:%d:\n",i,nni,newnicount);
+            //tempnewnode = [numtwo][oi0,oi1]
+            //we figure out the index conditions of the system and what we are adding in
+            bool pass0 = true;
+            int i0 = 0;
+            bool pass1 = true;
+            int i1 = 0;
+            for(int j = 0; j < nni; j++){
+                    fprintf(stdout,"\ncomparing [%d,%d,%d] to [%d,%d,%d] \n\n",newnodeindex[j][0],newnodeindex[j][1],newnodeindex[j][2],nodeindex[tempnewnode[i][0]][0],nodeindex[tempnewnode[i][0]][1],nodeindex[tempnewnode[i][0]][2]);
+                    fprintf(stdout,"\ncomparing [%d,%d,%d] to [%d,%d,%d] \n\n",newnodeindex[j][0],newnodeindex[j][1],newnodeindex[j][2],nodeindex[tempnewnode[i][1]][0],nodeindex[tempnewnode[i][1]][1],nodeindex[tempnewnode[i][1]][2]);
+                if(nodeindex[tempnewnode[i][0]][0] == newnodeindex[j][0] && nodeindex[tempnewnode[i][0]][1] == newnodeindex[j][1] && nodeindex[tempnewnode[i][0]][2] == newnodeindex[j][2]){
+                    fprintf(stdout,"no pass2-0\n");
+                    pass0 = false;
+                    i0 = j;
+                }
+                if(nodeindex[tempnewnode[i][1]][0] == newnodeindex[j][0] && nodeindex[tempnewnode[i][1]][1] == newnodeindex[j][1] && nodeindex[tempnewnode[i][1]][2] == newnodeindex[j][2]){
+                    fprintf(stdout,"no pass2-1\n");
+                    pass1 = false;
+                    i1 = j;
+                }
+            }
+            if(pass0){
+                newnodeindex[nni][0] = nodeindex[tempnewnode[i][0]][0];
+                newnodeindex[nni][1] = nodeindex[tempnewnode[i][0]][1];
+                newnodeindex[nni][2] = nodeindex[tempnewnode[i][0]][2];
+                fprintf(stdout,"passed2-0 with [%d,%d,%d]\n", newnodeindex[nni][0],newnodeindex[nni][1],newnodeindex[nni][2]);
+                i0 = nni;
+                nni++;
+            }
+            if(pass1){
+                newnodeindex[nni][0] = nodeindex[tempnewnode[i][1]][0];
+                newnodeindex[nni][1] = nodeindex[tempnewnode[i][1]][1];
+                newnodeindex[nni][2] = nodeindex[tempnewnode[i][1]][2];
+                fprintf(stdout,"passed2-1 with [%d,%d,%d]\n", newnodeindex[nni][0],newnodeindex[nni][1],newnodeindex[nni][2]);
+                i1 = nni;
+                nni++;
+            }
+
+            //we can add in our points and comboindex
+            newfindpoints[nfpi] = malloc(tempfindcount[i] * sizeof(double*));
+            for(int j = 0; j < tempfindcount[i]; j++){
+                newfindpoints[nfpi][j] = calloc(*dim + 1,sizeof(double));
+                for(int k = 0; k < *dim + 1; k++){
+                    newfindpoints[nfpi][j][k] = tempnewfind[i][j][k];
+                }
+            }
+            newcomboindex[nfpi] = tempfindcount[i];
+            //finally add for success
+            newnodeconnections[nfpi][0] = i0;
+            newnodeconnections[nfpi][1] = i1;
+            nfpi++;
+        }
+        //now we should theoretically have everything full with the right values and sizes
+        //so lastly we free current vars and setin our new ones :)
+        freeCombo(&findpoints,&comboindex,&nodeconnections,&nodeindex,combocount,nicount);
+        //and then we set those freed values to our new :))
+        findpoints = newfindpoints;
+        comboindex = newcomboindex;
+        nodeconnections = newnodeconnections;
+        nodeindex = newnodeindex;
+        *combocount = newcombocount;
+        *nicount = newnicount;
+        //finally free
+        //freeCombo(&newfindpoints,&newcomboindex,&newnodeconnections,&newnodeindex,&newcombocount,&newnicount);
+        free(countIDs);
+        for(int i = 0; i < *nicount; i++){
+            free(trackIDs[i]);
+        }
+        free(trackIDs);
+        for (int i = 0; i < numtwo; i++) {
+            free(tempnewnode[i]);
+            for (int j = 0; j < tempfindcount[i]; j++) {
+                free(tempnewfind[i][j]);
+            }
+            free(tempnewfind[i]);
+        }
+        free(tempnewnode);
+        free(tempnewfind);
+        free(tempfindcount);
+        //Finally we resend our structure to the function as it will check if there are any more twos needed to be merged now. 
+        //This will happen until all 2's have been merged 
+        thinNodePoint(&sDmain,dim,&findpoints,&comboindex,&nodeconnections,&nodeindex,combocount,nicount,mxpt,t);
+    }//note if no numtwos then we moveon
+    //push pointers
     *pfindpoints = findpoints;
     *pnodeindex = nodeindex;
     *pnodeconnections = nodeconnections;
@@ -1818,43 +2005,6 @@ void addCombo(int *masterid,int *indexCombo,int *comboCount,int ***pnodeconnecti
     }
     *pnodeconnections = tempnodeconnections;
     *comboCount = *comboCount + 1;
-}
-//handles deallocation of combos
-void freeCombo(double ****pfindpoints,int **pcomboindex,int ***pnodeconnections,int ***pnodeindex,int *combocount,int *nicount){
-    double ***findpoints = *pfindpoints;
-    int **nodeindex = *pnodeindex;
-    int **nodeconnections = *pnodeconnections;
-    int *comboindex = *pcomboindex;
-    bool clearfind = false;
-    if(findpoints != NULL){
-        clearfind = true;
-    }
-    //frees connections & points if needed
-    for(int i = 0; i < *combocount; i++){
-        free(nodeconnections[i]);
-        if(clearfind){
-            free(findpoints[i]);
-        }
-    }
-    if(*pnodeconnections != NULL && nodeconnections != NULL){
-        free(nodeconnections);
-    }
-    if(clearfind){
-        free(findpoints);
-    }
-    for(int i = 0; i < *nicount; i++){
-        free(nodeindex[i]);
-    }
-    if(nodeindex != NULL){
-        free(nodeindex);
-    }
-    if(comboindex != NULL){
-        free(comboindex);
-    }
-    *pfindpoints = NULL;
-    *pnodeindex = NULL;
-    *pnodeconnections = NULL;
-    *pcomboindex = NULL;
 }
 //floodpart2 for checking id mesh
 void floodDensity2(struct skeleDensity **sD,int *dim,int *combocount,int ***pnodeconnections,int ***pnodeindex,int *nicount,int **pmasterid,int ***pgonestack,int *gonecount){
@@ -3225,7 +3375,7 @@ void makeSpline(struct skeleDensity **sD,int *dim,double *tolerance,int *length,
     pathNodes(sD,dim,nodeid,&localcount,&findpoints,&comboindex,&nodeconnections,&nodeindex,&combocount,&nicount,length,t);
     //Now weve assigned nodes & collected splines approx points, we will combine branches = 2 into larger sections
     if(combocount > 1){
-        thinNodePoint(sD,dim,nodeid,&localcount,&findpoints,&comboindex,&nodeconnections,&nodeindex,&combocount,&nicount,length,t);
+        thinNodePoint(sD,dim,&findpoints,&comboindex,&nodeconnections,&nodeindex,&combocount,&nicount,length,t);
     }
     //Next we will go through and calculate our approximations
     //first we define some things we want
