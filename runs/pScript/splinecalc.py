@@ -271,10 +271,17 @@ def plotmirror(fig,sdat,scdat,idat,ndat,bdat,condat,sbdat,mirroraxi,mirrorval,sa
                     j += 1
                 #ax.scatter(cpscatx,cpscaty,c='pink',s=4,zorder=2)
                 #ax.scatter(npscatx,npscaty,c='red',s=4,zorder=2)
-                #ax.scatter(npscatx,npscaty,c='black',s=4,zorder=2)
+                ax.scatter(npscatx,npscaty,c='black',s=4,zorder=2)
                 i += 1
         ax.scatter(idat[0],idat[1],c='black',s=2,zorder=-3)
-        #ax.scatter(sdat[0],sdat[1],c='green',s=2,zorder=0)
+        #ax.scatter(sdat[0],sdat[1],c=sdat[2],s=2,zorder=0)
+        #plot skeledata circles
+        #j = 0
+        #while j < len(sdat[0]):
+        #    drawcirc = plt.Circle((sdat[0][j],sdat[1][j]),sdat[2][j],color='cornflowerblue',zorder=-1)
+        #    ax.add_artist(drawcirc)
+        #    j += 1
+
         norm = plt.Normalize(vmin=0, vmax=1)  # Adjust vmin and vmax based on your data range
         sm = plt.cm.ScalarMappable(cmap='hsv', norm=norm)
         sm.set_array([])
@@ -369,6 +376,7 @@ if __name__ == '__main__':
         #try:
         sx = []
         sy = []
+        sr = []
         ix = []
         iy = []
         inx = []
@@ -408,6 +416,7 @@ if __name__ == '__main__':
             for row in data:
                 sx.append(float(row[0]))
                 sy.append(float(row[1]))
+                sr.append(float(row[2]))
                 i += 1
         npath = nsource + "nodeDat-{:.3f}.dat".format(t)
         with open(npath,'r') as csvfile:
@@ -546,7 +555,7 @@ if __name__ == '__main__':
         except:
             print("couldnt load ang")
         print("loaded:",t)
-        sdat = [sx,sy]
+        sdat = [sx,sy,sr]
         scdat = [scx,scy,scw,sch,scd,scid]
         idat = [ix,iy,inx,iny]
         ndat = [npx,npy,npr,sm]
