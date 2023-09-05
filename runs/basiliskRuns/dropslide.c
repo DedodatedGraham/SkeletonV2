@@ -15,7 +15,7 @@
 double max_level = 10;
 double L = 12.;
 double t_out = 0.01;       
-double T_END = 0.45;    
+double T_END = 2.5;    
 //double T_END = 0.1;
 //double T_END = 0.01;    
 
@@ -30,7 +30,7 @@ double u0 = 87.8;        //free stream velocity
 double h   = 0.2;          //initial gap between drop and inlet
 double femax = 0.001;
 double uemax = 0.001;
-double maxruntime = 60;
+double maxruntime = 2.5;
 
 double time_restart = 0.;
 //timer
@@ -51,6 +51,7 @@ int main(int argc, char * argv[])
 
   if (argc > 1)
     time_restart = atof (argv[1]);
+    time_restart = time_restart/100;
   timerstart = clock();
   timerlast = clock();
   char name[80];
