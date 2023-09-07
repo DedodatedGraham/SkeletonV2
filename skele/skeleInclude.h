@@ -3,6 +3,7 @@
 //#include "gsl-2.7.1/gsl/gsl_vector.h"
 //#include "gsl-2.7.1/gsl/gsl_matrix.h"
 #include "gsl-2.7.1/gsl/gsl_multifit.h"
+#include "gsl-2.7.1/gsl/gsl_eigen.h"
 #include "basiliskfunctions/basiliskInclude.h"
 #include "skelesrc/skeletonInlcude.h"
 #endif

@@ -6,7 +6,7 @@ clear
 if [ $# -eq 0 ]
   then
     time_start=0
-    threads=14
+    threads=26
 else
   if [ $# -eq 1 ]
     then
@@ -25,5 +25,6 @@ fi
 ./compile.sh
 export OMP_NUM_THREADS=$threads
 ./drop $time_start
+./../dbasiliskRuns/run.sh
 #gdb -q -ex=r drop
 #./../pScript/run.sh

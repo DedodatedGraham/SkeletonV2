@@ -8,26 +8,27 @@
 #include "tension.h"
 #include "view.h"
 #include "skele/skeleInclude.h"
+#include "tag.h"
 
 //#define T_ADAPT_OFF 1
 #define LARGE 1e36
 //#define EVAP_OFF 1
 double max_level = 10;
-double L = 8.;
+double L = 12;
 double t_out = 0.01;       
-double T_END = 0.45;    
+double T_END = 0.64;    
 
 
 double rho_L=1;
 double rho_V=1.297e-3;
 double mu_L=5.275e-3;
 double mu_V=9.077e-5;
-double u0 = 78.54;        //free stream velocity
+double u0 = 87.8;        //free stream velocity
 //double u0 = 107.5;
 double h   = 0.2;          //initial gap between drop and inlet
 double femax = 0.001;
 double uemax = 0.001;
-double maxruntime = 60;
+double maxruntime = 64;
 //time var
 
 

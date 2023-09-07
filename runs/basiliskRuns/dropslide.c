@@ -8,14 +8,15 @@
 #include "navier-stokes/conserving.h"
 #include "tension.h"
 #include "view.h"
+#include "tag.h"
 
 //#define T_ADAPT_OFF 1
 #define LARGE 1e36
 //#define EVAP_OFF 1
 double max_level = 10;
 double L = 12.;
-double t_out = 0.01;       
-double T_END = 2.5;    
+double t_out = 0.001;       
+double T_END = 0.60;    
 //double T_END = 0.1;
 //double T_END = 0.01;    
 
@@ -99,6 +100,9 @@ event init (t = 0){
         }
         boundary ({f,u.x});
     }
+}
+event droplets(t += t_out){
+    remove_droplets(f,3,1e-3);
 }
 void output_skeleinterface(char name[80],double **list,int length){
     FILE *fp = fopen(name,"w");
@@ -288,9 +292,16 @@ event images(t+=t_out){
     view(fov = fov1, tx = tx1, ty = ty1, width = image_width, height =image_height);
     //cells();
     box();
-    draw_vof("f");
     squares("f", min = 0, max = 1);
+    draw_vof("f");
     sprintf(name, "vof-%5.3f.png",t);
+    save(file = name);
+    clear();
+    
+    box();
+    squares(color = "level", min = 6, max = max_level);
+    draw_vof("f");
+    sprintf(name, "levels-%5.3f.png",t);
     save(file = name);
     clear();
 }

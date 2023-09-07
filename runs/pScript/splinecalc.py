@@ -337,7 +337,7 @@ def plotmirror(fig,sdat,scdat,idat,ndat,bdat,condat,sbdat,mirroraxi,mirrorval,sa
         #plt.show()
         #fig.show()
         #plt.colorbar(p)
-        plt.savefig(save,dpi=1000,figsize=[12.8,9.6])
+        plt.savefig(save,dpi=1000)
         print("plotted:",t)
 
 
