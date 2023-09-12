@@ -615,6 +615,7 @@ double **skeletize(double **points,int *length,int *dim,char path[80],double *mi
     free(points);
     points = NULL;
     kdDestroy(&kdstruct);
+    fprintf(stdout,"leng %d -> %d\n",*length,newl);
     length = &newl;
     return skeleton;
 }

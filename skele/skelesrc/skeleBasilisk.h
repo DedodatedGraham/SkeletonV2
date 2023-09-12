@@ -2,7 +2,7 @@
 #include "skeletize.h"
 #include "../basiliskfunctions/adapt2.h"
 //Extract the interfacial points. here we are extracting the center of the cut surface
-void thinSkeleton(double ***pskeleton,int *dim,int *length,double *alpha){
+void thinSkeleton(double ***pskeleton,int *dim,int *length,double *alpha,double *thindis){
     double **skeleton = *pskeleton;
     fprintf(stdout,"oldL=%d\n",*length);
     //fprintf(stdout,"alpha=%f\n",*alpha);
@@ -15,7 +15,7 @@ void thinSkeleton(double ***pskeleton,int *dim,int *length,double *alpha){
     bool addq = false;
     for(int i = *length - 1; i >=0; i--){
         //fprintf(stdout,"alpha%d=%f\n",i,skeleton[i][3]);
-        if(skeleton[i][3] < *alpha){
+        if(skeleton[i][3] < *alpha || (*thindis != 0. && skeleton[i][2] < *thindis)){
             //If unoptimal we will shift everything down one
             if(!addq){
                 addq = true;
@@ -3769,5 +3769,9 @@ void skeleReduce(double **skeleton,double delta,double *minblen,int *length,int 
     //}
     //free(nodePoints);
     //nodePoints = NULL;
+}
+
+void getThinRegion(scalar s, scalar f){
+
 }
 #endif
