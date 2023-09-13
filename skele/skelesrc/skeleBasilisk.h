@@ -14,8 +14,8 @@ void thinSkeleton(double ***pskeleton,int *dim,int *length,double *alpha,double 
     int holdl = *length;
     bool addq = false;
     for(int i = *length - 1; i >=0; i--){
-        //fprintf(stdout,"alpha%d=%f\n",i,skeleton[i][3]);
-        if(skeleton[i][3] < *alpha){// || (*thindis != 0. && skeleton[i][2] > *thindis)){
+        fprintf(stdout,"alpha%d=%f;%f\n",i,skeleton[i][3],skeleton[i][2]);
+        if(skeleton[i][3] < *alpha || (*thindis != 0 && skeleton[i][2] > *thindis)){
             //If unoptimal we will shift everything down one
             if(!addq){
                 addq = true;
@@ -1224,6 +1224,7 @@ void thinNodePoint(struct skeleDensity **sd,int *dim,double ****pfindpoints,int 
         free(tempfindcount);
         //Finally we resend our structure to the function as it will check if there are any more twos needed to be merged now. 
         //This will happen until all 2's have been merged 
+        
         thinNodePoint(&sDmain,dim,&findpoints,&comboindex,&nodeconnections,&nodeindex,combocount,nicount,mxpt,t);
     }//note if no numtwos then we moveon
     //push pointers

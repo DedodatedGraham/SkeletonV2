@@ -144,7 +144,7 @@ void runSkeleton(double ti){
     calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for skeleton  
     fprintf(stdout,"time took for smooth skeleton: %f\n",calc_time);
     
-    double targetdis = 0.01;
+    double targetdis = 0.1;
     thinSkeleton(&skeleton,&snd,&snr,&alpha,&targetdis);
     char redname[80];
     sprintf(redname, "reducedskeleton-%5.3f.dat", ti);
