@@ -15,7 +15,7 @@ void thinSkeleton(double ***pskeleton,int *dim,int *length,double *alpha,double 
     bool addq = false;
     for(int i = *length - 1; i >=0; i--){
         //fprintf(stdout,"alpha%d=%f\n",i,skeleton[i][3]);
-        if(skeleton[i][3] < *alpha || (*thindis != 0. && skeleton[i][2] < *thindis)){
+        if(skeleton[i][3] < *alpha){// || (*thindis != 0. && skeleton[i][2] > *thindis)){
             //If unoptimal we will shift everything down one
             if(!addq){
                 addq = true;
@@ -3374,6 +3374,7 @@ void makeSpline(struct skeleDensity **sD,int *dim,double *tolerance,int *length,
     int nicount = 0;
     pathNodes(sD,dim,nodeid,&localcount,&findpoints,&comboindex,&nodeconnections,&nodeindex,&combocount,&nicount,length,t);
     //Now weve assigned nodes & collected splines approx points, we will combine branches = 2 into larger sections
+    fprintf(stdout,"combo count => %d\n",combocount);
     if(combocount > 1){
         thinNodePoint(sD,dim,&findpoints,&comboindex,&nodeconnections,&nodeindex,&combocount,&nicount,length,t);
     }

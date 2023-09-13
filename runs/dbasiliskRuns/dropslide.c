@@ -13,7 +13,7 @@
 //#define T_ADAPT_OFF 1
 #define LARGE 1e36
 //#define EVAP_OFF 1
-double max_level = 10;
+double max_level = 11;
 double L = 12;
 double t_out = 0.01;       
 double T_END = 0.64;    
@@ -36,7 +36,7 @@ double maxruntime = 64;
 double del = 0.05/4;
 
 double i_start = 0.;
-double i_end = 39.;
+double i_end = 53.;
 //double i_start = 27.;
 //double i_end = 27.;
 double i_gap = 1.;
@@ -89,7 +89,7 @@ int main(int argc, char * argv[])
             
         }
         else{
-            sprintf(name, "../basiliskRuns/dump-%5.3f", ti);
+            sprintf(name, "../vofskeleRuns/dump-11-%5.3f", ti);
         }
         fprintf (ferr, "Trying file %s, t = %f\n",name,ti);
         restore(file = name);
@@ -144,7 +144,7 @@ void runSkeleton(double ti){
     calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for skeleton  
     fprintf(stdout,"time took for smooth skeleton: %f\n",calc_time);
     
-    double targetdis = 0.002;
+    double targetdis = 0.01;
     thinSkeleton(&skeleton,&snd,&snr,&alpha,&targetdis);
     char redname[80];
     sprintf(redname, "reducedskeleton-%5.3f.dat", ti);

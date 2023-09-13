@@ -5,9 +5,9 @@ clear
 ./clean.sh
 ./../pScript/clean.sh
 ./compile.sh
-#valgrind ./drop 0 64 5
-#./drop 0 50 8
-gdb -q -ex=r drop 0 50 8
+valgrind ./drop 0 64 5
+#./drop 0 53 8
+#gdb -q -ex=r drop 0 50 8
 ./../pScript/run.sh
 end=`date +%s.%N`
 runtime=$( echo "$end - $start" | bc -l )

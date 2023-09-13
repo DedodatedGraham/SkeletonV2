@@ -5,7 +5,7 @@ echo "Plotting..."
 if [ $# -eq 0 ]
   then
     time_start=0
-    time_end=39
+    time_end=53
 else
     time_start="$1"
     time_end="$2"
