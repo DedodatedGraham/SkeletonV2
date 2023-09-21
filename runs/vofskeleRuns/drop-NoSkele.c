@@ -10,7 +10,7 @@
 #include "view.h"
 #include "tag.h"
 #include "skele/skeleton.h"
-#include "sandbox/lchirco/signature.h"
+//#include "sandbox/lchirco/signature.h"
 #include "colormap.h"
 
 //#define T_ADAPT_OFF 1
@@ -107,21 +107,47 @@ event snapshot (t += t_out; t<=T_END) {
     //Here we calculate time taken
     char name[80];
 #if 1
-    sprintf (name, "snapshot-%d-%5.3f.gfs",(int)max_level, t);
+    sprintf (name, "dumps/snapshot-ns-%d-%5.3f.gfs",(int)max_level, t);
     output_gfs (file = name, t=t, list = {f,u,p});
 #endif
 
-    sprintf (name, "dump-%d-%5.3f",(int)max_level, t);
+    sprintf (name, "dumps/dump-ns-%d-%5.3f",(int)max_level, t);
     p.nodump = false;
     dump (file = name); // so that we can restart
 
     //finally output timer and results as this takes bulk of process
     timernow = clock();
-    double cpu_time_used = ((double) (timernow - timerlast)) / (CLOCKS_PER_SEC / 28);
+    double cpu_time_used = ((double) (timernow - timerlast)) / (CLOCKS_PER_SEC * 28);
     timertotal += cpu_time_used;
     fprintf(stdout,"Total Time used: %fm: %fs\n",floor(timertotal / 60.),timertotal - 60 * (floor(timertotal / 60.)));
     fprintf(stdout,"ran @ t=%f took (%fm : %fs)\n\n",t,floor(cpu_time_used / 60.),cpu_time_used - 60 * (floor(cpu_time_used / 60.)));
     timerlast = timernow;
+}
+char name[80];
+event plots (t += t_out; t<=T_END){
+    fprintf(stdout,"plotting\n");
+    double tx = 0.;
+    double vol = 0;
+    foreach(reduction(+:vol) reduction(+:tx)){
+        double dvf =f[]*dv();
+        if(f[] > 1e-6){
+            vol+= dvf;
+            tx += dvf*x;
+        }
+    }
+    tx /= vol;
+    fprintf(stdout,"%f\n",tx);
+    view(fov=10,tx=-(tx/L),ty=-0.5,sx=1,sy=1,camera="front",width=1000,height=1000);
+    
+
+    clear();
+    box();
+    squares(color = "level",min = 1, max = max_level);
+    draw_vof("f");
+    sprintf(name, "Img/levels-ns-%d-%5.3f.png",(int)max_level,t);
+    save(file = name);
+    clear();
+    fprintf(stdout,"done\n");
 }
 
 /**

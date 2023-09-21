@@ -13,7 +13,7 @@
 //#define T_ADAPT_OFF 1
 #define LARGE 1e36
 //#define EVAP_OFF 1
-double max_level = 11;
+double max_level = 10;
 double L = 12;
 double t_out = 0.01;       
 double T_END = 0.64;    
@@ -89,7 +89,7 @@ int main(int argc, char * argv[])
             
         }
         else{
-            sprintf(name, "../vofskeleRuns/dump-11-%5.3f", ti);
+            sprintf(name, "../vofskeleRuns/dump-s-10-%5.3f", ti);
         }
         fprintf (ferr, "Trying file %s, t = %f\n",name,ti);
         restore(file = name);
@@ -110,54 +110,52 @@ void output_skeleinterface(char name[80],double **list,int length){
 }
 
 void runSkeleton(double ti){
-    //get minimumdistance
-    fprintf(stdout,"\n");
-    if(slevel == 0 || slevel < max_level){
-        foreach(){
-            if(f[] > 1e-6 && f[] < 1-1e-6){
-                if(Delta < mindis || mindis == 0.){
-                    mindis = Delta;
-                    slevel = max_level;
-                }
-            }
-        }
-    }
-    fprintf(stdout,"thresh:%f\n",mindis); 
     fprintf(stdout,"Skeleton at %f\n",ti);
     
-    //setup smooth
+    //setup
+    char sname[80];
+    sprintf (sname, "smoothskeleton-%5.3f.dat", ti);
+    
     double alpha = 25 * PI / 180;/////INPUT ANGLE TO SKELETON 
     double **skeleton;
     struct OutputXYNorm sP; sP.c = f; sP.level = max_level;
     int snr;int snd;
-    char sname[80];
-    sprintf (sname, "smoothskeleton-%5.3f.dat", ti);
     double calc_time = 0;
     
-    //run smooth
+    char redname[80];
+    sprintf(redname, "reducedskeleton-%5.3f.dat", ti);
+    
     clock_t begin = clock();
-     
-    double **sinterface = output_points_2smooth(sP,&snr,&snd,t);
+    //calc minimumdistance
+    double mindis = 10.;
+    foreach(serial){
+        if(Delta < mindis){
+            mindis = Delta;
+        }
+    }
+    fprintf(stdout,"thresh:%f\n",mindis); 
+    
+    
+    //run smooth skeleton 
+    double **sinterface = output_points_2smooth(sP,&snr,&snd,ti);
     skeleton = skeletize(sinterface,&snr,&snd,sname,&mindis,false,alpha);
     
     clock_t end = clock();
     calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for skeleton  
     fprintf(stdout,"time took for smooth skeleton: %f\n",calc_time);
     
-    double targetdis = 0.1;
-    thinSkeleton(&skeleton,&snd,&snr,&alpha,&targetdis);
-    char redname[80];
-    sprintf(redname, "reducedskeleton-%5.3f.dat", ti);
-    output_skeleinterface(redname,skeleton,snr);
+    //next we thin it out on alpha & mindis
+    double thindis = 2*mindis;
+    thinSkeleton(&skeleton,&snd,&snr,&alpha,&thindis);
+
     calc_time = 0;
     begin = clock();
-    //setup reduce
+    
+    //setup spline
+    int skelen = 3;//n of splines
+    double del = L/pow(max_level,2);
     double minbranchlength = 0.01;
     int mxpt = 100; 
-    //run reduce
-    //double del = 0.05;
-    //double del = 0.05/4;
-    //skelen = 4;
     skeleReduce(skeleton,del,&minbranchlength,&snr,&snd,&mxpt,ti,skelen);
     
     end = clock();
@@ -173,6 +171,3 @@ void runSkeleton(double ti){
     fflush(ferr);
     fprintf(stdout,"\n");
 }
-
-
-

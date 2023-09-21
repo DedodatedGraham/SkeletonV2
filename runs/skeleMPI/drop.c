@@ -21,7 +21,7 @@
 double max_level = 10;
 double L = 12.;
 double t_out = 0.001;       
-double T_END = 1.50;    
+double T_END = 0.005;    
 //double T_END = 0.1;
 /** dimensionless properties, normalized by scaling variables rhol, D, sigma
  */
@@ -31,7 +31,7 @@ double mu_L=5.275e-3;
 double mu_V=9.077e-5;
 double u0 = 78.54;        //free stream velocity
 double h   = 0.2;          //initial gap between drop and inlet
-double femax = 0.01;
+double femax = 0.001;
 double uemax = 0.01;
 double maxruntime = 2.5;
 
@@ -159,68 +159,83 @@ event init (t = 0){
 //        }
 //    }
 //}
-//event runSkeleton(t += t_out; t<= T_END){
-//    fprintf(stdout,"Skeleton at %f\n",t);
-//    
-//    //setup
-//    char sname[80];
-//    sprintf (sname, "smoothskeleton-%5.3f.dat", t);
-//    
-//    double alpha = 25 * PI / 180;/////INPUT ANGLE TO SKELETON 
-//    double **skeleton;
-//    struct OutputXYNorm sP; sP.c = f; sP.level = max_level;
-//    int snr;int snd;
-//    double calc_time = 0;
-//    
-//    char redname[80];
-//    sprintf(redname, "reducedskeleton-%5.3f.dat", t);
-//    
-//    clock_t begin = clock();
-//    //calc minimumdistance
-//    double mindis = 10.;
-//    foreach(serial){
-//        if(Delta < mindis){
-//            mindis = Delta;
-//        }
-//    }
-//    fprintf(stdout,"thresh:%f\n",mindis); 
-//    
-//    
-//    //run smooth skeleton 
-//    double **sinterface = output_points_2smooth(sP,&snr,&snd,t);
-//    skeleton = skeletize(sinterface,&snr,&snd,sname,&mindis,false,alpha);
-//    
-//    clock_t end = clock();
-//    calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for skeleton  
-//    fprintf(stdout,"time took for smooth skeleton: %f\n",calc_time);
-//    
-//    //next we thin it out on alpha & mindis
-//    double thindis = 3*mindis;
-//    thinSkeleton(&skeleton,&snd,&snr,&alpha,&thindis);
-//
-//    calc_time = 0;
-//    begin = clock();
-//    
-//    //setup spline
-//    int skelen = 3;//n of splines
-//    double del = L/pow(max_level,2);
-//    double minbranchlength = 0.01;
-//    int mxpt = 100; 
-//    skeleReduce(skeleton,del,&minbranchlength,&snr,&snd,&mxpt,t,skelen);
-//    
-//    end = clock();
-//    calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for skeleton  
-//    fprintf(stdout,"time took for reduced skeleton: %f\n",calc_time);
-//    //cleanup data
-//    for(int i = 0; i < snr;i++){
-//        free(skeleton[i]);
-//    }
-//    free(skeleton);
-//    skeleton = NULL;
-//
-//    fflush(ferr);
-//    fprintf(stdout,"\n");
-//}
+event runSkeleton(t += t_out; t<= T_END){
+    fprintf(stdout,"Skeleton at %f\n",t);
+    
+    //output mpi stats
+    foreach(){
+        int rank,size;
+        rank = pid();
+        MPI_Comm_size(MPI_COMM_WORLD, &size);
+        fprintf(stdout,"(%d,%d) [%f,%f] = %f\n",rank,size,x,y,f[]);
+    }
+
+
+
+
+
+
+
+
+    //setup
+    //char sname[80];
+    //sprintf (sname, "smoothskeleton-%5.3f.dat", t);
+    //
+    //double alpha = 25 * PI / 180;/////INPUT ANGLE TO SKELETON 
+    //double **skeleton;
+    //struct OutputXYNorm sP; sP.c = f; sP.level = max_level;
+    //int snr;int snd;
+    //double calc_time = 0;
+    //
+    //char redname[80];
+    //sprintf(redname, "reducedskeleton-%5.3f.dat", t);
+    //
+    //clock_t begin = clock();
+    ////calc minimumdistance
+    //double mindis = 10.;
+    //foreach(serial){
+    //    if(Delta < mindis){
+    //        mindis = Delta;
+    //    }
+    //}
+    //fprintf(stdout,"thresh:%f\n",mindis); 
+    //
+    //
+    ////run smooth skeleton 
+    //double **sinterface = output_points_2smooth(sP,&snr,&snd,t);
+    //skeleton = skeletize(sinterface,&snr,&snd,sname,&mindis,false,alpha);
+    //
+    //clock_t end = clock();
+    //calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for skeleton  
+    //fprintf(stdout,"time took for smooth skeleton: %f\n",calc_time);
+    //
+    ////next we thin it out on alpha & mindis
+    //double thindis = 3*mindis;
+    //thinSkeleton(&skeleton,&snd,&snr,&alpha,&thindis);
+
+    //calc_time = 0;
+    //begin = clock();
+    //
+    ////setup spline
+    //int skelen = 3;//n of splines
+    //double del = L/pow(max_level,2);
+    //double minbranchlength = 0.01;
+    //int mxpt = 100; 
+    //skeleReduce(skeleton,del,&minbranchlength,&snr,&snd,&mxpt,t,skelen);
+    //
+    //end = clock();
+    //calc_time = calc_time + (double)(end-begin)/CLOCKS_PER_SEC;// this is the time required for skeleton  
+    //fprintf(stdout,"time took for reduced skeleton: %f\n",calc_time);
+    ////cleanup data
+    //for(int i = 0; i < snr;i++){
+    //    free(skeleton[i]);
+    //}
+    //free(skeleton);
+    //skeleton = NULL;
+
+    //fflush(ferr);
+    //fprintf(stdout,"\n");
+}
 
 char name[80];
 event plots (t += t_out; t<=T_END){

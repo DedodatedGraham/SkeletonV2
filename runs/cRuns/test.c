@@ -5,8 +5,10 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
-#include "../../src/skeletize.h"
-
+#include "/home/sggarcia/codes/basilisk/src/skele/gsl-2.7.1/gsl/gsl_linalg.h"
+#include "/home/sggarcia/codes/basilisk/src/skele/gsl-2.7.1/gsl/gsl_matrix.h"
+#include "/home/sggarcia/codes/basilisk/src/skele/gsl-2.7.1/gsl/gsl_vector.h"
+#include "../../skele/skelesrc/skeletize.h"
 int main(){
     
     //open file

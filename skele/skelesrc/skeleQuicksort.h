@@ -27,8 +27,9 @@ int skelePartition(double **arr, int lbound, int tbound, int axis, int *length,i
 	            skeleSwap(&arr[i][1], &arr[j][1]);
 	            skeleSwap(&arr[i][2], &arr[j][2]);
 	            skeleSwap(&arr[i][3], &arr[j][3]);
-	            skeleSwap(&arr[i][4], &arr[j][4]);
-	            skeleSwap(&arr[i][5], &arr[j][5]);
+                if(mode == 0){
+                    skeleSwap(&arr[i][4], &arr[j][4]);
+                }
             }
 	    }
     }
@@ -45,8 +46,9 @@ int skelePartition(double **arr, int lbound, int tbound, int axis, int *length,i
 	    skeleSwap(&arr[i + 1][1], &arr[tbound][1]);
 	    skeleSwap(&arr[i + 1][2], &arr[tbound][2]);
 	    skeleSwap(&arr[i + 1][3], &arr[tbound][3]);
-	    skeleSwap(&arr[i + 1][4], &arr[tbound][4]);
-	    skeleSwap(&arr[i + 1][5], &arr[tbound][5]);
+        if(mode == 0){
+            skeleSwap(&arr[i + 1][4], &arr[tbound][4]);
+        }
     }
     int temp_pivot = i+1;
     return temp_pivot;
