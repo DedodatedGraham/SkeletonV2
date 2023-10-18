@@ -6,8 +6,9 @@ cd "$parent_path"
 clear
 ./clean.sh
 
-./compile.sh
+np=2
+python3 plot.py $np 2 651 800
+./movie.sh
 
-#run in mpi
-#mpirun -np 2 ./drop
-mpirun -np 2 xterm -e gdb -ex run --args ./drop 9 650
+
+

@@ -5,8 +5,6 @@ cd "$parent_path"
 
 
 rm -r *.dat 2> /dev/null
-#rm -r dumps/dump-* 2> /dev/null
-#rm -r dumps/snapshot-* 2> /dev/null
 rm -r .qcc* 2> /dev/null
 rm -r Img/*.png 2> /dev/null
 rm -r Movie/*.mp4 2> /dev/null

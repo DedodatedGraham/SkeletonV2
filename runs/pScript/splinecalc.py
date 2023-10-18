@@ -599,7 +599,7 @@ if __name__ == '__main__':
         #Plot results
         #if len(sdat[0]) != 0:
         print("sent",t)
-        plotmirror(fig,sdat,scdat,idat,ndat,bdat,condat,sbdat,0,0,save,j,focus,n)
+        plotmirror(fig,sdat,scdat,idat,ndat,bdat,condat,sbdat,0,0os.getcwd(),save,j,focus,n)
         #tries to open time step & plot
         j += 1
         t += dt

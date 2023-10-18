@@ -20,6 +20,7 @@ int skelePartition(double **arr, int lbound, int tbound, int axis, int *length,i
 	            skeleSwap(&arr[i][2], &arr[j][2]);
                 if(mode == 0){
                     skeleSwap(&arr[i][3], &arr[j][3]);
+                    skeleSwap(&arr[i][4], &arr[j][4]);
                 }
             }
             else{
@@ -29,6 +30,8 @@ int skelePartition(double **arr, int lbound, int tbound, int axis, int *length,i
 	            skeleSwap(&arr[i][3], &arr[j][3]);
                 if(mode == 0){
                     skeleSwap(&arr[i][4], &arr[j][4]);
+                    skeleSwap(&arr[i][5], &arr[j][5]);
+                    skeleSwap(&arr[i][6], &arr[j][6]);
                 }
             }
 	    }
@@ -39,6 +42,7 @@ int skelePartition(double **arr, int lbound, int tbound, int axis, int *length,i
 	    skeleSwap(&arr[i + 1][2], &arr[tbound][2]);
         if(mode == 0){
 	        skeleSwap(&arr[i + 1][3], &arr[tbound][3]);
+	        skeleSwap(&arr[i + 1][4], &arr[tbound][4]);
         }
     }
     else{
@@ -48,6 +52,8 @@ int skelePartition(double **arr, int lbound, int tbound, int axis, int *length,i
 	    skeleSwap(&arr[i + 1][3], &arr[tbound][3]);
         if(mode == 0){
             skeleSwap(&arr[i + 1][4], &arr[tbound][4]);
+            skeleSwap(&arr[i + 1][5], &arr[tbound][5]);
+            skeleSwap(&arr[i + 1][6], &arr[tbound][6]);
         }
     }
     int temp_pivot = i+1;

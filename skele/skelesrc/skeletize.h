@@ -38,11 +38,11 @@ double *getNearest(double *searchpoint,struct kdleaf *kdstruct, int *length,int 
     double *retpoint;
     //fprintf(stdout,"gnode = [%f,%f],f=%d\n",(kdstruct->origin)[0][0],(kdstruct->origin)[0][1],*kdstruct->flag);
     if(kdstruct->flag == NULL){
-        fprintf(stdout,"error\n");
+        printf("error\n");
     }
     else{
         if(kdstruct->leng == NULL){
-            fprintf(stdout,"error error\n");
+            printf("error error\n");
         }
     }
     //fprintf(stdout,"current=:l=%d,a=%d,f=%d\n",*kdstruct->leng,*kdstruct->axis,*kdstruct->flag);
@@ -252,9 +252,7 @@ void CreateStructure(double **points,struct kdleaf **kdstruct,int axis,int *leng
         axis = 0;//will correct back to right axis
     }
     //struct kdleaf currentkdstruct = *headkdstruct;
-    //fprintf(stdout,"allocated size = %lu\n",sizeof(struct kdleaf));
     if(upper-lower > 5){
-        //fprintf(stdout,"c1\n");
         //Too many points, we will subdivide
         //first sorts points
         skeleQuickSort(points,lower,upper,axis,length,editleng);
@@ -263,7 +261,7 @@ void CreateStructure(double **points,struct kdleaf **kdstruct,int axis,int *leng
         headkdstruct->origin = malloc(sizeof(double*));
         headkdstruct->origin[0] = malloc(sizeof(double) * (*length + editleng));
         if(headkdstruct->origin == NULL){
-            fprintf(stdout,"errL1\n");
+            printf("errL1\n");
         }
         headkdstruct->origin[0][0] = points[nodeindex][0];
         headkdstruct->origin[0][1] = points[nodeindex][1];
@@ -271,9 +269,8 @@ void CreateStructure(double **points,struct kdleaf **kdstruct,int axis,int *leng
             headkdstruct->origin[0][2] = points[nodeindex][2];
         }
         if(headkdstruct->origin[0] == NULL){
-            fprintf(stdout,"errL2\n");
+            printf("errL2\n");
         }
-        //fprintf(stdout,"%f,%f\n",headkdstruct->origin[0][0],headkdstruct->origin[0][1]);
         //make leaf & allocate
         int *taxis = malloc(sizeof(int));
         *taxis = axis;
@@ -290,16 +287,15 @@ void CreateStructure(double **points,struct kdleaf **kdstruct,int axis,int *leng
     }
     else{
         if (upper - lower > 0){
-            //fprintf(stdout,"c2\n");
             headkdstruct->origin = malloc(sizeof(double*) * (upper - lower) );
             if(headkdstruct->origin == NULL){
-                fprintf(stdout,"errL1\n");
+                printf("errL1\n");
             }
             for(int i = 0; i < upper - lower; i++){
                
                 headkdstruct->origin[i] = malloc(sizeof(double) * (*length + editleng));     
                 if(headkdstruct->origin[i] == NULL){
-                    fprintf(stdout,"errL2\n");
+                    printf("errL2\n");
                 }
                 headkdstruct->origin[i][0] = points[lower + i][0];
                 headkdstruct->origin[i][1] = points[lower + i][1];
@@ -319,7 +315,7 @@ void CreateStructure(double **points,struct kdleaf **kdstruct,int axis,int *leng
             *headkdstruct->leng = leng;
         }
         else{
-            fprintf(stdout,"error c3\n");
+            printf("error c3\n");
             headkdstruct = NULL;
             return;
         }
@@ -354,11 +350,12 @@ double getRadius(double *point,double *interface,int *dim){
         return ret1;
     }
     else{
-        fprintf(stdout,"\n\nreversed radius ?? check\n");
-        fprintf(stdout,"inside= %f/%f = %f,\n",top1,bot,inside1);
-        fprintf(stdout,"acos(inside)=%f",theta1);
-        fprintf(stdout,"bot / (2*cos(theta))=%f/(2*%f) = %f",bot,theta1,ret1);
-        fprintf(stdout,"\n\n");
+        printf("\n\nreversed radius ?? check\n");
+        printf("point = [%f,%f]; int = [%f,%f]\n",point[0],point[1],interface[0],interface[1]);
+        printf("inside= %f/%f = %f,\n",top1,bot,inside1);
+        printf("acos(inside)=%f",theta1);
+        printf("bot / (2*cos(theta))=%f/(2*%f) = %f",bot,theta1,ret1);
+        printf("\n\n");
         return -ret1;
     }
 }
@@ -374,7 +371,7 @@ void outputskeleton(double *points, double *interf,double alpha ,int *dim, int i
     //else{
     //    fprintf(stdout,"working dir: %s\n",cwd);
     //}
-    int mode = 1;
+    int mode = 0;
     if(mode == 0){
         //output with alpha
         if(*dim == 2){
@@ -401,8 +398,9 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
 
     //allocate needed space
     double guessr = *length;
-    int extra = 2;
+    int extra = 3;//save r, alpha, kappa to relevant skeletonpoints
     double **skeleton = malloc((*length + 1) * sizeof(double*));
+    printf("malloc %d\n",*length + 1);
     for(int i = 0; i < *length+1;i++){
         skeleton[i] = calloc((*dim + extra) , sizeof(double));
     }
@@ -461,7 +459,7 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
         //now we itterate until convergence
         while(completeCase){
             if(index > MAXCYCLES - 2){
-                fprintf(stdout,"broken\n");
+                printf("broken\n");
                 break;
             }
             //get timestep centerpoint and ignore point(not completely nessicary)
@@ -498,7 +496,7 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
             lowestdistance = 0;
             //fprintf(stdout,"st=[%f,%f]\n",centerPoint[index][0],centerPoint[index][1]);
             interfacePoint[index + 1] = getNearest(centerPoint[index],kdstruct,length,dim,ilist,&ileng,&lowestdistance);
-            
+             
             //finds the radius of our point and interface point 
             radius[index + 1] = getRadius(points[i],interfacePoint[index + 1],dim);
             
@@ -512,10 +510,14 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
                 //our center point should remain the same
                 for(int ii = 0; ii < *dim;ii++){
                     skeleton[i][ii] = centerPoint[index][ii];
+                    if(skeleton[i][ii] == 0.){
+                        printf("1skele-%d:%d =>  %f\n",i,ii,skeleton[i][ii]); 
+                    }
                 }
                 skeleton[i][*dim] = radius[index + 1];
                 skeleton[i][*dim+1] = alpha;
-                outputskeleton(skeleton[i],points[i],alpha,dim,0,path);
+                skeleton[i][*dim+2] = interfacePoint[index + 1][*dim + extra - 1]; 
+                //outputskeleton(skeleton[i],points[i],alpha,dim,0,path);
                 captured++;
                 completeCase = false;
             }
@@ -525,10 +527,14 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
                     //distance of point->interface point is less than our radius, so we want to backstep
                     for(int ii = 0; ii < *dim;ii++){
                         skeleton[i][ii] = centerPoint[index-1][ii];
+                        if(skeleton[i][ii] == 0.){
+                            printf("2skele-%d:%d =>  %f\n",i,ii,skeleton[i][ii]); 
+                        }
                     }
                     skeleton[i][*dim] = radius[index];
                     skeleton[i][*dim+1] = alpha;
-                    outputskeleton(skeleton[i],points[i],alpha,dim,i,path);
+                    skeleton[i][*dim+2] = interfacePoint[index][*dim + extra - 1]; 
+                    //outputskeleton(skeleton[i],points[i],alpha,dim,i,path);
                     captured++;
                     completeCase = false;
                 }
@@ -536,30 +542,34 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
                     //distance of point->interface point is less than our radius, so we want to backstep
                     for(int ii = 0; ii < *dim;ii++){
                         skeleton[i][ii] = centerPoint[index-1][ii];
+                        if(skeleton[i][ii] == 0.){
+                            printf("3skele-%d:%d =>  %f\n",i,ii,skeleton[i][ii]); 
+                        }
                     }
                     //skeleton[i] = centerPoint[index-1];
                     skeleton[i][*dim] = radius[index];
                     skeleton[i][*dim+1] = alpha;
-                    outputskeleton(skeleton[i],points[i],alpha,dim,i,path);
+                    skeleton[i][*dim+2] = interfacePoint[index][*dim + extra - 1]; 
+                    //outputskeleton(skeleton[i],points[i],alpha,dim,i,path);
                     captured++;
                     completeCase = false;
                 }
 
             }
             else{
-                if(radius[index + 1] < *mindis * 4){
+                if(radius[index + 1] < *mindis){
                     //distance of point->interface point is less than our radius, so we want to backstep
-                    for(int ii = 0; ii < *dim;ii++){
-                        fprintf(stdout,"\n\n\nerror check\n");
-                        fprintf(stdout,"dim = %d\n",*dim);
-                        fprintf(stdout,"center = %f\n",centerPoint[index-1][ii]);
-                        skeleton[i][ii] = centerPoint[index-1][ii];
-                    }
+                    //for(int ii = 0; ii < *dim;ii++){
+                    //    fprintf(stdout,"\n\n\nerror check\n");
+                    //    fprintf(stdout,"dim = %d\n",*dim);
+                    //    fprintf(stdout,"center = %f\n",centerPoint[index-1][ii]);
+                    //    skeleton[i][ii] = centerPoint[index-1][ii];
+                    //}
                     //skeleton[i] = centerPoint[index-1];
-                    skeleton[i][*dim] = radius[index];
-                    skeleton[i][*dim+1] = getDistance(interfacePoint[index],points[i],dim) / radius[index];
-                    outputskeleton(skeleton[i],points[i],alpha,dim,i,path);
-                    captured++;
+                    //skeleton[i][*dim] = radius[index];
+                    //skeleton[i][*dim+1] = getDistance(interfacePoint[index],points[i],dim) / radius[index];
+                    //outputskeleton(skeleton[i],points[i],alpha,dim,i,path);
+                    //captured++;
                     completeCase = false;
                 }
                 //if(index > 0 && distancecomp / radius[index + 1] < *disRatio){
@@ -599,77 +609,90 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
 }
 double **skeletize(double **points,int *length,int *dim,char path[80],double *mindis,bool isvofactive,double wantedAngle){
     double **skeleton; 
-    //Create our kd tree for calculation
-    struct kdleaf *kdstruct = NULL;
-    CreateStructure(points,&kdstruct,0,dim,0,*length,0);//make kd-struct
-    if(kdstruct== NULL){
-        fprintf(stdout,"error\n");
+    if(*length > 0){
+        //Create our kd tree for calculation
+        struct kdleaf *kdstruct = NULL;
+        int comm_size;
+        MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
+        CreateStructure(points,&kdstruct,0,dim,0,*length,0);//make kd-struct
+        printf("(%d,%d): struct success\n",pid(),comm_size);
+        if(kdstruct== NULL){
+            printf("error\n");
+        }
+        //Calculate our distance ratio
+        //fprintf(stdout,"maingnode = [%f,%f],f=%d\n",(kdstruct->origin)[0][0],(kdstruct->origin)[0][1],*kdstruct->flag);
+        if(wantedAngle > 180){
+            wantedAngle = 180;
+        }
+        double calcratio = 0.0;
+        calcratio = tan(wantedAngle);
+        //Next our skeleton will be calculated
+        int newl = 0;
+        printf("\n(%d/%d):starting skeleton\n", pid(),2);
+        skeleton = makeSkeleton(points,kdstruct,dim,length,mindis,path,isvofactive,&calcratio,&newl);
+        printf("(%d/%d):finished skeleton\n\n", pid(),2);
+        //Finally clean up to prevent memeory error
+        for(int i = 0;i < *length + 1; i++){
+            free(points[i]);
+        }
+        free(points);
+        points = NULL;
+        kdDestroy(&kdstruct);
+        printf("leng %d -> %d\n",*length,newl);
+        length = &newl;
+
     }
-    //Calculate our distance ratio
-    //fprintf(stdout,"maingnode = [%f,%f],f=%d\n",(kdstruct->origin)[0][0],(kdstruct->origin)[0][1],*kdstruct->flag);
-    if(wantedAngle > 180){
-        wantedAngle = 180;
-    }
-    double calcratio = 0.0;
-    calcratio = tan(wantedAngle);
-    //Next our skeleton will be calculated
-    int newl = 0;
-    skeleton = makeSkeleton(points,kdstruct,dim,length,mindis,path,isvofactive,&calcratio,&newl);
-    //Finally clean up to prevent memeory error
-    for(int i = 0;i < *length + 1; i++){
-        free(points[i]);
-    }
-    free(points);
-    points = NULL;
-    kdDestroy(&kdstruct);
-    fprintf(stdout,"leng %d -> %d\n",*length,newl);
-    length = &newl;
     return skeleton;
 }
 void thinSkeleton(double ***pskeleton,int *dim,int *length,double *alpha,double *thindis){
     double **skeleton = *pskeleton;
-    fprintf(stdout,"oldL=%d\n",*length);
-    int holdl = *length;
-    bool addq = false;
-    for(int i = *length - 1; i >=0; i--){
-        if(skeleton[i][3] < *alpha){// || (*thindis != 0 && skeleton[i][2] > *thindis)){
-            //If unoptimal we will shift everything down one
-            if(!addq){
-                addq = true;
-            }
-            for(int j = i+1; j < *length; j++){
-                skeleton[j-1][0] = skeleton[j][0];
-                skeleton[j-1][1] = skeleton[j][1];
-                skeleton[j-1][2] = skeleton[j][2];
-                skeleton[j-1][3] = skeleton[j][3];
-                if(*dim == 3){
-                    skeleton[j-1][4] = skeleton[j][4];
+    printf("oldL=%d\n",*length);
+    double **newskeleton;
+    if(*length > 0){
+        int holdl = *length;
+        bool addq = false;
+        for(int i = *length - 1; i >=0; i--){
+            //printf("%f / %f \n",skeleton[i][2],skeleton[i][4]);
+            if(skeleton[i][3] < *alpha || (skeleton[i][2] / skeleton[i][4] > 1)){
+                //If unoptimal we will shift everything down one
+                if(!addq){
+                    addq = true;
                 }
+                for(int j = i+1; j < *length; j++){
+                    skeleton[j-1][0] = skeleton[j][0];
+                    skeleton[j-1][1] = skeleton[j][1];
+                    skeleton[j-1][2] = skeleton[j][2];
+                    skeleton[j-1][3] = skeleton[j][3];
+                    if(*dim == 3){
+                        skeleton[j-1][4] = skeleton[j][4];
+                    }
+                }
+                int L = *length - 1;
+                *length = L;
             }
-            int L = *length - 1;
-            *length = L;
         }
-    }
-    if(addq){
-        *length = *length + 1;
-    }
-    double **newskeleton = malloc((*length) * sizeof(double*));
-    for(int i = 0; i < *length; i++){
-        newskeleton[i] = calloc(*dim + 2,sizeof(double));
-        newskeleton[i][0] = skeleton[i][0];
-        newskeleton[i][1] = skeleton[i][1];
-        newskeleton[i][2] = skeleton[i][2];
-        newskeleton[i][3] = skeleton[i][3];
-        if(*dim == 3){
-            newskeleton[i][4] = skeleton[i][4];
+        if(addq){
+            *length = *length + 1;
         }
+        newskeleton = malloc((*length) * sizeof(double*));
+        for(int i = 0; i < *length; i++){
+            newskeleton[i] = calloc(*dim + 2,sizeof(double));
+            newskeleton[i][0] = skeleton[i][0];
+            newskeleton[i][1] = skeleton[i][1];
+            newskeleton[i][2] = skeleton[i][2];
+            newskeleton[i][3] = skeleton[i][3];
+            if(*dim == 3){
+                newskeleton[i][4] = skeleton[i][4];
+            }
+        }
+        for(int i = 0; i < holdl + 1; i++){
+            free(skeleton[i]);
+        }
+        free(skeleton);
+
     }
-    for(int i = 0; i < holdl + 1; i++){
-        free(skeleton[i]);
-    }
-    free(skeleton);
     *pskeleton = newskeleton;
-    fprintf(stdout,"newL=%d\n",*length);
+    printf("newL=%d\n",*length);
 }
 //Gets spline
 void getCoeffGE(int row, int col, double ***a, double **x){
@@ -1014,7 +1037,7 @@ void createSD(struct skeleDensity **sd,double **inpts,int *inleng,int *dim,doubl
     }
     allocsd->sB = allocsb;
     *sd = allocsd;
-    fprintf(stdout,"complete\n");
+    printf("complete\n");
 }
 void destroySD(struct skeleDensity **sd, int *dim){
     if(*sd != NULL){
@@ -1075,7 +1098,7 @@ void destroySD(struct skeleDensity **sd, int *dim){
         *sd = NULL;
     }
     else{
-        fprintf(stdout,"error NULL\n");
+        printf("error NULL\n");
     }
 }
 
@@ -1118,16 +1141,16 @@ void freeCombo(double ****pfindpoints,int **pcomboindex,int ***pnodeconnections,
 }
 void thinNodePoint(struct skeleDensity **sd,int *dim,double ****pfindpoints,int **pcomboindex,int ***pnodeconnections,int ***pnodeindex,int *combocount,int *nicount,int *mxpt, double t){
     //Thins our structure removing points with only 2 connections
-    fprintf(stdout,"\n\nThinning... watch for error\n");
+    printf("\n\nThinning... watch for error\n");
     struct skeleDensity *sDmain = *sd;
     double ***findpoints = *pfindpoints;
     int **nodeindex = *pnodeindex;
     int **nodeconnections = *pnodeconnections;
     int *comboindex = *pcomboindex;
     //firstly we will allocate a count list for each index id, this will give us an idea of how  many nodes we are getting rid of and where they are located
-    fprintf(stdout,"cc=%d,ni=%d\n",*combocount,*nicount);
+    printf("cc=%d,ni=%d\n",*combocount,*nicount);
     for(int i = 0; i < *combocount; i++){
-        fprintf(stdout,"[%d - %d , %d ]\n",i,nodeconnections[i][0],nodeconnections[i][1]);
+        printf("[%d - %d , %d ]\n",i,nodeconnections[i][0],nodeconnections[i][1]);
     }
     int *countIDs = calloc(*nicount , sizeof(int));
     int **trackIDs = malloc(*nicount * sizeof(int*));
@@ -1168,7 +1191,7 @@ void thinNodePoint(struct skeleDensity **sd,int *dim,double ****pfindpoints,int 
             }
         }
     }
-    fprintf(stdout,"numtwos = %d\n",numtwo);
+    printf("numtwos = %d\n",numtwo);
     //After were done counting we will alloc 
     if(numtwo > 0){
         int tnncount = 0;
@@ -1219,7 +1242,7 @@ void thinNodePoint(struct skeleDensity **sd,int *dim,double ****pfindpoints,int 
         //first allocate for new 
         int newcombocount = *combocount - numtwo;
         int newnicount = *nicount - numtwo;
-        fprintf(stdout,"new counts => %d %d\n",newcombocount,newnicount);
+        printf("new counts => %d %d\n",newcombocount,newnicount);
         int **newnodeconnections = malloc(newcombocount * sizeof(int*));//for new nodeconnections
         int **newnodeindex = malloc(newnicount * sizeof(int*));//for new nodeindex
         int nni = 0;
@@ -1235,7 +1258,7 @@ void thinNodePoint(struct skeleDensity **sd,int *dim,double ****pfindpoints,int 
         //next go through old and add in if allowable, note we will reclassify id's :/ unfortunate but makes life easier later
         //to mitigate cringe we can add in unclassified olds and then news, as news opperate on different dimensiions anyways
         for(int i = 0; i < *combocount; i++){
-            fprintf(stdout,"loop1 i:%d, nni:%d, newnicount:%d:\n",i,nni,newnicount);
+            printf("loop1 i:%d, nni:%d, newnicount:%d:\n",i,nni,newnicount);
             //check both are clear to be added
             if(countIDs[nodeconnections[i][0]] != 2 && countIDs[nodeconnections[i][1]] != 2){
                 //identify if need to add id0 or id1 to index/ assing existing index
@@ -1244,15 +1267,15 @@ void thinNodePoint(struct skeleDensity **sd,int *dim,double ****pfindpoints,int 
                 bool pass1 = true;
                 int i1 = 0;
                 for(int j = 0; j < nni; j++){
-                    fprintf(stdout,"\ncomparing [%d,%d,%d] to [%d,%d,%d] \n\n",newnodeindex[j][0],newnodeindex[j][1],newnodeindex[j][2],nodeindex[nodeconnections[i][0]][0],nodeindex[nodeconnections[i][0]][1],nodeindex[nodeconnections[i][0]][2]);
-                    fprintf(stdout,"\ncomparing [%d,%d,%d] to [%d,%d,%d] \n\n",newnodeindex[j][0],newnodeindex[j][1],newnodeindex[j][2],nodeindex[nodeconnections[i][1]][0],nodeindex[nodeconnections[i][1]][1],nodeindex[nodeconnections[i][1]][2]);
+                    printf("\ncomparing [%d,%d,%d] to [%d,%d,%d] \n\n",newnodeindex[j][0],newnodeindex[j][1],newnodeindex[j][2],nodeindex[nodeconnections[i][0]][0],nodeindex[nodeconnections[i][0]][1],nodeindex[nodeconnections[i][0]][2]);
+                    printf("\ncomparing [%d,%d,%d] to [%d,%d,%d] \n\n",newnodeindex[j][0],newnodeindex[j][1],newnodeindex[j][2],nodeindex[nodeconnections[i][1]][0],nodeindex[nodeconnections[i][1]][1],nodeindex[nodeconnections[i][1]][2]);
                     if(newnodeindex[j][0] == nodeindex[nodeconnections[i][0]][0] && newnodeindex[j][1] == nodeindex[nodeconnections[i][0]][1] && newnodeindex[j][2] == nodeindex[nodeconnections[i][0]][2]){
-                        fprintf(stdout,"no pass0-0\n");
+                        printf("no pass0-0\n");
                         pass0 = false;//current 0 hit as already made into an id
                         i0 = j;
                     }
                     if(newnodeindex[j][0] == nodeindex[nodeconnections[i][1]][0] && newnodeindex[j][1] == nodeindex[nodeconnections[i][1]][1] && newnodeindex[j][2] == nodeindex[nodeconnections[i][1]][2]){
-                        fprintf(stdout,"no pass0-1\n");
+                        printf("no pass0-1\n");
                         pass1 = false;//current 0 hit as already made into an id
                         i1 = j;
                     }
@@ -1261,7 +1284,7 @@ void thinNodePoint(struct skeleDensity **sd,int *dim,double ****pfindpoints,int 
                     newnodeindex[nni][0] = nodeindex[nodeconnections[i][0]][0];
                     newnodeindex[nni][1] = nodeindex[nodeconnections[i][0]][1];
                     newnodeindex[nni][2] = nodeindex[nodeconnections[i][0]][2];
-                    fprintf(stdout,"passed0-0 with [%d,%d,%d]\n", newnodeindex[nni][0],newnodeindex[nni][1],newnodeindex[nni][2]);
+                    printf("passed0-0 with [%d,%d,%d]\n", newnodeindex[nni][0],newnodeindex[nni][1],newnodeindex[nni][2]);
                     i0 = nni;
                     nni++;
                 }
@@ -1269,7 +1292,7 @@ void thinNodePoint(struct skeleDensity **sd,int *dim,double ****pfindpoints,int 
                     newnodeindex[nni][0] = nodeindex[nodeconnections[i][1]][0];
                     newnodeindex[nni][1] = nodeindex[nodeconnections[i][1]][1];
                     newnodeindex[nni][2] = nodeindex[nodeconnections[i][1]][2];
-                    fprintf(stdout,"passed0-1 with [%d,%d,%d]\n", newnodeindex[nni][0],newnodeindex[nni][1],newnodeindex[nni][2]);
+                    printf("passed0-1 with [%d,%d,%d]\n", newnodeindex[nni][0],newnodeindex[nni][1],newnodeindex[nni][2]);
                     i1 = nni;
                     nni++;
                 }
@@ -1291,7 +1314,7 @@ void thinNodePoint(struct skeleDensity **sd,int *dim,double ****pfindpoints,int 
         //next we go through and add in our temp/ combination variables 
         //we do after to apply different resctrictions
         for(int i = 0; i < numtwo; i++){
-            fprintf(stdout,"loop2 i:%d, nni:%d, newnicount:%d:\n",i,nni,newnicount);
+            printf("loop2 i:%d, nni:%d, newnicount:%d:\n",i,nni,newnicount);
             //tempnewnode = [numtwo][oi0,oi1]
             //we figure out the index conditions of the system and what we are adding in
             bool pass0 = true;
@@ -1299,15 +1322,15 @@ void thinNodePoint(struct skeleDensity **sd,int *dim,double ****pfindpoints,int 
             bool pass1 = true;
             int i1 = 0;
             for(int j = 0; j < nni; j++){
-                    fprintf(stdout,"\ncomparing [%d,%d,%d] to [%d,%d,%d] \n\n",newnodeindex[j][0],newnodeindex[j][1],newnodeindex[j][2],nodeindex[tempnewnode[i][0]][0],nodeindex[tempnewnode[i][0]][1],nodeindex[tempnewnode[i][0]][2]);
-                    fprintf(stdout,"\ncomparing [%d,%d,%d] to [%d,%d,%d] \n\n",newnodeindex[j][0],newnodeindex[j][1],newnodeindex[j][2],nodeindex[tempnewnode[i][1]][0],nodeindex[tempnewnode[i][1]][1],nodeindex[tempnewnode[i][1]][2]);
+                    printf("\ncomparing [%d,%d,%d] to [%d,%d,%d] \n\n",newnodeindex[j][0],newnodeindex[j][1],newnodeindex[j][2],nodeindex[tempnewnode[i][0]][0],nodeindex[tempnewnode[i][0]][1],nodeindex[tempnewnode[i][0]][2]);
+                    printf("\ncomparing [%d,%d,%d] to [%d,%d,%d] \n\n",newnodeindex[j][0],newnodeindex[j][1],newnodeindex[j][2],nodeindex[tempnewnode[i][1]][0],nodeindex[tempnewnode[i][1]][1],nodeindex[tempnewnode[i][1]][2]);
                 if(nodeindex[tempnewnode[i][0]][0] == newnodeindex[j][0] && nodeindex[tempnewnode[i][0]][1] == newnodeindex[j][1] && nodeindex[tempnewnode[i][0]][2] == newnodeindex[j][2]){
-                    fprintf(stdout,"no pass2-0\n");
+                    printf("no pass2-0\n");
                     pass0 = false;
                     i0 = j;
                 }
                 if(nodeindex[tempnewnode[i][1]][0] == newnodeindex[j][0] && nodeindex[tempnewnode[i][1]][1] == newnodeindex[j][1] && nodeindex[tempnewnode[i][1]][2] == newnodeindex[j][2]){
-                    fprintf(stdout,"no pass2-1\n");
+                    printf("no pass2-1\n");
                     pass1 = false;
                     i1 = j;
                 }
@@ -1316,7 +1339,7 @@ void thinNodePoint(struct skeleDensity **sd,int *dim,double ****pfindpoints,int 
                 newnodeindex[nni][0] = nodeindex[tempnewnode[i][0]][0];
                 newnodeindex[nni][1] = nodeindex[tempnewnode[i][0]][1];
                 newnodeindex[nni][2] = nodeindex[tempnewnode[i][0]][2];
-                fprintf(stdout,"passed2-0 with [%d,%d,%d]\n", newnodeindex[nni][0],newnodeindex[nni][1],newnodeindex[nni][2]);
+                printf("passed2-0 with [%d,%d,%d]\n", newnodeindex[nni][0],newnodeindex[nni][1],newnodeindex[nni][2]);
                 i0 = nni;
                 nni++;
             }
@@ -1324,7 +1347,7 @@ void thinNodePoint(struct skeleDensity **sd,int *dim,double ****pfindpoints,int 
                 newnodeindex[nni][0] = nodeindex[tempnewnode[i][1]][0];
                 newnodeindex[nni][1] = nodeindex[tempnewnode[i][1]][1];
                 newnodeindex[nni][2] = nodeindex[tempnewnode[i][1]][2];
-                fprintf(stdout,"passed2-1 with [%d,%d,%d]\n", newnodeindex[nni][0],newnodeindex[nni][1],newnodeindex[nni][2]);
+                printf("passed2-1 with [%d,%d,%d]\n", newnodeindex[nni][0],newnodeindex[nni][1],newnodeindex[nni][2]);
                 i1 = nni;
                 nni++;
             }
@@ -2087,11 +2110,11 @@ void addCombo(int *masterid,int *indexCombo,int *comboCount,int ***pnodeconnecti
     //First calc needed alloc space
     int nialloc = 0;
     if(im == -1){
-        fprintf(stdout,"im\n");
+        printf("im\n");
         nialloc++;
     }
     if(ic == -1){
-        fprintf(stdout,"ic\n");
+        printf("ic\n");
         nialloc++;
     }
     int **tempnodeindex = malloc((nialloc + *nicount) * sizeof(int*));
@@ -2131,7 +2154,7 @@ void addCombo(int *masterid,int *indexCombo,int *comboCount,int ***pnodeconnecti
     *pnodeindex = tempnodeindex;
     *nicount = *nicount + nialloc;
     if(im == -1 || ic == -1){
-        fprintf(stdout,"comboadd error !\n");
+        printf("comboadd error !\n");
     }
     //Next we add the combo with the respective index
     int **tempnodeconnections = malloc((*comboCount + 1) * sizeof(int*));
@@ -2548,7 +2571,7 @@ void pathNodes(struct skeleDensity **sD,int *dim,int **nodeid, int *nodeidcount,
     //output data
     //connection ID's
     char conname[80];
-    sprintf (conname, "connectionDat-%5.3f.dat", t);
+    sprintf (conname, "dat/connectionDat-%5.3f.dat", t);
     FILE * fpcon = fopen (conname, "w");
     for(int i = 0; i < *combocount;i++){
         fprintf(fpcon,"%d %d\n",nodeconnections[i][0],nodeconnections[i][1]);
@@ -2557,7 +2580,7 @@ void pathNodes(struct skeleDensity **sD,int *dim,int **nodeid, int *nodeidcount,
     fclose(fpcon);
     //Connection Index:
     char indxname[80];
-    sprintf (indxname, "connectionidDat-%5.3f.dat", t);
+    sprintf (indxname, "dat/connectionidDat-%5.3f.dat", t);
     FILE * fpindx = fopen (indxname, "w");
     for(int i = 0; i < *nicount;i++){
         struct skeleBounds sb = (sd->sB[nodeindex[i][0]][nodeindex[i][1]][nodeindex[i][2]]);
@@ -2751,12 +2774,12 @@ void findBestFit(double ***ppositioncoeff,double ***pradcoeff,double **findpoint
                 lambda = lambda * 10;
             }
         }
-        fprintf(stdout,"itt:%d|l:%f|e:%f|el:%f|ell:%f \n",itt,lambda,error,error_last,error_lastlast);
+        printf("itt:%d|l:%f|e:%f|el:%f|ell:%f \n",itt,lambda,error,error_last,error_lastlast);
         error_lastlast = error_last;
         error_last = error;
         itt++;
     }
-    fprintf(stdout,"finished at:%d\n",itt);
+    printf("finished at:%d\n",itt);
     for(int i = 0; i < (*n + 1); i++){
         positioncoeff[i][0] = calcspline[i][0];
         positioncoeff[i][1] = calcspline[i][1];
@@ -2890,7 +2913,7 @@ void getCoeffBL(int row, int col, double ***pa, double **px,double **pp,int dim)
     gsl_vector *P = gsl_vector_alloc(col);
     gsl_matrix *cov = gsl_matrix_alloc(row,row);
     int divmat = col / dim;
-    fprintf(stdout,"div=%d\n",divmat);
+    printf("div=%d\n",divmat);
     for(int i = 0; i < dim; i++){
         gsl_vector_set(P,i*divmat,x[i*divmat]);
         gsl_vector_set(P,(divmat-1)+i*divmat,x[(divmat-1)+i*divmat]);
@@ -3011,7 +3034,7 @@ void getCoeffBLWBC(int row, int col, double ***pa, double **px,double **pp,int d
                     }
                 }
             }
-            fprintf(stdout,"sucess on gradient convert\n");
+            printf("sucess on gradient convert\n");
         }
         else if(applyGradient[1][0] != 0. && applyGradient[0][0] == 0.){
             //resctriciton on end of spline
@@ -3028,10 +3051,10 @@ void getCoeffBLWBC(int row, int col, double ***pa, double **px,double **pp,int d
                     }
                 }
             }
-            fprintf(stdout,"sucess on gradient convert 2 [error]\n");
+            printf("sucess on gradient convert 2 [error]\n");
         }
         else{
-            fprintf(stdout,"error no applicable gradient error\n");
+            printf("error no applicable gradient error\n");
         }
     }
     else{
@@ -3056,7 +3079,7 @@ void getCoeffBLWBC(int row, int col, double ***pa, double **px,double **pp,int d
                 }
             }
         }
-        fprintf(stdout,"sucess on double gradient convert\n");
+        printf("sucess on double gradient convert\n");
     }
     double chisq = 0.;
     gsl_multifit_linear_workspace *work = gsl_multifit_linear_alloc(row, col);
@@ -3074,7 +3097,7 @@ void getCoeffBLWBC(int row, int col, double ***pa, double **px,double **pp,int d
                     }
                 }
             }
-            fprintf(stdout,"sucess on gradient convert  back\n");
+            printf("sucess on gradient convert  back\n");
         }
         else if(applyGradient[1][0] != 0. && applyGradient[0][0] == 0.){
             //resctriciton on end of spline
@@ -3086,10 +3109,10 @@ void getCoeffBLWBC(int row, int col, double ***pa, double **px,double **pp,int d
                     }
                 }
             }
-            fprintf(stdout,"sucess on gradient convert back\n");
+            printf("sucess on gradient convert back\n");
         }
         else{
-            fprintf(stdout,"error no applicable gradient error\n");
+            printf("error no applicable gradient error\n");
         }
     }
     else{
@@ -3106,7 +3129,7 @@ void getCoeffBLWBC(int row, int col, double ***pa, double **px,double **pp,int d
                 }
             }
         }
-        fprintf(stdout,"sucess on double gradient convert back\n");
+        printf("sucess on double gradient convert back\n");
     }
 
     for(int i = 0; i < col; i++){
@@ -3179,7 +3202,7 @@ void findBestFit2(double ***ppositioncoeff,double ***pradcoeff,double **findpoin
             //fprintf(stdout,"gott t-%d: %f = (%f + %f + %f) / %d\n",i,t[i],(positioncoeff[0][0] - findpoints[i][0]) / (positioncoeff[0][0] - positioncoeff[*n][0]),(positioncoeff[0][1] - findpoints[i][1]) / (positioncoeff[0][1] - positioncoeff[*n][1]),(radcoeff[0][0] - findpoints[i][2]) / (radcoeff[0][0] - radcoeff[*n][0]),denomt);
         }
         else{
-            fprintf(stdout,"error not implemented-3D :(((( \n");
+            printf("error not implemented-3D :(((( \n");
         }
     }
     t[0] = 0.;//apply boundary equation to system
@@ -3409,20 +3432,20 @@ void getSplineCoeff(double ***ppositioncoeff,double ***pradcoeff,double **pnode0
         //Only Output spline if enough points, otherwise we change
         if(comboindex > *n){
             //findBestFit(&positioncoeff,&radcoeff,findpoints,comboindex,dim,n,tolerance,30,inLam,inDel);
-            fprintf(stdout,"Spline before: ");
+            printf("Spline before: ");
             for(int i = 0; i < *n + 1; i++){
-                fprintf(stdout,"[%f,%f,%f]",positioncoeff[i][0],positioncoeff[i][1],radcoeff[i][0]);
+                printf("[%f,%f,%f]",positioncoeff[i][0],positioncoeff[i][1],radcoeff[i][0]);
             }
-            fprintf(stdout,"\n");
+            printf("\n");
             findBestFit2(&positioncoeff,&radcoeff,findpoints,comboindex,dim,n,tolerance);
-            fprintf(stdout,"Spline after: ");
+            printf("Spline after: ");
             for(int i = 0; i < *n + 1; i++){
-                fprintf(stdout,"[%f,%f,%f]",positioncoeff[i][0],positioncoeff[i][1],radcoeff[i][0]);
+                printf("[%f,%f,%f]",positioncoeff[i][0],positioncoeff[i][1],radcoeff[i][0]);
             }
-            fprintf(stdout,"\n\n");
+            printf("\n\n");
         }
         else{
-            fprintf(stdout,"error too little input points defaulting spline to linear/input\n");
+            printf("error too little input points defaulting spline to linear/input\n");
             //if(comboindex == 1){
             //    for(int i = 1; i < *n; i++){
             //        positioncoeff[i][0] = findpoints[0][0];
@@ -3466,11 +3489,11 @@ void makeSpline(struct skeleDensity **sD,int *dim,double *tolerance,int *length,
     int localcount = 0;
     int stackcount = 0;//allocates max needed space in our stack
     //make adjustments if needed
-    fprintf(stdout,"nodepoints b4 = %d\n",ncount);
+    printf("nodepoints b4 = %d\n",ncount);
     if(*(sDmain->row) > 5 || *(sDmain->col) > 5 || *(sDmain->dep) > 5){
         reduceLocalMax(sD,dim);
     }
-    fprintf(stdout,"nodepoints af = %d\n",*sDmain->ncount);
+    printf("nodepoints af = %d\n",*sDmain->ncount);
     for(int i = 0; i < *sDmain->row; i++){
         for(int j = 0; j < *sDmain->col; j++){
             for(int k = 0; k < *sDmain->dep; k++){
@@ -3523,7 +3546,7 @@ void makeSpline(struct skeleDensity **sD,int *dim,double *tolerance,int *length,
     int nicount = 0;
     pathNodes(sD,dim,nodeid,&localcount,&findpoints,&comboindex,&nodeconnections,&nodeindex,&combocount,&nicount,length,t);
     //Now weve assigned nodes & collected splines approx points, we will combine branches = 2 into larger sections
-    fprintf(stdout,"combo count => %d\n",combocount);
+    printf("combo count => %d\n",combocount);
     if(combocount > 1){
         thinNodePoint(sD,dim,&findpoints,&comboindex,&nodeconnections,&nodeindex,&combocount,&nicount,length,t);
     }
@@ -3668,7 +3691,7 @@ void makeSpline(struct skeleDensity **sD,int *dim,double *tolerance,int *length,
     }
     for(int q = 0; q < combocount; q++){
         char indxname[80];
-        sprintf (indxname, "splineBranchDat-%5.3f.dat", t);
+        sprintf (indxname, "dat/splineBranchDat-%5.3f-P%d.dat", t, pid());
         FILE * fpindx = fopen (indxname, "a");
         //Out puts node0(x,y) , node1(x,y) , and then if n coeff
         if(newn[q] > 0){
@@ -3723,200 +3746,203 @@ void makeSpline(struct skeleDensity **sD,int *dim,double *tolerance,int *length,
     *sD = sDmain;
 }
 void skeleReduce(double **skeleton,double delta,double *minblen,int *length,int *dim,int *mxpt,double t,int n){
-    //We will have to brute force our data, however we will target area of data max & mins
-    double xmax = -HUGE;
-    double xmin = HUGE;
-    double ymax = -HUGE;
-    double ymin = HUGE;
-    double zmax = -HUGE;
-    double zmin = HUGE;
-    for(int i = 0; i < *length; i++){
-        if(skeleton[i][0] < xmin){
-            xmin = skeleton[i][0];
+    if(*length > 0){
+        //We will have to brute force our data, however we will target area of data max & mins
+        double xmax = -HUGE;
+        double xmin = HUGE;
+        double ymax = -HUGE;
+        double ymin = HUGE;
+        double zmax = -HUGE;
+        double zmin = HUGE;
+        for(int i = 0; i < *length; i++){
+            if(skeleton[i][0] < xmin){
+                xmin = skeleton[i][0];
+            }
+            if(skeleton[i][0] > xmax){
+                xmax = skeleton[i][0];
+            }
+            if(skeleton[i][1] < ymin){
+                ymin = skeleton[i][1];
+            }
+            if(skeleton[i][1] > ymax){
+                ymax = skeleton[i][1];
+            }
+            if(*dim == 3){
+                if(skeleton[i][2] < zmin){
+                    zmin = skeleton[i][2];
+                }
+                if(skeleton[i][2] > zmax){
+                    zmax = skeleton[i][2];
+                }
+            }
         }
-        if(skeleton[i][0] > xmax){
-            xmax = skeleton[i][0];
-        }
-        if(skeleton[i][1] < ymin){
-            ymin = skeleton[i][1];
-        }
-        if(skeleton[i][1] > ymax){
-            ymax = skeleton[i][1];
-        }
+        xmax = xmax + delta * 1.5;
+        xmin = xmin - delta * 1.5;
+        ymax = ymax + delta * 1.5;
+        ymin = ymin - delta * 1.5;
         if(*dim == 3){
-            if(skeleton[i][2] < zmin){
-                zmin = skeleton[i][2];
-            }
-            if(skeleton[i][2] > zmax){
-                zmax = skeleton[i][2];
-            }
+            zmax = zmax + delta * 1.5;
+            zmin = zmin - delta * 1.5;
         }
-    }
-    xmax = xmax + delta * 1.5;
-    xmin = xmin - delta * 1.5;
-    ymax = ymax + delta * 1.5;
-    ymin = ymin - delta * 1.5;
-    if(*dim == 3){
-        zmax = zmax + delta * 1.5;
-        zmin = zmin - delta * 1.5;
-    }
-    double tolerance = 1e-5;
-    //Next we create our Structures
-    
-    struct skeleDensity *sD;
-    createSD(&sD,skeleton,length,dim,delta,xmax,xmin,ymax,ymin,zmax,zmin);
-    makeNodePoint(&sD,dim);
-    makeSpline(&sD,dim,&tolerance,length,t,&n);
-    ///////////////////////////////////////////////////////////////////////Clearance
-    //adapt_wavelet({hsd,hnpt,hlpt,hrpt},(double[]) {tolerance,tolerance,tolerance,tolerance}, sd.level,sd.level);
-    //adapt_wavelet2({hsd,hnpt,hlpt,hrpt},(double[]) {tolerance,tolerance,tolerance,tolerance},calclevel,calclevel);
-    //sd.sd = hsd; 
-    //sd.npt = hnpt;
-    //sd.lpt = hlpt;
-    //sd.rpt = hrpt;
-    //int tcount = 0; 
-    //foreach_level_or_leaf(calclevel){
-    //    sd.sd[] = 0.0;
-    //    sd.npt[] = 0;
-    //    if(x + Delta / 2 > sd.xmin && x - Delta / 2 < sd.xmax){
-    //        if(y + Delta / 2 > sd.ymin && y - Delta / 2 < sd.ymax){
-    //            //Here we are inside our relative bounds, now we will assign/count points 
-    //            bool tcounted = false;
-    //            for(int i = 0; i < *length; i++){
-    //                if(skeleton[i][0] > x - Delta / 2 && skeleton[i][0] < x + Delta / 2){
-    //                    if(skeleton[i][1] > y - Delta / 2 && skeleton[i][1] < y + Delta / 2){
-    //                        if(!tcounted){
-    //                            tcount++;
-    //                            tcounted = true;
-    //                        }
-    //                        sd.lpt.x[0,0,sd.npt[]] = skeleton[i][0];
-    //                        sd.lpt.y[0,0,sd.npt[]] = skeleton[i][1];
-    //                        sd.rpt[0,0,sd.npt[]] = skeleton[i][2];
-    //                        sd.npt[] = sd.npt[] + 1;
-    //                    }
-    //                }
-    //            }
-    //            //Next we calculate density for each inside
-    //            double area = Delta * Delta;
-    //            //fprintf(stdout,"area=%f\n",area);
-    //            sd.sd[] = sd.npt[] / area;
-    //        }
-    //    }
-    //}
-    ////next we will find local maximums for density  and create root points where we think they should be
-    //double **nodePoints = (double**)malloc(tcount * sizeof(double*));
-    //fprintf(stdout,"\ndim=%d\n\n",*dim);
-    //for(int tempi = 0; tempi < tcount; tempi++){
-    //    nodePoints[tempi] = (double*)malloc((*dim + 1) * sizeof(double));
-    //}
-    //int npcount = 0;
-    //foreach_level_or_leaf(calclevel){
-    //    if (sd.npt[] > 0){
-    //        //here we know we have points
-    //        bool allowthrough = true;
-    //        int nearcount = 0;
-    //        bool skip = false;
-    //        if(tcount > 9){
-    //            for(int q = -1; q <= 1;q++){    
-    //                for(int p = -1; p <= 1;p++){
-    //                    if(sd.sd[] < sd.sd[q,p]){
-    //                        allowthrough = false;
-    //                    }
-    //                    if(sd.npt[q,p] > 0 && q != 0 && p != 0){
-    //                        nearcount++;
-    //                    }
-    //                }
-    //            }
-    //        }
-    //        else{
-    //            skip = true;
-    //        }
-    //        if((allowthrough && nearcount != 0)|| nearcount == 1 || skip){
-    //            //We dont have enough to have a true local max, so we can just make a node point everywhere
-    //            double ax = 0.;
-    //            double ay = 0.;
-    //            double ar = 0.;
-    //            for(int i = 0; i < sd.npt[]; i++){
-    //                ax += sd.lpt.x[0,0,i]; 
-    //                ay += sd.lpt.y[0,0,i]; 
-    //                ar += sd.rpt[0,0,i];
-    //            }
-    //            ax = ax / sd.npt[];
-    //            ay = ay / sd.npt[];
-    //            ar = ar / sd.npt[];
-    //            nodePoints[npcount][0] = ax;
-    //            nodePoints[npcount][1] = ay;
-    //            nodePoints[npcount][2] = ar;
-    //            npcount++;
-    //        }
-    //    }
-    //}
-    
-    //Output variables
-    //char npname[80];
-    //sprintf (npname, "nodePoint-%5.3f.dat", t);
-    //FILE * fpnp = fopen (npname, "w");
-    //for(int i = 0; i < npcount; i++){
-    //    fprintf(fpnp,"%f %f %f\n",nodePoints[i][0],nodePoints[i][1],nodePoints[i][2]);
-    //}
-    //fflush(fpnp);
-    //fclose(fpnp);
+        double tolerance = 1e-5;
+        //Next we create our Structures
+        
+        struct skeleDensity *sD;
+        createSD(&sD,skeleton,length,dim,delta,xmax,xmin,ymax,ymin,zmax,zmin);
+        makeNodePoint(&sD,dim);
+        makeSpline(&sD,dim,&tolerance,length,t,&n);
+        ///////////////////////////////////////////////////////////////////////Clearance
+        //adapt_wavelet({hsd,hnpt,hlpt,hrpt},(double[]) {tolerance,tolerance,tolerance,tolerance}, sd.level,sd.level);
+        //adapt_wavelet2({hsd,hnpt,hlpt,hrpt},(double[]) {tolerance,tolerance,tolerance,tolerance},calclevel,calclevel);
+        //sd.sd = hsd; 
+        //sd.npt = hnpt;
+        //sd.lpt = hlpt;
+        //sd.rpt = hrpt;
+        //int tcount = 0; 
+        //foreach_level_or_leaf(calclevel){
+        //    sd.sd[] = 0.0;
+        //    sd.npt[] = 0;
+        //    if(x + Delta / 2 > sd.xmin && x - Delta / 2 < sd.xmax){
+        //        if(y + Delta / 2 > sd.ymin && y - Delta / 2 < sd.ymax){
+        //            //Here we are inside our relative bounds, now we will assign/count points 
+        //            bool tcounted = false;
+        //            for(int i = 0; i < *length; i++){
+        //                if(skeleton[i][0] > x - Delta / 2 && skeleton[i][0] < x + Delta / 2){
+        //                    if(skeleton[i][1] > y - Delta / 2 && skeleton[i][1] < y + Delta / 2){
+        //                        if(!tcounted){
+        //                            tcount++;
+        //                            tcounted = true;
+        //                        }
+        //                        sd.lpt.x[0,0,sd.npt[]] = skeleton[i][0];
+        //                        sd.lpt.y[0,0,sd.npt[]] = skeleton[i][1];
+        //                        sd.rpt[0,0,sd.npt[]] = skeleton[i][2];
+        //                        sd.npt[] = sd.npt[] + 1;
+        //                    }
+        //                }
+        //            }
+        //            //Next we calculate density for each inside
+        //            double area = Delta * Delta;
+        //            //fprintf(stdout,"area=%f\n",area);
+        //            sd.sd[] = sd.npt[] / area;
+        //        }
+        //    }
+        //}
+        ////next we will find local maximums for density  and create root points where we think they should be
+        //double **nodePoints = (double**)malloc(tcount * sizeof(double*));
+        //fprintf(stdout,"\ndim=%d\n\n",*dim);
+        //for(int tempi = 0; tempi < tcount; tempi++){
+        //    nodePoints[tempi] = (double*)malloc((*dim + 1) * sizeof(double));
+        //}
+        //int npcount = 0;
+        //foreach_level_or_leaf(calclevel){
+        //    if (sd.npt[] > 0){
+        //        //here we know we have points
+        //        bool allowthrough = true;
+        //        int nearcount = 0;
+        //        bool skip = false;
+        //        if(tcount > 9){
+        //            for(int q = -1; q <= 1;q++){    
+        //                for(int p = -1; p <= 1;p++){
+        //                    if(sd.sd[] < sd.sd[q,p]){
+        //                        allowthrough = false;
+        //                    }
+        //                    if(sd.npt[q,p] > 0 && q != 0 && p != 0){
+        //                        nearcount++;
+        //                    }
+        //                }
+        //            }
+        //        }
+        //        else{
+        //            skip = true;
+        //        }
+        //        if((allowthrough && nearcount != 0)|| nearcount == 1 || skip){
+        //            //We dont have enough to have a true local max, so we can just make a node point everywhere
+        //            double ax = 0.;
+        //            double ay = 0.;
+        //            double ar = 0.;
+        //            for(int i = 0; i < sd.npt[]; i++){
+        //                ax += sd.lpt.x[0,0,i]; 
+        //                ay += sd.lpt.y[0,0,i]; 
+        //                ar += sd.rpt[0,0,i];
+        //            }
+        //            ax = ax / sd.npt[];
+        //            ay = ay / sd.npt[];
+        //            ar = ar / sd.npt[];
+        //            nodePoints[npcount][0] = ax;
+        //            nodePoints[npcount][1] = ay;
+        //            nodePoints[npcount][2] = ar;
+        //            npcount++;
+        //        }
+        //    }
+        //}
+        
+        //Output variables
+        //char npname[80];
+        //sprintf (npname, "nodePoint-%5.3f.dat", t);
+        //FILE * fpnp = fopen (npname, "w");
+        //for(int i = 0; i < npcount; i++){
+        //    fprintf(fpnp,"%f %f %f\n",nodePoints[i][0],nodePoints[i][1],nodePoints[i][2]);
+        //}
+        //fflush(fpnp);
+        //fclose(fpnp);
 
-    char boxname[80];
-    sprintf (boxname, "boxDat-%5.3f.dat", t);
-    FILE * fpbox = fopen (boxname, "w");
-    for(int i = 0; i < *sD->row;i++){
-        for(int j = 0; j < *sD->col;j++){
-            for(int k = 0; k < *sD->dep;k++){
-                //outputs --point, and ++point
-                struct skeleBounds sb = (sD->sB)[i][j][k];
-                fprintf(fpbox,"%f %f %f %f %f %f %f %f %f %d %d %d\n",*sb.x,*sb.y,*sb.x + *(sD->dx),*sb.y + *(sD->dy),sb.roi[0][0],sb.roi[0][1],sb.roi[1][0],sb.roi[1][1],*sb.density,*sD->row,*sD->col,*sb.leng > 0);
-            }
-        }
-    }
-    fflush(fpbox);
-    fclose(fpbox);
-    
-
-    char nodename[80];
-    sprintf (nodename, "nodeDat-%5.3f.dat", t);
-    FILE * fpnode = fopen (nodename, "w");
-    for(int i = 0; i < *sD->row;i++){
-        for(int j = 0; j < *sD->col;j++){
-            for(int k = 0; k < *sD->dep;k++){
-                //outputs --point, and ++point
-                struct skeleBounds sb = (sD->sB)[i][j][k];
-                if(*sb.hasNode){
-                    fprintf(fpnode,"%f %f %f %d\n",sb.nodepoint[0],sb.nodepoint[1],sb.nodepoint[2],*sb.smode);
+        char boxname[80];
+        sprintf (boxname, "dat/boxDat-%5.3f.dat", t);
+        FILE * fpbox = fopen (boxname, "w");
+        for(int i = 0; i < *sD->row;i++){
+            for(int j = 0; j < *sD->col;j++){
+                for(int k = 0; k < *sD->dep;k++){
+                    //outputs --point, and ++point
+                    struct skeleBounds sb = (sD->sB)[i][j][k];
+                    fprintf(fpbox,"%f %f %f %f %f %f %f %f %f %d %d %d\n",*sb.x,*sb.y,*sb.x + *(sD->dx),*sb.y + *(sD->dy),sb.roi[0][0],sb.roi[0][1],sb.roi[1][0],sb.roi[1][1],*sb.density,*sD->row,*sD->col,*sb.leng > 0);
                 }
             }
         }
-    }
-    fflush(fpnode);
-    fclose(fpnode);
-    
-    char scname[80];
-    sprintf (scname, "splinecalcDat-%5.3f.dat", t);
-    FILE * fpsc = fopen (scname, "w");
-    for(int i = 0; i < *sD->row;i++){
-        for(int j = 0; j < *sD->col;j++){
-            for(int k = 0; k < *sD->dep;k++){
-                //outputs --point, and ++point
-                struct skeleBounds sb = (sD->sB)[i][j][k];
-                if(sb.closedis1 != NULL && *sb.closedis1 != -1){
-                    fprintf(fpsc,"%f %f %f %f %d %d %d\n",*sb.x,*sb.y,*(sD->dx),*(sD->dy),*sb.closedis1,sb.closeid1[0],sb.closeid1[1]);
+        fflush(fpbox);
+        fclose(fpbox);
+        
+
+        char nodename[80];
+        sprintf (nodename, "dat/nodeDat-%5.3f.dat", t);
+        FILE * fpnode = fopen (nodename, "w");
+        for(int i = 0; i < *sD->row;i++){
+            for(int j = 0; j < *sD->col;j++){
+                for(int k = 0; k < *sD->dep;k++){
+                    //outputs --point, and ++point
+                    struct skeleBounds sb = (sD->sB)[i][j][k];
+                    if(*sb.hasNode){
+                        fprintf(fpnode,"%f %f %f %d\n",sb.nodepoint[0],sb.nodepoint[1],sb.nodepoint[2],*sb.smode);
+                    }
                 }
             }
         }
+        fflush(fpnode);
+        fclose(fpnode);
+        
+        char scname[80];
+        sprintf (scname, "dat/splinecalcDat-%5.3f.dat", t);
+        FILE * fpsc = fopen (scname, "w");
+        for(int i = 0; i < *sD->row;i++){
+            for(int j = 0; j < *sD->col;j++){
+                for(int k = 0; k < *sD->dep;k++){
+                    //outputs --point, and ++point
+                    struct skeleBounds sb = (sD->sB)[i][j][k];
+                    if(sb.closedis1 != NULL && *sb.closedis1 != -1){
+                        fprintf(fpsc,"%f %f %f %f %d %d %d\n",*sb.x,*sb.y,*(sD->dx),*(sD->dy),*sb.closedis1,sb.closeid1[0],sb.closeid1[1]);
+                    }
+                }
+            }
+        }
+        fflush(fpsc);
+        fclose(fpsc);
+        destroySD(&sD,dim);
+        
+        //cleanup var
+        //for(int i = 0; i < tcount; i++){
+        //    free(nodePoints[i]);
+        //}
+        //free(nodePoints);
+        //nodePoints = NULL;
+
     }
-    fflush(fpsc);
-    fclose(fpsc);
-    destroySD(&sD,dim);
-    
-    //cleanup var
-    //for(int i = 0; i < tcount; i++){
-    //    free(nodePoints[i]);
-    //}
-    //free(nodePoints);
-    //nodePoints = NULL;
 }
