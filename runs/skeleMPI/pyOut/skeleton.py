@@ -17,7 +17,7 @@ def LoadSkeleton(dim,time,np,root):
     skeleton = []
     for i in range(np):
         skeleton.append([])
-        for j in range(dim + 1):
+        for j in range(dim + 3):
             skeleton[i].append([])
         path = root + "skeletonscatter-{:.3f}-p{:d}.dat".format(time,i)
         if dim == 2 and os.path.exists(path):
@@ -28,6 +28,8 @@ def LoadSkeleton(dim,time,np,root):
                         skeleton[i][0].append(float(row[0]))
                         skeleton[i][1].append(float(row[1]))
                         skeleton[i][2].append(float(row[2]))
+                        skeleton[i][3].append(float(row[3]))
+                        skeleton[i][4].append(float(row[4]))
         elif dim == 3 and os.path.exists(path):
             with open(path,'r') as csvfile:
                 data  = csv.reader(csvfile,delimiter = ' ')
@@ -37,11 +39,43 @@ def LoadSkeleton(dim,time,np,root):
                         skeleton[i][1].append(float(row[1]))
                         skeleton[i][2].append(float(row[2]))
                         skeleton[i][3].append(float(row[3]))
+                        skeleton[i][4].append(float(row[4]))
+                        skeleton[i][5].append(float(row[5]))
     return skeleton
 
 def PlotSkeleton(skeleton,dim,time,np,ax,cmap):
     #Plots interface data according to process
+    maxcolor = 0;
+    mincolor = 1000000;
+    #we track max and min for a colorbar
     for i in range(np):
-        color = cmap(i / np )
         if len(skeleton[i][0]) > 0:
-            ax.scatter(skeleton[i][0],skeleton[i][1],s=4,color=color)
+            colortrace = []
+            #scatter whole skeleton at once
+            #ax.scatter(skeleton[i][0],skeleton[i][1],s=4,color=color)
+            for q in range(len(skeleton[i][0])):
+                colortrace.append(skeleton[i][2][q] / skeleton[i][4][q])
+                color = cmap(colortrace[q])
+                ax.scatter(skeleton[i][0][q],skeleton[i][1][q],s=4,color=color)
+            #after the plotting we set max and min if possible
+            tmax = max(colortrace)
+            tmin = min(colortrace)
+            if tmax > maxcolor:
+                maxcolor = tmax
+            if tmin < mincolor:
+                mincolor = tmin
+    #finally we plot our colorbar :)
+    cbar = plt.colorbar(plt.cm.ScalarMappable(cmap=cmap), ax=ax)
+
+
+
+
+
+
+
+
+
+
+
+
+

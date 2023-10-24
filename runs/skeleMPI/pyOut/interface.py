@@ -17,7 +17,7 @@ def LoadInterface(dim,time,np,root):
     interface = []
     for i in range(np):
         interface.append([])
-        for j in range(dim*2):
+        for j in range(dim*2 + 1):
             interface[i].append([])
         path = root + "interface-{:.3f}-p{:d}.dat".format(time,i)
         if dim == 2 and os.path.exists(path):
@@ -28,6 +28,7 @@ def LoadInterface(dim,time,np,root):
                     interface[i][1].append(float(row[1]))
                     interface[i][2].append(float(row[2]))
                     interface[i][3].append(float(row[3]))
+                    interface[i][4].append(float(row[4]))
         elif dim == 3 and os.path.exists(path):
             with open(path,'r') as csvfile:
                 data  = csv.reader(csvfile,delimiter = ' ')
@@ -40,13 +41,10 @@ def LoadInterface(dim,time,np,root):
                     interface[i][5].append(float(row[5]))
     return interface
 
-def PlotInterface(interface,dim,time,np,ax,cmap):
+def PlotInterface(interface,dim,time,np,ax,cmap,maxk):
     #Plots interface data according to process
     for i in range(np):
-        color = cmap(i / np)
         if len(interface[i][0]) > 0:
-            for j in range(len(interface[i][0])):
-                if time == 0.659 and interface[i][0][j] > 6.5:
-                    print(interface[i][0][j],interface[i][1][j])
+            color = cmap(i / np)
             ax.scatter(interface[i][0],interface[i][1],s=4,color=color)
             #ax.quiver(interface[i][0],interface[i][1],interface[i][2],interface[i][3],color=color)

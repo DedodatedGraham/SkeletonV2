@@ -35,7 +35,7 @@ double getDistance(double *point1,double *point2,int *dim){
 }
 
 double *getNearest(double *searchpoint,struct kdleaf *kdstruct, int *length,int *dim,double **ignorepoint,int *ileng,double *lowestdistance){
-    double *retpoint;
+    double *retpoint = NULL;
     //fprintf(stdout,"gnode = [%f,%f],f=%d\n",(kdstruct->origin)[0][0],(kdstruct->origin)[0][1],*kdstruct->flag);
     if(kdstruct->flag == NULL){
         printf("error\n");
@@ -510,13 +510,11 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
                 //our center point should remain the same
                 for(int ii = 0; ii < *dim;ii++){
                     skeleton[i][ii] = centerPoint[index][ii];
-                    if(skeleton[i][ii] == 0.){
-                        printf("1skele-%d:%d =>  %f\n",i,ii,skeleton[i][ii]); 
-                    }
                 }
                 skeleton[i][*dim] = radius[index + 1];
                 skeleton[i][*dim+1] = alpha;
-                skeleton[i][*dim+2] = interfacePoint[index + 1][*dim + extra - 1]; 
+                skeleton[i][*dim+2] = points[i][(*dim * 2)]; 
+                printf("skele %d -> [%f %f %f %f %f]\n",i,skeleton[i][0],skeleton[i][1],skeleton[i][2],skeleton[i][3],skeleton[i][4]);
                 //outputskeleton(skeleton[i],points[i],alpha,dim,0,path);
                 captured++;
                 completeCase = false;
@@ -527,13 +525,10 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
                     //distance of point->interface point is less than our radius, so we want to backstep
                     for(int ii = 0; ii < *dim;ii++){
                         skeleton[i][ii] = centerPoint[index-1][ii];
-                        if(skeleton[i][ii] == 0.){
-                            printf("2skele-%d:%d =>  %f\n",i,ii,skeleton[i][ii]); 
-                        }
                     }
                     skeleton[i][*dim] = radius[index];
                     skeleton[i][*dim+1] = alpha;
-                    skeleton[i][*dim+2] = interfacePoint[index][*dim + extra - 1]; 
+                    skeleton[i][*dim+2] = points[i][(*dim * 2)]; 
                     //outputskeleton(skeleton[i],points[i],alpha,dim,i,path);
                     captured++;
                     completeCase = false;
@@ -542,14 +537,11 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
                     //distance of point->interface point is less than our radius, so we want to backstep
                     for(int ii = 0; ii < *dim;ii++){
                         skeleton[i][ii] = centerPoint[index-1][ii];
-                        if(skeleton[i][ii] == 0.){
-                            printf("3skele-%d:%d =>  %f\n",i,ii,skeleton[i][ii]); 
-                        }
                     }
                     //skeleton[i] = centerPoint[index-1];
                     skeleton[i][*dim] = radius[index];
                     skeleton[i][*dim+1] = alpha;
-                    skeleton[i][*dim+2] = interfacePoint[index][*dim + extra - 1]; 
+                    skeleton[i][*dim+2] = points[i][(*dim * 2)]; 
                     //outputskeleton(skeleton[i],points[i],alpha,dim,i,path);
                     captured++;
                     completeCase = false;
@@ -608,7 +600,7 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
     return skeleton;
 }
 double **skeletize(double **points,int *length,int *dim,char path[80],double *mindis,bool isvofactive,double wantedAngle){
-    double **skeleton; 
+    double **skeleton = NULL; 
     if(*length > 0){
         //Create our kd tree for calculation
         struct kdleaf *kdstruct = NULL;
@@ -647,24 +639,24 @@ double **skeletize(double **points,int *length,int *dim,char path[80],double *mi
 void thinSkeleton(double ***pskeleton,int *dim,int *length,double *alpha,double *thindis){
     double **skeleton = *pskeleton;
     printf("oldL=%d\n",*length);
-    double **newskeleton;
+    double **newskeleton = NULL;
     if(*length > 0){
         int holdl = *length;
         bool addq = false;
         for(int i = *length - 1; i >=0; i--){
-            //printf("%f / %f \n",skeleton[i][2],skeleton[i][4]);
-            if(skeleton[i][3] < *alpha || (skeleton[i][2] / skeleton[i][4] > 1)){
+            if(skeleton[i][3] < *alpha){// || (skeleton[i][2] / skeleton[i][4] > 1)){
                 //If unoptimal we will shift everything down one
                 if(!addq){
                     addq = true;
                 }
                 for(int j = i+1; j < *length; j++){
-                    skeleton[j-1][0] = skeleton[j][0];
-                    skeleton[j-1][1] = skeleton[j][1];
-                    skeleton[j-1][2] = skeleton[j][2];
-                    skeleton[j-1][3] = skeleton[j][3];
+                    skeleton[j-1][0] = skeleton[j][0];//x
+                    skeleton[j-1][1] = skeleton[j][1];//y
+                    skeleton[j-1][2] = skeleton[j][2];//z/r
+                    skeleton[j-1][3] = skeleton[j][3];//r/a
+                    skeleton[j-1][4] = skeleton[j][4];//a/k
                     if(*dim == 3){
-                        skeleton[j-1][4] = skeleton[j][4];
+                        skeleton[j-1][5] = skeleton[j][5];//ka
                     }
                 }
                 int L = *length - 1;
@@ -676,13 +668,14 @@ void thinSkeleton(double ***pskeleton,int *dim,int *length,double *alpha,double 
         }
         newskeleton = malloc((*length) * sizeof(double*));
         for(int i = 0; i < *length; i++){
-            newskeleton[i] = calloc(*dim + 2,sizeof(double));
+            newskeleton[i] = calloc(*dim + 3,sizeof(double));
             newskeleton[i][0] = skeleton[i][0];
             newskeleton[i][1] = skeleton[i][1];
             newskeleton[i][2] = skeleton[i][2];
             newskeleton[i][3] = skeleton[i][3];
+            newskeleton[i][4] = skeleton[i][4];
             if(*dim == 3){
-                newskeleton[i][4] = skeleton[i][4];
+                newskeleton[i][5] = skeleton[i][5];
             }
         }
         for(int i = 0; i < holdl + 1; i++){
@@ -1649,24 +1642,21 @@ void makeNodePoint(struct skeleDensity **sd,int *dim){
                         //To find our wanted node, we take the center of our data, which is calulated in the skeleBounds
                         double cx = (*(sDmain->xmin) + *(sDmain->xmax)) / 2;
                         double cy = (*(sDmain->ymin) + *(sDmain->ymax)) / 2;
-                        double cz;
-                        if(*dim == 3){
-                            cz = (*(sDmain->zmin) + *(sDmain->zmax)) / 2;
-                        }
+#if dimension == 3
+                        double cz = (*(sDmain->zmin) + *(sDmain->zmax)) / 2;
+#endif
                         //And we will select the furthest point from the 'center'
                         double furthest = 0.;
                         int holdq = 0;
                         for(int q = 0; q < *(localcell->leng); q++){
                             double dx = localcell->points[q][0] - cx;
                             double dy = localcell->points[q][1] - cy;
-                            double d;
-                            if(*dim == 3){
-                                double dz = localcell->points[q][2] - cz;
-                                d = pow(dx,2) + pow(dy,2) + pow(dz,2); 
-                            }
-                            else{
-                                d = pow(dx,2) + pow(dy,2); 
-                            }
+#if dimension == 2
+                            double d = pow(dx,2) + pow(dy,2); 
+#else
+                            double dz = localcell->points[q][2] - cz;
+                            double d = pow(dx,2) + pow(dy,2) + pow(dz,2); 
+#endif
                             d = sqrt(d);
                             if(d > furthest){
                                 furthest = d;
@@ -1711,20 +1701,19 @@ void makeNodePoint(struct skeleDensity **sd,int *dim){
                         for(int q = 0; q < *(localcell->leng); q++){
                             ax += localcell->points[q][0];
                             ay += localcell->points[q][1];
-                            if(*dim == 3){
-                                az += localcell->points[q][2];
-                                ar += localcell->points[q][3];
-                            }
-                            else{
-                                ar += localcell->points[q][2];
-                            }
+#if dimension == 2
+                            ar += localcell->points[q][2];
+#else
+                            az += localcell->points[q][2];
+                            ar += localcell->points[q][3];
+#endif
                             //fprintf(stdout,"summing[%f,%f,%f]\n",ax,ay,ar);
                         }
                         ax = ax / *(localcell->leng);
                         ay = ay / *(localcell->leng);
-                        if(*dim == 3){
-                            az = az / *(localcell->leng);
-                        }
+#if dimension == 3
+                        az = az / *(localcell->leng);
+#endif      
                         ar = ar / *(localcell->leng);
                         calcpoint[0] = ax;
                         calcpoint[1] = ay;
@@ -2483,7 +2472,7 @@ void sortConnections(struct skeleDensity **sD,int *dim,int *combocount,int ***pn
                                     else{
                                         //Check angle if not rootnode, angle based upon index :)
                                         bool checkpass = false;
-                                        double nangle;
+                                        double nangle = 0.;
                                         comppt = (sd->sB[ni][nj][nk]).points[0];
                                         if(*dim == 2){
                                             double dx = comppt[0] - curpt[0];

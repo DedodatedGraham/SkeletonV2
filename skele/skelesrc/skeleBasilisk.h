@@ -335,7 +335,8 @@ void smooth_interface_MPI(struct OutputXYNorm p,vector svof, vector svofn){
     int comm_size;
     MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
     scalar c = p.c;
-    vector vof[],vofn[];//temp variables used for storage
+    vector vof[];
+    vector vofn[];//temp variables used for storage
     restriction({c});
     printf("(%d,%d): we have made it\n",pid(),comm_size);
     face vector s = p.s;
@@ -364,6 +365,8 @@ void smooth_interface_MPI(struct OutputXYNorm p,vector svof, vector svofn){
     int grabarea = 3;//Odd number, the amount of area we want to scan around a point. Eg. if 5 we get -2,+2 from cell in each dim
     //Calculate the interface data
     printf("(%d/%d)starting 2\n",pid(),comm_size);
+    MPI_Barrier(MPI_COMM_WORLD);
+    boundary({vof,vofn});
     foreach(){
         if(c[] > 1e-6 && c[] < 1.-1e-6){
             //Here we know we are currently located at an interface point we want. 
@@ -561,6 +564,7 @@ void smooth_interface_MPI(struct OutputXYNorm p,vector svof, vector svofn){
             free(Y);
         }
     }
+    MPI_Barrier(MPI_COMM_WORLD);
     delete({vof.x ,vof.y });//, free({vof});
     delete({vofn.x,vofn.y});//, free({vofn});
 }
@@ -568,120 +572,110 @@ void extract_ip_MPI(double ***parr,scalar c,vector svof,vector svofn,int *countn
     int comm_size;
     MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
     //because of weirdness with basilisk, we will write to interficial datafiles and then extract points from said files
-    double **passarr;
-    if(active_PID[pid()] == 1){
-        double **arr;
-        //output interface
-        char savename[80];
-        sprintf(savename,"dat/interface-%5.3f-p%d.dat",t,pid());
-        FILE *savefile = fopen(savename,"w");
-        
-        printf("(%d/%d)starting output\n",pid(),comm_size);
-        //to get points accross boundaries correctly, we need to save and load the values
-        scalar kappa[];//get curvature
-        curvature (c, kappa);
-        foreach(){
-            if(c[] > 1e-6 && c[] < 1.-1e-6){
-                //output central point
-#if dimension == 2
-                fprintf(savefile,"%f %f %f %f %f\n",svof.x[],svof.y[],svofn.x[],svofn.y[],fabs(kappa[]));
-#else
-                fprintf(savefile,"%f %f %f %f %f %f %f\n",svof.x[],svof.y[],svof.z[],svofn.x[],svofn.y[].svofn.z[],fabs(kapppa[]);
-#endif
+    double ***passarr = NULL;
+    scalar kappa[];//get curvature
+    curvature (c, kappa);
+    boundary({kappa});
+    //setup MPI array
+    passarr = malloc(comm_size * sizeof(double**));
+    passarr[pid()] = malloc(*countn * sizeof(double*));
+    int *tagarr = malloc(*countn * sizeof(int));
+    for(int i = 0; i < *countn; i++){
+        passarr[pid()][i] = calloc((*dim * 2) + 1,sizeof(double));
+        tagarr[i] = 1;
+    }
+    char savename[80];
+    sprintf(savename,"dat/interface-%5.3f-p%d.dat",t,pid());
+    FILE *savefile = fopen(savename,"w");
+    int *i = calloc(comm_size,sizeof(int));
+    foreach(){
+        //we go through our values and set them
+        if(c[] > 1e-6 && c[] < 1.-1e-6){
+            int q = 0;
+            foreach_dimension(){
+                passarr[pid()][i[pid()]][q] = svof.x[];//set x
+                passarr[pid()][i[pid()]][q+*dim] = svofn.x[];//set xnorm
+                q ++;
             }
+            passarr[pid()][i[pid()]][*dim*2] = fabs(1./kappa[]);
+            i[pid()]++;
+            //finally we loop through our close neighbors and grab their values
             foreach_neighbor(){
                 if(c[] > 1e-6 && c[] < 1.-1e-6 && cell.pid != pid()){
-                    //output to file 
-#if dimension == 2
-                    fprintf(savefile,"%f %f %f %f %f\n",svof.x[],svof.y[],svofn.x[],svofn.y[],fabs(kappa[]));
-#else
-                    fprintf(savefile,"%f %f %f %f %f %f %f\n",svof.x[],svof.y[],svof.z[],svofn.x[],svofn.y[].svofn.z[],fabs(kapppa[]));
-#endif
-                }
-            }
-        }
-        fflush(savefile);
-        fclose(savefile);
-        printf("%d:saved\n",pid());
-        //Next outside of basilisk loops we can safely build our list of points with MPI boundaries
-        
-        savefile = fopen(savename,"r");
-        if (savefile == NULL){
-            printf("error on opening @ %d\n",pid());
-        }
-        int countnow = 0;
-        arr = malloc(*countn * sizeof(double*));
-        int curentindex = 0;
-        for(int i = 0; i < *countn; i++){
-#if dimension == 2
-            arr[i] = calloc(5,sizeof(double));
-        }
-        int ld = 5;
-        double *holdeach = calloc(5,sizeof(double));
-        while(fscanf(savefile,"%lf %lf %lf %lf %lf",&holdeach[0],&holdeach[1],&holdeach[2],&holdeach[3],&holdeach[4])){
-#else
-            arr[i] = calloc(7,sizeof(double));
-        }
-        int ld = 7;
-        double *holdeach = calloc(7,sizeof(double));
-        while(fscanf(savefile,"%lf %lf %lf %lf %lf %lf %lf",&holdeach[0],&holdeach[1],&holdeach[2],&holdeach[3],&holdeach[4],&holdeach[5],&holdeach[6])){
-#endif
-            //Now that we are inside our while loop, we can sort through each point and determine if it has been counted
-            int passes = 1;
-            int havenan = 0;
-            for(int i = 0; i < countnow; i++){
-                int tpasses = 0;
-                //loop through all values of each point
-                for(int j = 0; j < ld - 1; j++){//we skip our kappa here
-                    if(holdeach[j] != arr[i][j]){
-                        if(isnan(holdeach[j])){
-                            havenan++;
-                            break;
-                        }
-                        tpasses++;
+                    q = 0;
+                    foreach_dimension(){
+                        passarr[pid()][i[pid()]][q] = svof.x[];//set x
+                        passarr[pid()][i[pid()]][q+*dim] = svofn.x[];//set xnorm
+                        q ++;
                     }
-                    
-                }
-                if(!tpasses || havenan){
-                    //when all values are the same we know its a repeat
-                    //block off and continue
-                    passes = 0;
-                    break;
+                    passarr[pid()][i[pid()]][*dim*2] = fabs(1./kappa[]);
+                    i[pid()]++;
                 }
             }
-            //if passes we add into array
-            if(passes){
-                for(int j = 0; j < ld; j++){
-                    arr[countnow][j] = holdeach[j];
-                }
-                countnow++;
-            }
-            curentindex++;
-            if(curentindex > *countn){
-                break;
-            }
         }
-        //finally we thin our our lengths and arrays to the appropriate sizes for calculation
-        passarr = malloc(countnow * sizeof(double*));
-        for(int i = 0; i < countnow; i++){
-            passarr[i] = calloc(ld,sizeof(double));
-            //next set
-            for(int j = 0; j < ld; j++){
-                passarr[i][j] = arr[i][j];
-            }
-        }
-        //and free up arr for clean transfer
-        for(int i = 0; i < countn[pid()]; i++){
-            free(arr[i]);
-        }
-        free(arr);
-        *countn = countnow;
-        printf("(%d/%d)sucess output -> %d\n",pid(),comm_size,*countn);
     }
-    else{
-        *countn = 0;
+    int newcount = 0; 
+    for(int q = 0; q < *countn; q++){
+        //first we check our point, verify its not 0's, to ensure thge thin
+        for(int p = 0; p < (*dim * 2) + 1; p++){
+            if(passarr[pid()][q][p] == 0.){
+                tagarr[q] = 0;
+            }
+            if(!tagarr[q]){
+                break;//allow early break out if 2 values are 0.0; only one should ever be possibly 0. 
+            }
+        }
+        //Next we do a backloop and verify the point hasnt been seen before
+        if(tagarr[q]){
+            for(int j = 0; j < q; j++){
+                int counts = 0;
+                for(int p = 0; p < (*dim * 2) + 1; p++){
+                    //check individual values for each
+                    if(passarr[pid()][q][p] == passarr[pid()][j][p]){
+                        counts++;
+                    }
+                }
+                if(counts == (*dim * 2) + 1){
+                    tagarr[q] = 0;
+                }
+                if(!tagarr[q]){
+                    break;//allow exit out
+                }
+            }
+        }
+        if(tagarr[q]){
+            newcount++;
+#if dimension == 2
+            fprintf(savefile,"%f %f %f %f %f\n",passarr[pid()][q][0],passarr[pid()][q][1],passarr[pid()][q][2],passarr[pid()][q][3],passarr[pid()][q][4]);
+#else
+            fprintf(savefile,"%f %f %f %f %f %f %f\n",passarr[pid()][q][0],passarr[pid()][q][1],passarr[pid()][q][2],passarr[pid()][q][3],passarr[pid()][q][4],passarr[pid()][q][5],passarr[pid()][q][6]);
+#endif
+        
+        }
     }
-    *parr = passarr;
+    //clean up needed
+    fflush(savefile);
+    fclose(savefile);
+    delete({kappa});
+    //Setup our array which will be ported out with the correct size :)
+    double **newarr = malloc(newcount * sizeof(double*));
+    for(int q = 0; q < newcount; q++){
+        newarr[q] = calloc((*dim * 2) + 1,sizeof(double));
+        for(int p = 0; p < (*dim * 2) + 1; p++){
+            newarr[q][p] = passarr[pid()][q][p];
+        }
+    }
+    //finally free up old arr
+    for(int q = 0; q < *countn; q++){
+        free(passarr[pid()][q]);
+    }
+    free(passarr[pid()]);
+    free(passarr);
+    free(tagarr);
+    free(i);
+    //set output vars
+    *countn = newcount;
+    *parr = newarr;
 }
 //run MPI
 void calcSkeletonMPI(scalar f,double *alpha, int *dim,int max_level,double L,double t,double ***pskeleton, int *pskelelength,int *active_PID){ 
@@ -701,7 +695,7 @@ void calcSkeletonMPI(scalar f,double *alpha, int *dim,int max_level,double L,dou
         }
         foreach_neighbor(){
             if(f[] > 1e-6 && f[] < 1-1e-6 && cell.pid != pid()){
-                //add to count from our opperating rank
+                //add count from other ranks, ensures enough space, we can decrease later
                 countn[pid()]++;
             }
         }
@@ -722,13 +716,14 @@ void calcSkeletonMPI(scalar f,double *alpha, int *dim,int max_level,double L,dou
     smooth_interface_MPI(sP,svof,svofn);
     printf("(%d/%d): smoothed\n", pid(),comm_size);
     MPI_Barrier(MPI_COMM_WORLD);
+    boundary({svof,svofn});//ensure values are updated for easy reads
     
     double **interfacePoints;
     //smooth interface points
     //next grab interface points
     extract_ip_MPI(&interfacePoints,f,svof,svofn,&countn[pid()],dim,active_PID,t);
     printf("(%d/%d): got smooth\n",pid(),comm_size);
-    int holdIPM = countn[pid()];
+    //int holdIPM = countn[pid()];
     
     //calc skeleton
     printf("(%d/%d): starting local skeleton\n", pid(),comm_size);
@@ -745,7 +740,7 @@ void calcSkeletonMPI(scalar f,double *alpha, int *dim,int max_level,double L,dou
     sprintf(savename,"dat/skeletonscatter-%5.3f-p%d.dat",t,pid());
     FILE *savefile = fopen(savename,"w");
     for(int i = 0; i < countn[pid()]; i++){
-        fprintf(savefile,"%f %f %f\n",skeleton[i][0],skeleton[i][1],skeleton[i][2]);
+        fprintf(savefile,"%f %f %f %f %f\n",skeleton[i][0],skeleton[i][1],skeleton[i][2],skeleton[i][3],skeleton[i][4]);
     } 
     fflush(savefile);
     fclose(savefile);
@@ -767,6 +762,7 @@ void calcSkeletonMPI(scalar f,double *alpha, int *dim,int max_level,double L,dou
     delete({svofn.x,svofn.y});// free({svofn});
     //finally assign our needed pointers to look at the right place
     *pskelelength = countn[pid()];
+    free(countn);
     *pskeleton = skeleton;
 }
 #endif

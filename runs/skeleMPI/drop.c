@@ -23,7 +23,8 @@ double max_level = 9;
 double L = 12.;
 double t_out = 0.001;       
 //double T_END = 5.0;
-double T_END = 0.8;
+//double T_END = 0.8;
+double T_END = 0.7;
 //double T_END = 0.001;
 //double T_END = 0.1;
 /** dimensionless properties, normalized by scaling variables rhol, D, sigma
@@ -312,5 +313,9 @@ event testMPI(t += t_out){
     }
     free(skeleton);
     printf("end-%f @ %d\n",t,pid());
+}
+
+event cleanMPI(t = T_END){
+    free(active_PID);
 }
 #endif

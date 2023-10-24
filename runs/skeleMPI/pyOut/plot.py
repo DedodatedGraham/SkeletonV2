@@ -45,7 +45,8 @@ def Load(dim,time,np,root):
 
 
 def Plot(data,datatag,dim,time,np,ax):
-    cmap = matplotlib.colormaps.get_cmap("tab20")
+    #cmap = matplotlib.colormaps.get_cmap("tab20") #for plotting different pid
+    cmap = matplotlib.colormaps.get_cmap("brg") #for plotting smooth
     for i in range(len(data)):
         did = datatag[i]
         if did == 0:
@@ -53,6 +54,7 @@ def Plot(data,datatag,dim,time,np,ax):
             minx = 1000000
             maxy = 0
             miny = 1000000
+            maxk = 0
             cx = 0
             cy = 0
             scale = 0
@@ -72,6 +74,8 @@ def Plot(data,datatag,dim,time,np,ax):
                         maxy = data[i][j][1][q]
                     if(data[i][j][1][q] < miny):
                         miny = data[i][j][1][q]
+                    if(data[i][j][4][q] > maxk):
+                        maxk = data[i][j][4][q]
                     cnt += 1
             cx /= cnt
             cy /= cnt
@@ -79,7 +83,7 @@ def Plot(data,datatag,dim,time,np,ax):
             #we define our center based on our interface aswell
             ax.set_xlim(cx - scale,cx + scale)
             ax.set_ylim(cy        ,cy + scale + 0.15)
-            PlotInterface(data[i],dim,time,np,ax,cmap)
+            PlotInterface(data[i],dim,time,np,ax,cmap,maxk)
         elif did == 1:
             PlotSkeleton(data[i],dim,time,np,ax,cmap)
         elif did == 2:
