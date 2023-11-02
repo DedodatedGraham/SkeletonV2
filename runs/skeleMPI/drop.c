@@ -25,6 +25,7 @@ double t_out = 0.001;
 //double T_END = 5.0;
 //double T_END = 0.8;
 double T_END = 0.7;
+//double T_END = 0.553;
 //double T_END = 0.001;
 //double T_END = 0.1;
 /** dimensionless properties, normalized by scaling variables rhol, D, sigma
@@ -36,7 +37,7 @@ double mu_V=9.077e-5;
 double u0 = 83.33;        //free stream velocity
 double h   = 0.2;          //initial gap between drop and inlet
 double femax = 0.01;
-double uemax = 0.1;
+double uemax = 0.09;
 double maxruntime = 2.5;
 
 double time_restart = 0.;
@@ -106,7 +107,7 @@ double x0 = 2.; double Rd = 0.5;
 
 event init (t = 0){
     char dumpname[80];
-    sprintf(dumpname,"dumps/dump-%5.3f",0.650);
+    sprintf(dumpname,"dumps/dump-%5.3f",0.550);
     if (!restore (file = dumpname)) {
         refine (  sq(y-(L/2))+sq(x-x0) < sq(1.2*Rd) && sq(y-(L/2))+sq(x-x0) > sq(0.8*Rd) && level < max_level);
         fraction (f, -sq(y-(L/2))-sq(x-x0)+sq(Rd));
@@ -275,6 +276,7 @@ event snapshot (t += t_out; t<=T_END) {
     timernow = clock();
     double cpu_time_used = ((double) (timernow - timerlast)) / (CLOCKS_PER_SEC * comm_size);
     timertotal += cpu_time_used;
+    printf("calc @ t=%f\n",t);
     fprintf(stdout,"Total Time used: %fm: %fs\n",floor(timertotal / 60.),timertotal - 60 * (floor(timertotal / 60.)));
     fprintf(stdout,"ran @ t=%f took (%fm : %fs)\n\n",t,floor(cpu_time_used / 60.),cpu_time_used - 60 * (floor(cpu_time_used / 60.)));
     int ncells = 0;
@@ -291,7 +293,7 @@ event snapshot (t += t_out; t<=T_END) {
 //TEST FUNCTIONS
 event testMPI(t += t_out){
     int dim = 2;
-    printf("start-%f @ %d\n",t,pid());
+    //printf("start-%f @ %d\n",t,pid());
     double alpha = 25 * PI / 180;/////INPUT ANGLE TO SKELETON 
     
     //search for interface cells
@@ -312,7 +314,7 @@ event testMPI(t += t_out){
         free(skeleton[q]);
     }
     free(skeleton);
-    printf("end-%f @ %d\n",t,pid());
+    //printf("end-%f @ %d\n",t,pid());
 }
 
 event cleanMPI(t = T_END){

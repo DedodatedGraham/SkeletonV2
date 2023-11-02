@@ -6,9 +6,7 @@ cd "$parent_path"
 clear
 ./clean.sh
 
-np=2
-python3 plot.py $np 2 551 800
-./movie.sh
+./compile.sh
 
-
-
+#run in mpi
+mpirun -np 4 xterm -e gdb -ex run --args ./vortex 7 650

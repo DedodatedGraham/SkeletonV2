@@ -11,7 +11,7 @@ cd "$parent_path"
 #qcc -g -Wall -fopenmp -grid=quadtree -std=c99 -DFILTERED=1 -D_UNREFINE=1 -DMTRACE=0 -O2 drop-Skele.c -o _drop -I$BASILISK -L$BASILISK/gl -lglutils -lfb_osmesa -lGLU -lOSMesa -I$GSL -lgsl -lgslcblas -L$GSL -lm
 
 #compile MPI
-CC99='mpicc -std=c99' qcc -g -Wall -grid=quadtree -O2 -D_MPI=1 -DMTRACE=1 drop.c -o drop -I$BASILISK -L$BASILISK/gl -lglutils -lfb_osmesa -lGLU -lOSMesa -I$GSL -lgsl -lgslcblas -L$GSL  -lm
+CC99='mpicc -std=c99' qcc -g -Wall -grid=quadtree -O2 -D_MPI=1 -DMTRACE=1 vortex.c -o vortex -I$BASILISK -L$BASILISK/gl -lglutils -lfb_osmesa -lGLU -lOSMesa -I$GSL -lgsl -lgslcblas -L$GSL  -lm
 
 
 

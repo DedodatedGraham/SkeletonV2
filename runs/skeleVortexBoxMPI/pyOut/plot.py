@@ -52,8 +52,9 @@ def Load(dim,time,np,root):
 
 def Plot(data,datatag,dim,time,np,ax):
     #cmap = matplotlib.colormaps.get_cmap("tab20") #for plotting different pid
-    smoothcmap = matplotlib.colormaps.get_cmap("brg") #for plotting smooth
-    jaggcmap = matplotlib.colormaps.get_cmap("tab20") #for plotting smooth
+    smoothcmap = matplotlib.colormaps.get_cmap("plasma") #for plotting smooth
+    jaggcmap = matplotlib.colormaps.get_cmap("Pastel2") #for plotting smooth
+    plt.title("time:{:2.2f}".format(time))
     for i in range(len(data)):
         did = datatag[i]
         if did == 0:
@@ -90,8 +91,8 @@ def Plot(data,datatag,dim,time,np,ax):
             #we define our center based on our interface aswell
             #ax.set_xlim(cx - scale,cx + scale)
             #ax.set_ylim(cy - scale,cy + scale)
-            ax.set_xlim(cx - 0.5,cx + 0.5)
-            ax.set_ylim(6.5,7.5)
+            ax.set_xlim(0,1)
+            ax.set_ylim(0,1)
             PlotInterface(data[i],dim,time,np,ax,jaggcmap,maxk)
         elif did == 1:
             PlotSkeleton(data[i],dim,time,np,ax,smoothcmap)
@@ -102,14 +103,15 @@ def Plot(data,datatag,dim,time,np,ax):
         else:
             print("not implemented yet")
 def Save(root,plt,time):
-    save = root + r'plot-{:3.5f}.png'.format(time)
+    timeform = '{:3.3f}'.format(time)
+    save = root + r'plot-' + timeform.zfill(6) + r'.png'.format(time)
     plt.savefig(save,dpi=1000)
 def main(fig,np,dim,start_time,max_time,root,datalocation,savelocation):
     time = start_time
     print("starting at",start_time)
     print("ending at",max_time)
     case = True
-    dt = 0.001
+    dt = 0.01
     mode = 1
     while case:
         if mode == 0:
@@ -148,41 +150,46 @@ if __name__ == "__main__":
     dim = int(sys.argv[2])
     start_time = float(sys.argv[3]) / 1000
     max_time = float(sys.argv[4]) / 1000
+    mode = int(sys.argv[5])
     num_processes = int(mp.cpu_count()/2)
     print(num_processes)
     root = os.path.split(os.path.dirname(os.path.abspath(__file__)))[0] + r'/'
-    dt = 0.001
+    dt = 0.01
     datalocation = root + r'dat/'
     savelocation = root + r'pyOut/Img/'
-    nps = []
-    dims = []
-    starts = []
-    maxs = []
-    figs = []
-    roots = []
-    datas = []
-    saves = []
-    totalt = max_time - start_time
-    avgdt = totalt / dt # this gives us the amount of time steps now
-    avgdt = math.ceil(avgdt / num_processes)
-    for i in range(num_processes):
-        figs.append(plt.figure())
-        nps.append(np)
-        dims.append(dim)
-        if i == 0:
-            #first case
-            starts.append(start_time)
-            maxs.append(starts[i] + avgdt * dt)
-        elif i == num_processes - 1:
-            #last case
-            starts.append(maxs[i - 1])
-            maxs.append(max_time)
-        else:
-            #between case
-            starts.append(maxs[i - 1])
-            maxs.append(starts[i] + avgdt * dt)
-        roots.append(root)
-        datas.append(datalocation)
-        saves.append(savelocation)
-    with mp.Pool(processes=num_processes) as pool:
-        pool.starmap(main, zip(figs,nps,dims,starts,maxs,roots,datas,saves))
+    if(mode == 0):
+        fig = plt.figure()
+        main(fig,np,dim,start_time,max_time,root,datalocation,savelocation)
+    else:
+        nps = []
+        dims = []
+        starts = []
+        maxs = []
+        figs = []
+        roots = []
+        datas = []
+        saves = []
+        totalt = max_time - start_time
+        avgdt = totalt / dt # this gives us the amount of time steps now
+        avgdt = math.ceil(avgdt / num_processes)
+        for i in range(num_processes):
+            figs.append(plt.figure())
+            nps.append(np)
+            dims.append(dim)
+            if i == 0:
+                #first case
+                starts.append(start_time)
+                maxs.append(starts[i] + avgdt * dt)
+            elif i == num_processes - 1:
+                #last case
+                starts.append(maxs[i - 1])
+                maxs.append(max_time)
+            else:
+                #between case
+                starts.append(maxs[i - 1])
+                maxs.append(starts[i] + avgdt * dt)
+            roots.append(root)
+            datas.append(datalocation)
+            saves.append(savelocation)
+        with mp.Pool(processes=num_processes) as pool:
+            pool.starmap(main, zip(figs,nps,dims,starts,maxs,roots,datas,saves))

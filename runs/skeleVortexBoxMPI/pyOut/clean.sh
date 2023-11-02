@@ -3,12 +3,7 @@
 parent_path=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
 cd "$parent_path"
 
-clear
-./clean.sh
 
-np=2
-python3 plot.py $np 2 551 800
-./movie.sh
-
-
-
+rm -r Img/*.png 2> /dev/null
+rm -r Movie/*.mp4 2> /dev/null
+rm -r __pycache__/ 2> /dev/null
