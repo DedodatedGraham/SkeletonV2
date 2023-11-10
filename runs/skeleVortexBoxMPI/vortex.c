@@ -2,12 +2,12 @@
  */
 #include <time.h>
 #include "navier-stokes/centered.h"
-#include "two-phase.h"
+//#include "two-phase.h"
+#include "two-phase-s.h"
 
 #include "navier-stokes/conserving.h"
 #include "tension.h"
 
-//#include "two-phase-s.h"
 #include "curvature.h"
 #include "view.h"
 #include "tag.h"
@@ -17,10 +17,12 @@
 
 #define LARGE 1e36
 
+extern scalar *interfaceid;//id 
+
 double max_level = 6;
 double t_out = 0.01;       
 //double T_END = 15.;
-double T_END = .01;
+double T_END = 2.;
 
 /** dimensionless properties, normalized by scaling variables rhol, D, sigma
  */
@@ -42,12 +44,9 @@ clock_t timernow;
 clock_t timerlast;
 double timertotal = 0.;
 
-//skeleton tracker
-scalar skelevof[];
 //pid tracer
 #if _MPI
 int comm_size;
-int *active_PID;
 #endif
 
 char restartname[80];
@@ -55,7 +54,6 @@ char restartname[80];
 int main(int argc, char * argv[]){
 #if _MPI
     MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
-    active_PID = calloc(comm_size , sizeof(int)); 
 #endif
     //main func
     if (argc > 1){
@@ -75,7 +73,7 @@ int main(int argc, char * argv[]){
     run();
 }
 
-#define circle(x,y) (sq(0.2) - (sq(x - 0.5) + sq(y - .536338)))
+#define circle(x,y) (sq(0.2) - (sq(x - 0.5) + sq(y - .75)))
 
 event init (t = 0){
     char dumpname[80];
@@ -106,65 +104,49 @@ event velocity(i++){
 
 char outpath[80];
 event plot(t += t_out){
-    sprintf(outpath,"Img/levelint-%5.3f.png",t);
-    view(tx=-0.5,ty=-0.5,sx=1,sy=1,camera="front",width=1000,height=1000);
-    
-    draw_vof("f");
-    squares(color = "level",min = 1, max = max_level);
-    box();
-    cells();
-    save(file = outpath);
-    
-    clear();
-    
-    sprintf(outpath,"Img/ux-%5.3f.png",t);
-    squares(color = "u.x");
-    box();
-    save(file = outpath);
-    
-    clear();
-    sprintf(outpath,"Img/uy-%5.3f.png",t);
-    squares(color = "u.y");
-    box();
-    save(file = outpath);
+    //view(tx=-0.5,ty=-0.5,sx=1,sy=1,camera="front",width=1000,height=1000);
+    //
+    //clear();
+    //scalar skelid[];
+    //for(skelid in interfaceid){
+    //  sprintf(outpath,"Img/id-%5.3f.png",t);
+    //  //draw_vof("f");
+    //  squares(color = "skelid");
+    //  box();
+    //  //cells();
+    //  save(file = outpath);
+    //  
+    //  clear();
+    //  //foreach(){
+    //  //    if(skelid[] != 0.){
+    //  //      printf("%f\n",skelid[]);
+    //  //    }
+    //  //}
+    //}    
     
     clear();
-   
+    //sprintf(outpath,"Img/levelint-%5.3f.png",t);
+    //draw_vof("f");
+    //squares(color = "level",min = 1, max = max_level);
+    //box();
+    //cells();
+    //save(file = outpath);
+    //
+    //clear();
+//    
+//    //sprintf(outpath,"Img/ux-%5.3f.png",t);
+//    //squares(color = "u.x");
+//    //box();
+//    //save(file = outpath);
+//    //
+//    //clear();
+//    //sprintf(outpath,"Img/uy-%5.3f.png",t);
+//    //squares(color = "u.y");
+//    //box();
+//    //save(file = outpath);
+//    //
+//    //clear();
 }
-
-
-#if _MPI
-//TEST FUNCTIONS
-event testMPI(t += t_out){
-    int dim = 2;
-    //printf("start-%f @ %d\n",t,pid());
-    double alpha = 25 * PI / 180;/////INPUT ANGLE TO SKELETON 
-    
-    //search for interface cells
-    foreach(){
-        if(!active_PID[cell.pid]){
-            if(f[] > 1e-6 && f[] < 1.-1e-6){
-                active_PID[cell.pid] = 1;
-            }
-        }
-    }
-    
-
-    //Calc skeleton will scan skeleton vof field and determine if new skeleton needs to be placed
-    double **skeleton;
-    int length;
-    calcSkeletonMPI(f,&alpha,&dim,max_level,1,t,&skeleton,&length,active_PID);
-    for(int q = 0; q < length; q++){
-        free(skeleton[q]);
-    }
-    free(skeleton);
-    //printf("end-%f @ %d\n",t,pid());
-}
-
-event cleanMPI(t = T_END){
-    free(active_PID);
-}
-#endif
 
 event snapshot (t += t_out; t<=T_END) {
     //Here we calculate time taken

@@ -663,9 +663,9 @@ void thinSkeleton(double ***pskeleton,int *dim,int *length,double *alpha,double 
                 *length = L;
             }
         }
-        if(addq && *length != 0){
-            *length = *length + 1;
-        }
+        //if(addq && *length != 0){
+        //    *length = *length + 1;
+        //}
         newskeleton = malloc((*length) * sizeof(double*));
         for(int i = 0; i < *length; i++){
             newskeleton[i] = calloc(*dim + 3,sizeof(double));
@@ -686,6 +686,9 @@ void thinSkeleton(double ***pskeleton,int *dim,int *length,double *alpha,double 
     }
     *pskeleton = newskeleton;
     //printf("newL=%d\n",*length);
+    //for(int i = 0; i < *length; i++){
+    //    printf("newPoint=[%f,%f,%f,%f,%f]\n",newskeleton[i][0],newskeleton[i][1],newskeleton[i][2],newskeleton[i][3],newskeleton[i][4]);
+    //}
 }
 //Gets spline
 void getCoeffGE(int row, int col, double ***a, double **x){

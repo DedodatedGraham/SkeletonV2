@@ -13,8 +13,8 @@ clear
 
 
 #MPI Run
-np=4
-python3 plot.py $np 2 0 15000 1
+np=2
+python3 plot.py $np 2 0 11000 1
 ./movie.sh
 
 

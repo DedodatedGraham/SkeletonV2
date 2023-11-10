@@ -1,5 +1,5 @@
-#ifndef BASILISK_HEADER_2
-#define BASILISK_HEADER_2
+#ifndef BASILISK_HEADER_1
+#define BASILISK_HEADER_1
 #line 1 "./../colormap.h"
 void seismic (double cmap[NCMAP][3])
 {

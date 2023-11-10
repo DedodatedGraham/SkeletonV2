@@ -4,14 +4,14 @@
 //#include "axi.h"
 #include "navier-stokes/centered.h"
 //#include "./two-phase_nofilter.h"
-#include "two-phase.h"
+#include "two-phase-s.h"
 #include "navier-stokes/conserving.h"
 #include "tension.h"
 #include "view.h"
 #include "tag.h"
 #include "skele/skeleton.h"
 #include "../colormap.h"
-#include "sandbox/lchirco/signature.h"
+//#include "sandbox/lchirco/signature.h"
 
 //#define T_ADAPT_OFF 1
 #define LARGE 1e36
@@ -127,16 +127,16 @@ void plots (double t){
     squares(color = "level",min = 1, max = max_level);
     box();
     cells();
-    sprintf(plotname, "Img/levels-s-%d-%5.3f.png",(int)max_level,t);
+    sprintf(plotname, "Img/levels-%5.3f.png",t);
     save(file = plotname);
     
     clear();
     
     draw_vof("f");
-    squares(color = "skelevof",map = black_body,min = 0, max = 2);//0 for none, 1 for transition, 2 for skeleton
+    squares(color = "id",map = black_body,min = 0, max = 2);//0 for none, 1 for transition, 2 for skeleton
     box();
     cells();
-    sprintf(plotname, "Img/svof-s-%d-%5.3f.png",(int)max_level,t);
+    sprintf(plotname, "Img/svof-%5.3f.png",t);
     save(file = plotname);
     
     clear();
@@ -144,11 +144,11 @@ void plots (double t){
     fprintf(stdout,"done\n");
 }
 //TEST FUNCTIONS
-void testMPI(double t){
-    int dim = 2;
-    printf("start-%f @ %d\n",t,pid());
-    double alpha = 25 * PI / 180;/////INPUT ANGLE TO SKELETON 
-    //Calc skeleton will scan skeleton vof field and determine if new skeleton needs to be placed
-    calcSkeletonMPI(f,&alpha,&dim,max_level,L,t,active_PID);
-    printf("end-%f @ %d\n",t,pid());
-}
+//void testMPI(double t){
+//    int dim = 2;
+//    printf("start-%f @ %d\n",t,pid());
+//    double alpha = 25 * PI / 180;/////INPUT ANGLE TO SKELETON 
+//    //Calc skeleton will scan skeleton vof field and determine if new skeleton needs to be placed
+//    calcSkeletonMPI(f,&alpha,&dim,max_level,L,t,active_PID);
+//    printf("end-%f @ %d\n",t,pid());
+//}

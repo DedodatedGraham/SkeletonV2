@@ -425,7 +425,9 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
     }
     restriction({c});
     boundary({vofref});//update over MPI for correct foreach
-    boundary_level({vofref},max_level);
+    for(int q = max_level - 1; q >= 0; q--){
+        boundary_level({vofref},q);
+    }
     face vector s = p.s;
     if(!s.x.i) s.x.i = -1;
     //Because MPI we smooth alittle differently, first we compute true vof points and normals
@@ -434,10 +436,11 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
     char vofout[80];
     sprintf(vofout,"dat/vofinfo-%5.3f-p%d.dat",t,pid());
     FILE *voffile = fopen(vofout,"w");
+    scalar id[] = c.id;
     foreach(){
         int ref = (int)vofref[];
         struct smooths *smoothnow = vofref.smooth;
-        fprintf(voffile,"%f %f %f\n",x,y,Delta);//outputs x y delta for reconstruction of vof field
+        fprintf(voffile,"%f %f %f %f\n",x,y,Delta,id[]);//outputs x y delta for reconstruction of vof field
         if(c[] > 1e-6 && c[] < 1.-1e-6 && vofref[] != nodata){
             coord n = facet_normal(point, c, s);
 	        double alpha = plane_alpha(c[], n);
@@ -455,7 +458,6 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
                 int nref = (int)vofref[];
                 if(cell.pid != pid() && c[] > 1e-6 && c[] < 1.-1e-6 && vofref[] != nodata && smoothnow->mpicomputed[nref] < 0){
                     smoothnow->mpicomputed[nref] = cell.pid;
-                    printf("%d setting request from %d @ nref:%d\n",pid(),cell.pid,nref);
                 }
             }
         }
@@ -478,7 +480,6 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
                 pidmarker[i]++;
             }
         }
-        printf("%d pidmarker %d = %d\n",pid(),i,pidmarker[i]);
     }
     int **pidlocation = malloc(comm_size * sizeof(int*));//tracks location of wanted information
     for(int i = 0; i < comm_size; i++){
@@ -488,7 +489,6 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
             int cur = smoothp->mpicomputed[j];
             if(cur >= 0 && cur == i){
                 pidlocation[i][pidindx] = j;
-                printf("%d set location %d:%d = %d\n",pid(),i,pidindx,pidlocation[i][pidindx]);
                 pidindx++;
             }
         }
@@ -506,9 +506,6 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
                     MPI_Send(&pidmarker[j],1,MPI_INT,j,0,MPI_COMM_WORLD);
                     if(pidmarker[j] > 0){
                        //If we have points, then we also want to relay information about locations of points
-                       for(int q = 0; q < pidmarker[j]; q++){
-                           printf("%d sending value %d\n",pid(),pidlocation[j][q]);
-                       }
                        MPI_Send(pidlocation[j],pidmarker[j],MPI_INT,j,1,MPI_COMM_WORLD);
                     }
                 }
@@ -518,7 +515,6 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
                     //next we want to recieve our values of expected points from each rank
                     double *bufrec = malloc(nc*pidmarker[j]*sizeof(double));
                     MPI_Recv(bufrec,nc*pidmarker[j],MPI_DOUBLE,j,2,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-                    printf("%d got %d from %d\n",pid(),nc*pidmarker[j],j);
                     for(int q = 0; q < pidmarker[j]; q++){
                         smoothp->points[pidlocation[j][q]][0] = bufrec[q*nc  ];
                         smoothp->points[pidlocation[j][q]][1] = bufrec[q*nc+1];
@@ -532,13 +528,9 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
         else{
             MPI_Recv(&counts,1,MPI_INT,i,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
             if(counts > 0){
-                printf("%d got %d from %d\n",pid(),counts,i);
                 //only gather & send out values if needing too
                 int *bufrec = malloc(counts * sizeof(int));
                 MPI_Recv(bufrec,counts,MPI_INT,i,1,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-                for(int q = 0; q < counts; q++){
-                    printf("%d got %d=%d from %d\n",pid(),q,bufrec[q],i);
-                }
                 //Now that we have recieved the requested locations of points, we will wrap them up and send them over
                 double *bufsend = malloc(nc*counts*sizeof(double*));//we do light 'serization' really just extending out lists and rebuilding them
                 for(int j = 0; j < counts; j++){
@@ -970,7 +962,7 @@ void calcSkeletonMPI(scalar f,double *alpha, int *dim,int max_level,double L,dou
     
     //Next we thin out our skeleton
     //printf("(%d/%d): smoothing local skeleton\n", pid(),comm_size);
-    double thindis = mindis;
+    double thindis = mindis / 2.;//when r is more than delta/2 :(
     thinSkeleton(&skeleton,dim,&countn[pid()],alpha,&thindis);
     
     sprintf(savename,"dat/skeletonscatter-%5.3f-p%d.dat",t,pid());

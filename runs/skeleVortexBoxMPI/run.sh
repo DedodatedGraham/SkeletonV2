@@ -9,4 +9,4 @@ clear
 ./compile.sh
 
 #run in mpi
-mpirun -np 4 xterm -e gdb -ex run --args ./vortex 7 650
+mpirun -np 2 xterm -e gdb -ex run --args ./vortex 7 650

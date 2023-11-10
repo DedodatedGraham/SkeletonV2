@@ -52,8 +52,8 @@ def Load(dim,time,np,root):
 
 def Plot(data,datatag,dim,time,np,ax):
     #cmap = matplotlib.colormaps.get_cmap("tab20") #for plotting different pid
-    smoothcmap = matplotlib.colormaps.get_cmap("plasma") #for plotting smooth
-    jaggcmap = matplotlib.colormaps.get_cmap("Pastel2") #for plotting smooth
+    smoothcmap = matplotlib.colormaps.get_cmap("winter") #for plotting smooth
+    jaggcmap = matplotlib.colormaps.get_cmap("tab20") #for plotting pid
     plt.title("time:{:2.2f}".format(time))
     for i in range(len(data)):
         did = datatag[i]
@@ -63,31 +63,31 @@ def Plot(data,datatag,dim,time,np,ax):
             maxy = 0
             miny = 1000000
             maxk = 0
-            cx = 0
-            cy = 0
-            scale = 0
-            cnt = 0
-            for j in range(len(data[i])):
-                #loop through np
-                for q in range(len(data[i][j][0])):
-                    if(not math.isnan(data[i][j][0][q])):
-                        cx += data[i][j][0][q]
-                    if(not math.isnan(data[i][j][1][q])):
-                        cy += data[i][j][1][q]
-                    if(data[i][j][0][q] > maxx):
-                        maxx = data[i][j][0][q]
-                    if(data[i][j][0][q] < minx):
-                        minx = data[i][j][0][q]
-                    if(data[i][j][1][q] > maxy):
-                        maxy = data[i][j][1][q]
-                    if(data[i][j][1][q] < miny):
-                        miny = data[i][j][1][q]
-                    if(data[i][j][4][q] > maxk):
-                        maxk = data[i][j][4][q]
-                    cnt += 1
-            cx /= cnt
-            cy /= cnt
-            scale = (max(maxx-minx,maxy-miny) / 2) + 0.15
+            #cx = 0
+            #cy = 0
+            #scale = 0
+            #cnt = 0
+            #for j in range(len(data[i])):
+            #    #loop through np
+            #    for q in range(len(data[i][j][0])):
+            #        if(not math.isnan(data[i][j][0][q])):
+            #            cx += data[i][j][0][q]
+            #        if(not math.isnan(data[i][j][1][q])):
+            #            cy += data[i][j][1][q]
+            #        if(data[i][j][0][q] > maxx):
+            #            maxx = data[i][j][0][q]
+            #        if(data[i][j][0][q] < minx):
+            #            minx = data[i][j][0][q]
+            #        if(data[i][j][1][q] > maxy):
+            #            maxy = data[i][j][1][q]
+            #        if(data[i][j][1][q] < miny):
+            #            miny = data[i][j][1][q]
+            #        if(data[i][j][4][q] > maxk):
+            #            maxk = data[i][j][4][q]
+            #        cnt += 1
+            #cx /= cnt
+            #cy /= cnt
+            #scale = (max(maxx-minx,maxy-miny) / 2) + 0.15
             #we define our center based on our interface aswell
             #ax.set_xlim(cx - scale,cx + scale)
             #ax.set_ylim(cy - scale,cy + scale)
@@ -111,7 +111,7 @@ def main(fig,np,dim,start_time,max_time,root,datalocation,savelocation):
     print("starting at",start_time)
     print("ending at",max_time)
     case = True
-    dt = 0.01
+    dt = 0.001
     mode = 1
     while case:
         if mode == 0:
@@ -154,7 +154,7 @@ if __name__ == "__main__":
     num_processes = int(mp.cpu_count()/2)
     print(num_processes)
     root = os.path.split(os.path.dirname(os.path.abspath(__file__)))[0] + r'/'
-    dt = 0.01
+    dt = 0.001
     datalocation = root + r'dat/'
     savelocation = root + r'pyOut/Img/'
     if(mode == 0):
