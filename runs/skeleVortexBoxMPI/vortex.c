@@ -17,7 +17,7 @@
 
 #define LARGE 1e36
 
-extern scalar *interfaceid;//id 
+extern scalar *interfacefid;//id 
 
 double max_level = 6;
 double t_out = 0.01;       

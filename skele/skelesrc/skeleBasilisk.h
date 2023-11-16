@@ -331,6 +331,7 @@ int insidebounds(double *ppoint,double tx, double ty, double tz, double tdelta){
 static void smoothvof_prolongation(Point point, scalar s){
     double val = s[];
     if(s[] != nodata){
+        //printf("prr\n");
         double *ppoint = s.smooth->points[(int)s[]];
         foreach_child(){
             //We need to refrence the structure to determine which cell will have our refrence, otherwise we set value to -1
@@ -354,15 +355,22 @@ static void smoothvof_prolongation(Point point, scalar s){
 }
 
 static inline void smoothvof_restriction(Point point, scalar s){
+    //printf("vrr\n");
     int pass = 0;
     double val = nodata;
     foreach_child(){//we pick the first child to hold a point when we upscale, allows for even distribution of points/smoothening
+        if(s[] != nodata){
+            //printf("sb4->%f\n",s[]);
+        }
         if(!pass && s[] != nodata){
             val = s[];
             pass++;
         }
     }
     s[] = val;
+    if(s[] != nodata){
+        //printf("saf->%f\n\n",s[]);
+    }
 }
 #endif
 
@@ -426,6 +434,7 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
     restriction({c});
     boundary({vofref});//update over MPI for correct foreach
     for(int q = max_level - 1; q >= 0; q--){
+        //printf("aahh%d tree?%d\n",q,tree_is_full());
         boundary_level({vofref},q);
     }
     face vector s = p.s;
@@ -436,11 +445,11 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
     char vofout[80];
     sprintf(vofout,"dat/vofinfo-%5.3f-p%d.dat",t,pid());
     FILE *voffile = fopen(vofout,"w");
-    scalar id[] = c.id;
+    scalar fid[] = c.fid;
     foreach(){
         int ref = (int)vofref[];
         struct smooths *smoothnow = vofref.smooth;
-        fprintf(voffile,"%f %f %f %f\n",x,y,Delta,id[]);//outputs x y delta for reconstruction of vof field
+        fprintf(voffile,"%f %f %f %f\n",x,y,Delta,fid[]);//outputs x y delta for reconstruction of vof field
         if(c[] > 1e-6 && c[] < 1.-1e-6 && vofref[] != nodata){
             coord n = facet_normal(point, c, s);
 	        double alpha = plane_alpha(c[], n);
@@ -568,6 +577,7 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
             foreach_neighbor(1){
                 if(c[] > 1e-6 && c[] < 1.-1e-6 && vofref[] != nodata){
                     int nref = (int)vofref[];
+                    //printf("nref->%d/%f\n",nref,vofref[]);
                     double *pnew = smoothnow->points[nref];
                     if(((pnew[2] / pnow[2]) > 0.  || (pnew[3] / pnow[3]) > 0.) && fabs(pnew[2] - pnow[2]) < 0.5 && fabs(pnew[3] - pnow[3]) < 0.5){
                         localSpline[indx][0] = pnew[0];
@@ -929,6 +939,9 @@ void calcSkeletonMPI(scalar f,double *alpha, int *dim,int max_level,double L,dou
     scalar vofref[];
     vofref.refine = vofref.prolongation = smoothvof_prolongation;
     vofref.coarsen = vofref.restriction  = smoothvof_restriction;
+    foreach(){
+        vofref[] = -1.;
+    }
     smooth_interface_MPI(sP,vofref,t,max_level);
     //printf("(%d/%d): smoothed\n", pid(),comm_size);
     boundary({vofref});//ensure values are updated for easy reads
