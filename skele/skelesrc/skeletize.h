@@ -393,9 +393,8 @@ void outputskeleton(double *points, double *interf,double alpha ,int *dim, int i
     fclose(fp);
 }
 
-double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,double *mindis,char path[80],bool isvofactive,double *disRatio,int *newl){
+void makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *length,double *mindis,char path[80],bool isvofactive,double *disRatio,int *newl,double ***pskeleton){
     int MAXCYCLES = 50;
-
     //allocate needed space
     double guessr = *length;
     int extra = 3;//save r, alpha, kappa to relevant skeletonpoints
@@ -508,6 +507,7 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
             if(radius[index] != 0. && fabs(radius[index] - radius[index + 1]) < *mindis){
                 //convergance conditions
                 //our center point should remain the same
+                //printf("skelp [%f,%f,%f] from [%f,%f] & [%f,%f]\n",centerPoint[index][0],centerPoint[index][1],radius[index + 1],points[i][0],points[i][1],interfacePoint[index + 1][0],interfacePoint[index + 1][1]);
                 for(int ii = 0; ii < *dim;ii++){
                     skeleton[i][ii] = centerPoint[index][ii];
                 }
@@ -522,6 +522,7 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
             if(isvofactive){
                 if(index > 0 && distancecomp < radius[index + 1]){
                     //distance of point->interface point is less than our radius, so we want to backstep
+                    //printf("skelp [%f,%f,%f] from [%f,%f] & [%f,%f]\n",centerPoint[index-1][0],centerPoint[index-1][1],radius[index],points[i][0],points[i][1],interfacePoint[index][0],interfacePoint[index][1]);
                     for(int ii = 0; ii < *dim;ii++){
                         skeleton[i][ii] = centerPoint[index-1][ii];
                     }
@@ -534,10 +535,10 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
                 }
                 else if(radius[index + 1] < *mindis){
                     //distance of point->interface point is less than our radius, so we want to backstep
+                    //printf("skelp [%f,%f,%f] from [%f,%f] & [%f,%f]\n",centerPoint[index-1][0],centerPoint[index-1][1],radius[index],points[i][0],points[i][1],interfacePoint[index][0],interfacePoint[index][1]);
                     for(int ii = 0; ii < *dim;ii++){
                         skeleton[i][ii] = centerPoint[index-1][ii];
                     }
-                    //skeleton[i] = centerPoint[index-1];
                     skeleton[i][*dim] = radius[index];
                     skeleton[i][*dim+1] = alpha;
                     skeleton[i][*dim+2] = points[i][(*dim * 2)]; 
@@ -596,9 +597,9 @@ double **makeSkeleton(double **points,struct kdleaf *kdstruct,int *dim,int *leng
     interfacePoint = NULL;
     *newl = captured;
     //skeleton = NULL;
-    return skeleton;
+    *pskeleton = skeleton;
 }
-double **skeletize(double **points,int *length,int *dim,char path[80],double *mindis,bool isvofactive,double wantedAngle){
+void skeletize(double **points,int *length,int *dim,char path[80],double *mindis,bool isvofactive,double wantedAngle,double ***pskeleton){
     double **skeleton = NULL; 
     if(*length > 0){
         //Create our kd tree for calculation
@@ -620,7 +621,7 @@ double **skeletize(double **points,int *length,int *dim,char path[80],double *mi
         //Next our skeleton will be calculated
         int newl = 0;
         //printf("\n(%d/%d):starting skeleton\n", pid(),2);
-        skeleton = makeSkeleton(points,kdstruct,dim,length,mindis,path,isvofactive,&calcratio,&newl);
+        makeSkeleton(points,kdstruct,dim,length,mindis,path,isvofactive,&calcratio,&newl,&skeleton);
         //printf("(%d/%d):finished skeleton\n\n", pid(),2);
         //Finally clean up to prevent memeory error
         for(int i = 0;i < *length + 1; i++){
@@ -633,19 +634,22 @@ double **skeletize(double **points,int *length,int *dim,char path[80],double *mi
         length = &newl;
 
     }
-    return skeleton;
+    *pskeleton = skeleton;
 }
-void thinSkeleton(double ***pskeleton,int *dim,int *length,double *alpha,double *thindis){
+void thinSkeleton(double ***pskeleton,int *dim,int *length,double *alpha,double *thindis,char outname[80]){
     double **skeleton = *pskeleton;
-    //printf("oldL=%d\n",*length);
-    double **newskeleton = NULL;
+    //printf("\noldL=%d\n",*length);
+    //printf("fp=%s\n",outname);
     //we need to handle situations 
+    FILE * fp = fopen (outname, "w");
     if(*length > 0){
         int holdl = *length;
         bool addq = false;
         for(int i = *length - 1; i >=0; i--){
-            if(skeleton[i][3] < *alpha || (skeleton[i][2]  > *thindis) || (skeleton[i][4] < 1.)){
+            if((skeleton[i][3] < *alpha) || (skeleton[i][2]  > *thindis) || (skeleton[i][4] < 1.)){
                 //If bad point we will shift everything down one; removing it later
+                //printf("%d - %f %f %f %f %f\n",*length,skeleton[i][0],skeleton[i][1],skeleton[i][2],skeleton[i][3],skeleton[i][4]);
+                fprintf(fp,"%f %f %f %f %f\n",skeleton[i][0],skeleton[i][1],skeleton[i][2],skeleton[i][3],skeleton[i][4]);
                 if(!addq){
                     addq = true;
                 }
@@ -663,31 +667,26 @@ void thinSkeleton(double ***pskeleton,int *dim,int *length,double *alpha,double 
                 *length = L;
             }
         }
-        //if(addq && *length != 0){
-        //    *length = *length + 1;
-        //}
-        newskeleton = malloc((*length) * sizeof(double*));
-        for(int i = 0; i < *length; i++){
-            newskeleton[i] = calloc(*dim + 3,sizeof(double));
-            newskeleton[i][0] = skeleton[i][0];
-            newskeleton[i][1] = skeleton[i][1];
-            newskeleton[i][2] = skeleton[i][2];
-            newskeleton[i][3] = skeleton[i][3];
-            newskeleton[i][4] = skeleton[i][4];
-            if(*dim == 3){
-                newskeleton[i][5] = skeleton[i][5];
+        if(*length > 0){
+            for(int i = *length; i < holdl; i++){
+                free(skeleton[i]);
             }
+            skeleton = realloc(skeleton,*length * sizeof(double*));
         }
-        for(int i = 0; i < holdl + 1; i++){
-            free(skeleton[i]);
+        else{
+            for(int i = 0; i < holdl + 1; i++){
+                free(skeleton[i]);
+            }
+            free(skeleton);
+            skeleton = NULL;
         }
-        free(skeleton);
-
+        //printf("newl = %d\n",*length);
     }
-    *pskeleton = newskeleton;
-    //printf("newL=%d\n",*length);
+    fflush(fp);
+    fclose(fp);
+    *pskeleton = skeleton;
     //for(int i = 0; i < *length; i++){
-    //    printf("newPoint=[%f,%f,%f,%f,%f]\n",newskeleton[i][0],newskeleton[i][1],newskeleton[i][2],newskeleton[i][3],newskeleton[i][4]);
+    //    printf("ptout -> %d,[%f,%f]\n",i,skeleton[i][0],skeleton[i][1]);
     //}
 }
 //Gets spline
@@ -707,7 +706,7 @@ void getCoeffGE(int row, int col, double ***a, double **x){
         }
         //Gauss
         for(k = i + 1; k <row;k++){
-            double term = (*a)[k][i] / (*a)[i][i];
+            double term = (*a)[k][i] / ((*a)[i][i] + SEPS);
             for(j = 0; j < col; j++){
                 (*a)[k][j] = (*a)[k][j] - term * (*a)[i][j];
             }
@@ -719,7 +718,7 @@ void getCoeffGE(int row, int col, double ***a, double **x){
         for(j  = i + 1; j < col - 1; j++){
             (*x)[i] = (*x)[i] - (*a)[i][j] * (*x)[j];
         }
-        (*x)[i] = (*x)[i] / (*a)[i][i];
+        (*x)[i] = (*x)[i] / ((*a)[i][i] + SEPS);
     }
 }
 struct skeleBounds{

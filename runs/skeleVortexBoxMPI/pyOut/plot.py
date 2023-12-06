@@ -12,7 +12,7 @@ import math
 #import skeleton.py
 #import skelespline.p
 from interface import LoadInterface,PlotInterface
-from skeleton import LoadSkeleton,PlotSkeleton
+from skeleton import LoadSkeleton,PlotSkeleton,LoadThinSkeleton,PlotThinSkeleton
 from skelespline import LoadSkeletonSpline,PlotSkeletonSpline
 from grid import LoadGrid,PlotGrid
 import multiprocessing as mp
@@ -46,6 +46,11 @@ def Load(dim,time,np,root):
     data.append(grid)
     datatag.append(3)
 
+    #Load ThinSkeleton
+    #tskeleton = LoadThinSkeleton(dim,time,np,root)
+    #data.append(tskeleton)
+    #datatag.append(4)
+
     #finally return data we loaded
     return data,datatag
 
@@ -54,7 +59,7 @@ def Plot(data,datatag,dim,time,np,ax):
     #cmap = matplotlib.colormaps.get_cmap("tab20") #for plotting different pid
     smoothcmap = matplotlib.colormaps.get_cmap("winter") #for plotting smooth
     jaggcmap = matplotlib.colormaps.get_cmap("tab20") #for plotting pid
-    plt.title("time:{:2.2f}".format(time))
+    plt.title("time:{:3.3f}".format(time))
     for i in range(len(data)):
         did = datatag[i]
         if did == 0:
@@ -96,10 +101,13 @@ def Plot(data,datatag,dim,time,np,ax):
             PlotInterface(data[i],dim,time,np,ax,jaggcmap,maxk)
         elif did == 1:
             PlotSkeleton(data[i],dim,time,np,ax,smoothcmap)
+            #PlotSkeleton(data[i],dim,time,np,ax,jaggcmap)
         elif did == 2:
             PlotSkeletonSpline(data[i],dim,time,np,ax,smoothcmap)
         elif did == 3:
             PlotGrid(data[i],dim,time,np,ax,jaggcmap)
+        elif did == 4:
+            PlotThinSkeleton(data[i],dim,time,np,ax,jaggcmap)
         else:
             print("not implemented yet")
 def Save(root,plt,time):

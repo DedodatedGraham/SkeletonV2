@@ -22,7 +22,7 @@ extern scalar *interfacefid;//id
 double max_level = 6;
 double t_out = 0.01;       
 //double T_END = 15.;
-double T_END = 2.;
+double T_END = 1.24;
 
 /** dimensionless properties, normalized by scaling variables rhol, D, sigma
  */
@@ -33,8 +33,8 @@ double mu_L=5.275e-3;
 double mu_V=9.077e-5;
 double u0 = 83.33;        //free stream velocity
 double h   = 0.2;          //initial gap between drop and inlet
-double femax = 0.01;
-double uemax = 0.09;
+double femax = 0.0001;
+double uemax = 0.01;
 double maxruntime = 2.5;
 
 double time_restart = 0.;
@@ -104,35 +104,25 @@ event velocity(i++){
 
 char outpath[80];
 event plot(t += t_out){
-    //view(tx=-0.5,ty=-0.5,sx=1,sy=1,camera="front",width=1000,height=1000);
-    //
-    //clear();
-    //scalar skelid[];
-    //for(skelid in interfaceid){
-    //  sprintf(outpath,"Img/id-%5.3f.png",t);
-    //  //draw_vof("f");
-    //  squares(color = "skelid");
-    //  box();
-    //  //cells();
-    //  save(file = outpath);
-    //  
-    //  clear();
-    //  //foreach(){
-    //  //    if(skelid[] != 0.){
-    //  //      printf("%f\n",skelid[]);
-    //  //    }
-    //  //}
-    //}    
+    view(tx=-0.5,ty=-0.5,sx=1,sy=1,camera="front",width=1000,height=1000);
     
     clear();
-    //sprintf(outpath,"Img/levelint-%5.3f.png",t);
-    //draw_vof("f");
-    //squares(color = "level",min = 1, max = max_level);
-    //box();
-    //cells();
-    //save(file = outpath);
-    //
-    //clear();
+    sprintf(outpath,"Img/id-%5.3f.png",t);
+    draw_vof("f");
+    scalar fid = f.fid;
+    squares(color = "fid");
+    box();
+    cells();
+    save(file = outpath);
+    clear();
+    sprintf(outpath,"Img/levelint-%5.3f.png",t);
+    draw_vof("f");
+    squares(color = "level",min = 1, max = max_level);
+    box();
+    cells();
+    save(file = outpath);
+    
+    clear();
 //    
 //    //sprintf(outpath,"Img/ux-%5.3f.png",t);
 //    //squares(color = "u.x");

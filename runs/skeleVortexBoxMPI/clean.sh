@@ -14,4 +14,5 @@ rm -r vortex 2> /dev/null
 rm -r dat/* 2> /dev/null
 rm  log* 2> /dev/null
 rm -r mtrace* 2> /dev/null
+rm -r valgrind.txt 2> /dev/null
 rm -r core 2> /dev/null

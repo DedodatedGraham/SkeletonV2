@@ -20,9 +20,9 @@ double** output_points_2smooth(struct OutputXYNorm p, int *nrow,int *ndim, doubl
     foreach(serial){
         if(c[] > 1e-6 && c[] < 1.-1e-6){
             coord n = facet_normal(point, c, s);
-	        double alpha = plane_alpha(c[], n);
+	        double aalpha = plane_alpha(c[], n);
 	        coord pc;
-	        double area = plane_area_center(n, alpha, &pc);
+	        double area = plane_area_center(n, aalpha, &pc);
 	        if(area==0){
 	            printf("Area=Null\n");// This statement is just to make some use of the area info. otherwise compiler throws warning!!
 	        }
@@ -433,10 +433,12 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
     }
     restriction({c});
     boundary({vofref});//update over MPI for correct foreach
+    //restriction({vofref});
     for(int q = max_level - 1; q >= 0; q--){
         //printf("aahh%d tree?%d\n",q,tree_is_full());
         boundary_level({vofref},q);
     }
+    boundary({vofref});//update over MPI for correct foreach
     face vector s = p.s;
     if(!s.x.i) s.x.i = -1;
     //Because MPI we smooth alittle differently, first we compute true vof points and normals
@@ -445,16 +447,15 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
     char vofout[80];
     sprintf(vofout,"dat/vofinfo-%5.3f-p%d.dat",t,pid());
     FILE *voffile = fopen(vofout,"w");
-    scalar fid[] = c.fid;
     foreach(){
         int ref = (int)vofref[];
         struct smooths *smoothnow = vofref.smooth;
-        fprintf(voffile,"%f %f %f %f\n",x,y,Delta,fid[]);//outputs x y delta for reconstruction of vof field
+        fprintf(voffile,"%f %f %f \n",x,y,Delta);//outputs x y delta for reconstruction of vof field
         if(c[] > 1e-6 && c[] < 1.-1e-6 && vofref[] != nodata){
             coord n = facet_normal(point, c, s);
-	        double alpha = plane_alpha(c[], n);
+	        double aalpha = plane_alpha(c[], n);
 	        coord pc;
-	        double area = plane_area_center(n, alpha, &pc);
+	        double area = plane_area_center(n, aalpha, &pc);
 	        if(area==0){
 	            printf("Area=Null\n");// This statement is just to make some use of the area info. otherwise compiler throws warning!!
 	        }
@@ -463,6 +464,7 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
             smoothnow->points[ref][1] = (y+Delta*pc.y);
             smoothnow->points[ref][2] = n.x;
             smoothnow->points[ref][3] = n.y;
+            //printf("setting %d\n",ref);
             foreach_neighbor(){
                 int nref = (int)vofref[];
                 if(cell.pid != pid() && c[] > 1e-6 && c[] < 1.-1e-6 && vofref[] != nodata && smoothnow->mpicomputed[nref] < 0){
@@ -573,22 +575,23 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
             //First we will go though and collect all needed 
             //First in X
             int indx = 0;
-            double *pnow = smoothnow->points[ref];
-            foreach_neighbor(1){
+            //double *pnow = smoothnow->points[ref];
+            foreach_neighbor(){
                 if(c[] > 1e-6 && c[] < 1.-1e-6 && vofref[] != nodata){
                     int nref = (int)vofref[];
                     //printf("nref->%d/%f\n",nref,vofref[]);
                     double *pnew = smoothnow->points[nref];
-                    if(((pnew[2] / pnow[2]) > 0.  || (pnew[3] / pnow[3]) > 0.) && fabs(pnew[2] - pnow[2]) < 0.5 && fabs(pnew[3] - pnow[3]) < 0.5){
+                    if(pnew[0] != 0. && pnew[1] != 0.){
                         localSpline[indx][0] = pnew[0];
                         localSpline[indx][1] = pnew[1];
                         indx++;
+
                     }
                 }
             }
             //Now we have all the points we want, so we next find our approx valuesj
             int n = 2;//order of our fit
-            if(indx >= n){
+            if(indx > n){
                 //allocate
                 double *X = (double*)calloc((2*n+1) , sizeof(double));
                 double *Y = (double*)calloc((n + 1) , sizeof(double));
@@ -673,7 +676,6 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
                     }
                     free(A);
                     free(AP);
-                
                 }
                 else{
                     for(int i = 0; i <= 2*n; i++){
@@ -751,14 +753,6 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
                     free(A);
                     free(AP);
                 }
-                if(fabs(smoothnow->smoothpoints[ref][0] - smoothnow->points[ref][0]) > mdel/2 || fabs(smoothnow->smoothpoints[ref][0] - smoothnow->points[ref][0]) > mdel/2){
-                    printf("\nStencil Error!\n");
-                    printf("input point [%f,%f,%f,%f]\n",smoothnow->points[ref][0],smoothnow->points[ref][1],smoothnow->points[ref][2],smoothnow->points[ref][3]);
-                    for(int i = 0; i < indx; i++){
-                        printf("stencil:%d [%f,%f]\n",indx,localSpline[i][0],localSpline[i][1]);
-                    }
-                    printf("output point [%f,%f,%f,%f]\n",smoothnow->smoothpoints[ref][0],smoothnow->smoothpoints[ref][1],smoothnow->smoothpoints[ref][2],smoothnow->smoothpoints[ref][3]);
-                }
                 //freeup variables
                 for(int i = 0; i < n+1; i++){
                     free(B[i]);
@@ -767,21 +761,31 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
                 free(X);
                 free(Y);
             }
+            else{
+                printf("\n\n\nerror warning @ %d\n\n\n",ref);
+                for(int q = 0; q < dimension * 2; q++)smoothnow->smoothpoints[ref][q] = smoothnow->points[ref][q];
+            }
+            double testx = smoothnow->smoothpoints[ref][0];
+            double testy = smoothnow->smoothpoints[ref][1];
+            if(testx > x + Delta/2 || testx < x - Delta/2){
+                if(testy > y + Delta/2 || testy < y - Delta/2){
+                    printf("\nerror tracker point out of bounds :( - %d (%d/%d)\n",ref,pid(),cell.pid);
+                    printf("point in - [%f,%f,%f,%f]\n",smoothnow->points[ref][0],smoothnow->points[ref][1],smoothnow->points[ref][2],smoothnow->points[ref][3]);
+                    printf("point out - [%f,%f,%f,%f]\n",testx,testy,smoothnow->smoothpoints[ref][2],smoothnow->smoothpoints[ref][3]);
+                    for(int q = 0; q < indx; q++){
+                        printf("ls - [%f,%f]\n",localSpline[q][0],localSpline[q][1]);
+                    }
+                    printf("\n");
+                }
+            }
             for(int i = 0;i < 25; i++){
                 free(localSpline[i]);
             }
             free(localSpline);
-            //if(vofref[] == 63.){
-            //    double *pnt = smoothnow->smoothpoints[ref];
-            //    printf("\nerrorchecker @ -%d => [%f,%f,%f,%f]\n",indx,pnt[0],pnt[1],pnt[2],pnt[3]);
-            //    for(int q = 0; q < indx; q++){
-            //        printf("%d - [%f,%f]\n",q,localSpline[q][0],localSpline[q][1]);
-            //    }
-            //    printf("\n");
-            //}
         }
     }
     MPI_Barrier(MPI_COMM_WORLD);
+    vofref.smooth = smooth;//sets the field to point at our structure
     //finally we need to free the struct and its variables allocated
     free(localcalc);
 }
@@ -811,14 +815,17 @@ void extract_ip_MPI(double ***parr,scalar c,scalar vofref,int *countn,int *dim,i
             int ref = (int)vofref[];
             struct smooths *smoothnow = vofref.smooth;
             for(int q = 0; q < *dim; q++){
+                if(isnan(smoothnow->smoothpoints[ref][q]) || isnan(smoothnow->smoothpoints[ref][q+*dim])){
+                    printf("error from smoothnow[%d] [%d] or [%d]\n",ref,q,q+*dim);
+                }
                 passarr[pid()][i[pid()]][q] = smoothnow->smoothpoints[ref][q];//set x
                 passarr[pid()][i[pid()]][q+*dim] = smoothnow->smoothpoints[ref][q+*dim];//set xnorm
             }
             passarr[pid()][i[pid()]][*dim*2] = fabs(1./kappa[]);
-            //if(isnan(passarr[pid()][i[pid()]][0]) || isnan(passarr[pid()][i[pid()]][1]) || isnan(passarr[pid()][i[pid()]][2]) || isnan(passarr[pid()][i[pid()]][3])){
-            //    double *pnt = smoothnow->smoothpoints[ref];
-            //    printf("error0 @ -%d => [%f,%f,%f,%f]\n",ref,pnt[0],pnt[1],pnt[2],pnt[3]);
-            //} 
+            if(isnan(passarr[pid()][i[pid()]][0]) || isnan(passarr[pid()][i[pid()]][1]) || isnan(passarr[pid()][i[pid()]][2]) || isnan(passarr[pid()][i[pid()]][3])){
+                double *pnt = smoothnow->smoothpoints[ref];
+                printf("error0 @ %d => [%f,%f,%f,%f]\n",ref,pnt[0],pnt[1],pnt[2],pnt[3]);
+            } 
             i[pid()]++;
             //finally we loop through our close neighbors and grab their values
             foreach_neighbor(){
@@ -829,10 +836,10 @@ void extract_ip_MPI(double ***parr,scalar c,scalar vofref,int *countn,int *dim,i
                         passarr[pid()][i[pid()]][q+*dim] = smoothnow->smoothpoints[nref][q+*dim];//set xnorm
                     }
                     passarr[pid()][i[pid()]][*dim*2] = fabs(1./kappa[]);
-                    //if(isnan(passarr[pid()][i[pid()]][0]) || isnan(passarr[pid()][i[pid()]][1]) || isnan(passarr[pid()][i[pid()]][2]) || isnan(passarr[pid()][i[pid()]][3])){
-                    //    double *pnt = smoothnow->smoothpoints[nref];
-                    //    printf("error1 @ -%d => [%f,%f,%f,%f]",nref,pnt[0],pnt[1],pnt[2],pnt[3]);
-                    //} 
+                    if(isnan(passarr[pid()][i[pid()]][0]) || isnan(passarr[pid()][i[pid()]][1]) || isnan(passarr[pid()][i[pid()]][2]) || isnan(passarr[pid()][i[pid()]][3])){
+                        double *pnt = smoothnow->smoothpoints[nref];
+                        printf("error1 @ %d => [%f,%f,%f,%f]\n",nref,pnt[0],pnt[1],pnt[2],pnt[3]);
+                    } 
                     i[pid()]++;
                 }
             }
@@ -873,8 +880,7 @@ void extract_ip_MPI(double ***parr,scalar c,scalar vofref,int *countn,int *dim,i
             fprintf(savefile,"%f %f %f %f %f\n",passarr[pid()][q][0],passarr[pid()][q][1],passarr[pid()][q][2],passarr[pid()][q][3],passarr[pid()][q][4]);
 #else
             fprintf(savefile,"%f %f %f %f %f %f %f\n",passarr[pid()][q][0],passarr[pid()][q][1],passarr[pid()][q][2],passarr[pid()][q][3],passarr[pid()][q][4],passarr[pid()][q][5],passarr[pid()][q][6]);
-#endif
-        
+#endif   
         }
     }
     //clean up needed
@@ -883,10 +889,15 @@ void extract_ip_MPI(double ***parr,scalar c,scalar vofref,int *countn,int *dim,i
     delete({kappa});
     //Setup our array which will be ported out with the correct size :)
     double **newarr = malloc(newcount * sizeof(double*));
-    for(int q = 0; q < newcount; q++){
-        newarr[q] = calloc((*dim * 2) + 1,sizeof(double));
-        for(int p = 0; p < (*dim * 2) + 1; p++){
-            newarr[q][p] = passarr[pid()][q][p];
+    int q = 0;
+    for(int t = 0; t < *countn; t++){
+        if(tagarr[t]){// && passarr[pid()][t][*dim] != 0. && passarr[pid()][t][*dim+1] != 0.){
+            newarr[q] = calloc((*dim * 2) + 1,sizeof(double));
+            for(int p = 0; p < (*dim * 2) + 1; p++){
+                newarr[q][p] = passarr[pid()][t][p];
+            }
+            //printf("newinterface Skeleton - %d => [%f,%f,%f,%f]\n",q,passarr[pid()][q][0],passarr[pid()][q][1],passarr[pid()][q][2],passarr[pid()][q][3]);
+            q++;
         }
     }
     //finally free up old arr
@@ -969,14 +980,20 @@ void calcSkeletonMPI(scalar f,double *alpha, int *dim,int max_level,double L,dou
     //calc skeleton
     //printf("(%d/%d): starting local skeleton\n", pid(),comm_size);
     countn[pid()] = countn[pid()] - 1;
-    double skelemin = mindis * 0.1;
+    double skelemin = mindis * 0.5;
     char savename[80];
-    double **skeleton = skeletize(interfacePoints,&countn[pid()],dim,savename,&skelemin,false,*alpha);
-    
+    //printf("sklelemin -> %f\n",skelemin);
+    double **skeleton = NULL; 
+    skeletize(interfacePoints,&countn[pid()],dim,savename,&skelemin,false,*alpha,&skeleton);
     //Next we thin out our skeleton
     //printf("(%d/%d): smoothing local skeleton\n", pid(),comm_size);
-    double thindis = mindis / 2.;//when r is more than delta/2 :(
-    thinSkeleton(&skeleton,dim,&countn[pid()],alpha,&thindis);
+    double thindis = mindis;//when r is more than delta/2 :(
+    char noname[80];
+    sprintf(noname,"dat/skeletonthin-%5.3f-p%d.dat",t,pid());
+    //printf("name - %5.3f %d\n",t,pid());
+    //printf("=%s",noname);
+    thinSkeleton(&skeleton,dim,&countn[pid()],alpha,&thindis,noname);
+    MPI_Barrier(MPI_COMM_WORLD);
     
     sprintf(savename,"dat/skeletonscatter-%5.3f-p%d.dat",t,pid());
     FILE *savefile = fopen(savename,"w");

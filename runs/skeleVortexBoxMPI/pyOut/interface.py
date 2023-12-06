@@ -46,5 +46,5 @@ def PlotInterface(interface,dim,time,np,ax,cmap,maxk):
     for i in range(np):
         if len(interface[i][0]) > 0:
             color = cmap(i / np)
-            ax.scatter(interface[i][0],interface[i][1],s=4,color=color)
-            #ax.quiver(interface[i][0],interface[i][1],interface[i][2],interface[i][3],color=color)
+            ax.scatter(interface[i][0],interface[i][1],s=1,color=color)
+            ax.quiver(interface[i][0],interface[i][1],interface[i][2],interface[i][3],scale=100.0,color=color)
