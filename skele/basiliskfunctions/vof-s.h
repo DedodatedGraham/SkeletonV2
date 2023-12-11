@@ -1,8 +1,38 @@
+#ifndef  _skel
+#define _skel = 1
+#endif
+
 #if dimension == 2
 int dim = 2;
+double *getBounds(double x, double y, double Delta){
+  double *retpoint = malloc(4*sizeof(double));//[Xmin,Xmax,Ymin,Ymax]
 #else
 int dim = 3;
+double *getBounds(double x, double y,double z, double Delta){
+  double *retpoint = malloc(6*sizeof(double));
 #endif
+  retpoint[0] = x-Delta/2;
+  retpoint[1] = x+Delta/2;
+  retpoint[2] = y-Delta/2;
+  retpoint[3] = y+Delta/2;
+#if dimension == 3
+  retpoint[4] = z-Delta/2;
+  retpoint[5] = z+Delta/2;
+#endif
+  return retpoint;
+}
+
+int pointInsideCell(double *bounds, double *point){
+  if(bounds[0] < point[0] && bounds[1] > point[0]){
+    if(bounds[2] < point[1] && bounds[3] > point[2]){
+#if dimension == 3
+      if(bounds[4] < point[2] && bounds[5] > point[2])
+#endif
+        return 1;
+    }
+  }
+  return 0;
+}
 
 #if _MPI
 int comm_size = 0;    
@@ -50,6 +80,24 @@ struct skeledata{
   double **holdpoints;
   int *hplength;
 };
+void addneighbor(struct skeledata *skel,int nref0,int nref1){
+  //this function takes in a structure and adds to the neighbor field of it
+  printf("neighcalc %d - %d",nref0,nref1);
+  skel->neighbors[nref0] = realloc(skel->neighbors[nref0],(skel->nlengths[nref0] + 1)*sizeof(int));
+  printf("r0 good\n");
+  skel->neighbors[nref0][skel->nlengths[nref0]] = nref1;
+  printf("r0set good\n");
+  printf("r0l b4 %d\n",skel->nlengths[nref0]);
+  skel->nlengths[nref0]++;
+  printf("r0l good %d\n",skel->nlengths[nref0]);
+  skel->neighbors[nref1] = realloc(skel->neighbors[nref1],(skel->nlengths[nref1] + 1)*sizeof(int));
+  printf("r1 good\n");
+  skel->neighbors[nref1][skel->nlengths[nref1]] = nref0;
+  printf("r1set good\n");
+  printf("r1l b4 %d\n",skel->nlengths[nref1]);
+  skel->nlengths[nref1]++;
+  printf("r1l good %d\n",skel->nlengths[nref1]);
+}
 
 //We use a structure associated with transportfid, this allows us to have multiple normals and interfaces within a cell, and still be used
 struct reconstructTransport{
@@ -60,6 +108,24 @@ struct reconstructTransport{
   double *alphas;//individual alphas
   int *length;//length of normals and alphas
 };
+void deleteRT(struct reconstructTransport *RTD){
+  if(RTD != NULL){
+    for(int i = 0; i < *RTD->length; i++){
+      free(RTD->normals[i]);
+    }
+    free(RTD->alphas);
+    free(RTD->normals);
+    free(RTD->length);
+    for(int i = 0; i < *RTD->illength; i++){
+        free(RTD->interfaceLocations[i]);
+    }
+    free(RTD->interfaceLocations);
+    free(RTD->interfacecount);
+    free(RTD->illength);
+    free(RTD);
+  }
+}
+
 attribute {
   scalar * tracers, c, fid,rid;
   bool inverse;
@@ -67,7 +133,7 @@ attribute {
   struct reconstructTransport *recont;
 }
 
-#include "fractions-s.h"
+#include "fractions.h"
 #include "skele/skeleton.h"
 
 extern scalar * interfaces;
@@ -277,7 +343,7 @@ static void sweep_x (scalar c, scalar cc, scalar * tcl)
     foreach() {
       scalar t, gf;
       for (t,gf in tracers,gfl)
-	gf[] = vof_concentration_gradient_x (point, c, t);
+	    gf[] = vof_concentration_gradient_x (point, c, t);
     }
   }
   
@@ -287,7 +353,6 @@ static void sweep_x (scalar c, scalar cc, scalar * tcl)
   the grid. */
 
   reconstruction (c, n, alpha);
-  //reconstructionCorrectionSkel(c, n, alpha);
   foreach_face(x, reduction (max:cfl)) {
 
     /**
@@ -406,35 +471,6 @@ static void sweep_x (scalar c, scalar cc, scalar * tcl)
 
 The multi-dimensional advection is performed by the event below. */
 
-#if dimension == 2
-double *getBounds(double x, double y, double Delta){
-  double *retpoint = malloc(4*sizeof(double));//[Xmin,Xmax,Ymin,Ymax]
-#else
-double *getBounds(double x, double y,double z, double Delta){
-  double *retpoint = malloc(6*sizeof(double));
-#endif
-  retpoint[0] = x-Delta/2;
-  retpoint[1] = x+Delta/2;
-  retpoint[2] = y-Delta/2;
-  retpoint[3] = y+Delta/2;
-#if dimension == 3
-  retpoint[4] = z-Delta/2;
-  retpoint[5] = z+Delta/2;
-#endif
-  return retpoint;
-}
-
-int pointInsideCell(double *bounds, double *point){
-  if(bounds[0] < point[0] && bounds[1] > point[0]){
-    if(bounds[2] < point[1] && bounds[3] > point[2]){
-#if dimension == 3
-      if(bounds[4] < point[2] && bounds[5] > point[2]){
-#endif
-      return 1;
-    }
-  }
-  return 0;
-}
 
 void skelPushValues(double *val1, double *val2,int amount){
     //for setting all values of 1 equal to value 2
@@ -442,24 +478,23 @@ void skelPushValues(double *val1, double *val2,int amount){
         val1[i] = val2[i];
     }
 }
+#include "fractions-s.h"
 
 //Here wee have the 1D advection implementation for vof-skeleton combination
 foreach_dimension()
-static void sweep_s_x (scalar c, scalar cc, scalar * tcl)
+static void skeladv_x (scalar c, scalar cc, scalar * tcl)
 {
   vector n[];
   scalar rid[];//rid is the flag for if an interface has multiple within a cell 
   scalar alpha[], flux[];
   alpha.rid = rid;
-  n.x.rid = rid;
-  n.y.rid = rid;
-  scalar fid = c.fid;
-  struct skeledata *sd = c.skel;
+  //n.x.rid = rid;
+  //scalar fid = c.fid;
+  //struct skeledata *sd = c.skel;
   //set up our structure needed for appropriate calculation
-  struct reconstructTransport *rt = malloc(sizeof(struct reconstructTransport));
+  struct reconstructTransport *rt = NULL;
   alpha.recont = rt;
-  n.x.recont = rt;
-  n.y.recont = rt;
+  //n.x.recont = rt;
   //build reconstruction id, based on if skeleton points are present near, for all cells
   double cfl = 0.;
   scalar * tracers = c.tracers, * gfl = NULL, * tfluxl = NULL;
@@ -509,88 +544,92 @@ static void sweep_s_x (scalar c, scalar cc, scalar * tcl)
     When the upwind cell is entirely full or empty we can avoid this
     computation. */
 
-    double cf = (c[i] <= 0. || c[i] >= 1.) ? c[i] :
-      rectangle_fraction ((coord){-s*n.x[i], n.y[i], n.z[i]}, alpha[i],
-			  (coord){-0.5, -0.5, -0.5},
-			  (coord){s*un - 0.5, 0.5, 0.5});
-    
-    /**
-    Once we have the upwind volume fraction *cf*, the volume fraction
-    flux through the face is simply: */
+  //  double cf = (c[i] <= 0. || c[i] >= 1.) ? c[i] :
+  //    rectangle_fraction ((coord){-s*n.x[i], n.y[i], n.z[i]}, alpha[i],
+  //  		  (coord){-0.5, -0.5, -0.5},
+  //  		  (coord){s*un - 0.5, 0.5, 0.5});
+  //  
+  //  /**
+  //  Once we have the upwind volume fraction *cf*, the volume fraction
+  //  flux through the face is simply: */
 
-    flux[] = cf*uf.x[];
+  //  flux[] = cf*uf.x[];
 
-    /**
-    If we are transporting tracers, we compute their flux using the
-    upwind volume fraction *cf* and a tracer value upwinded using the
-    Bell--Collela--Glaz scheme and the gradient computed above. */
-    
-    scalar t, gf, tflux;
-    for (t,gf,tflux in tracers,gfl,tfluxl) {
-      double cf1 = cf, ci = c[i];
-      if (t.inverse)
-	cf1 = 1. - cf1, ci = 1. - ci;
-      if (ci > 1e-10) {
-	double ff = t[i]/ci + s*min(1., 1. - s*un)*gf[i]*Delta/2.;
-	tflux[] = ff*cf1*uf.x[];
-      }
-      else
-	tflux[] = 0.;
-    }
+  //  /**
+  //  If we are transporting tracers, we compute their flux using the
+  //  upwind volume fraction *cf* and a tracer value upwinded using the
+  //  Bell--Collela--Glaz scheme and the gradient computed above. */
+  //  
+  //  scalar t, gf, tflux;
+  //  for (t,gf,tflux in tracers,gfl,tfluxl) {
+  //    double cf1 = cf, ci = c[i];
+  //    if (t.inverse)
+  //  cf1 = 1. - cf1, ci = 1. - ci;
+  //    if (ci > 1e-10) {
+  //  double ff = t[i]/ci + s*min(1., 1. - s*un)*gf[i]*Delta/2.;
+  //  tflux[] = ff*cf1*uf.x[];
+  //    }
+  //    else
+  //  tflux[] = 0.;
+  //  }
   }
   delete (gfl); free (gfl);
-  
-  /**
-  We warn the user if the CFL condition has been violated. */
+  //
+  ///**
+  //We warn the user if the CFL condition has been violated. */
 
-  if (cfl > 0.5 + 1e-6)
-    fprintf (ferr, 
-	     "WARNING: CFL must be <= 0.5 for VOF (cfl - 0.5 = %g)\n", 
-	     cfl - 0.5), fflush (ferr);
+  //if (cfl > 0.5 + 1e-6)
+  //  fprintf (ferr, 
+  //       "WARNING: CFL must be <= 0.5 for VOF (cfl - 0.5 = %g)\n", 
+  //       cfl - 0.5), fflush (ferr);
 
-  /**
-  Once we have computed the fluxes on all faces, we can update the
-  volume fraction field according to the one-dimensional advection
-  equation
-  $$
-  \partial_tc = -\nabla_x\cdot(\mathbf{u}_f c) + c\nabla_x\cdot\mathbf{u}_f
-  $$
-  The first term is computed using the fluxes. The second term -- which is
-  non-zero for the one-dimensional velocity field -- is approximated using
-  a centered volume fraction field `cc` which will be defined below. 
+  ///**
+  //Once we have computed the fluxes on all faces, we can update the
+  //volume fraction field according to the one-dimensional advection
+  //equation
+  //$$
+  //\partial_tc = -\nabla_x\cdot(\mathbf{u}_f c) + c\nabla_x\cdot\mathbf{u}_f
+  //$$
+  //The first term is computed using the fluxes. The second term -- which is
+  //non-zero for the one-dimensional velocity field -- is approximated using
+  //a centered volume fraction field `cc` which will be defined below. 
 
-  For tracers, the one-dimensional update is simply
-  $$
-  \partial_tt_j = -\nabla_x\cdot(\mathbf{u}_f t_j)
-  $$
-  */
+  //For tracers, the one-dimensional update is simply
+  //$$
+  //\partial_tt_j = -\nabla_x\cdot(\mathbf{u}_f t_j)
+  //$$
+  //*/
 
 #if !EMBED
-  foreach() {
-    c[] += dt*(flux[] - flux[1] + cc[]*(uf.x[1] - uf.x[]))/(cm[]*Delta);
-    scalar t, tc, tflux;
-    for (t, tc, tflux in tracers, tcl, tfluxl)
-      t[] += dt*(tflux[] - tflux[1] + tc[]*(uf.x[1] - uf.x[]))/(cm[]*Delta);
-  }
+  //foreach() {
+  //  c[] += dt*(flux[] - flux[1] + cc[]*(uf.x[1] - uf.x[]))/(cm[]*Delta);
+  //  scalar t, tc, tflux;
+  //  for (t, tc, tflux in tracers, tcl, tfluxl)
+  //    t[] += dt*(tflux[] - tflux[1] + tc[]*(uf.x[1] - uf.x[]))/(cm[]*Delta);
+  //}
 #else // EMBED
-  /**
-  When dealing with embedded boundaries, we simply ignore the fraction
-  occupied by the solid. This is a simple approximation which has the
-  advantage of ensuring boundedness of the volume fraction and
-  conservation of the total tracer mass (if it is computed also
-  ignoring the volume occupied by the solid in partial cells). */
-  
-  foreach()
-    if (cs[] > 0.) {
-      c[] += dt*(flux[] - flux[1] + cc[]*(uf.x[1] - uf.x[]))/Delta;
-      scalar t, tc, tflux;
-      for (t, tc, tflux in tracers, tcl, tfluxl)
-	    t[] += dt*(tflux[] - tflux[1] + tc[]*(uf.x[1] - uf.x[]))/Delta;
-    }
+  ///**
+  //When dealing with embedded boundaries, we simply ignore the fraction
+  //occupied by the solid. This is a simple approximation which has the
+  //advantage of ensuring boundedness of the volume fraction and
+  //conservation of the total tracer mass (if it is computed also
+  //ignoring the volume occupied by the solid in partial cells). */
+  //
+  //foreach()
+  //  if (cs[] > 0.) {
+  //    c[] += dt*(flux[] - flux[1] + cc[]*(uf.x[1] - uf.x[]))/Delta;
+  //    scalar t, tc, tflux;
+  //    for (t, tc, tflux in tracers, tcl, tfluxl)
+  //      t[] += dt*(tflux[] - tflux[1] + tc[]*(uf.x[1] - uf.x[]))/Delta;
+  //  }
 #endif // EMBED
 
   delete (tfluxl); free (tfluxl);
+  delete({rid});
+  rt = alpha.recont;
+  deleteRT(rt);
 }
+
 
 //hold passable dimension for skeleton, is static
 void inject_skele(scalar c, double **inputSkeleton, int *length, int reali){
@@ -644,10 +683,13 @@ void inject_skele(scalar c, double **inputSkeleton, int *length, int reali){
     }
   }
   //now that we are done with our input skeleton, we free it up
-  for(int q = 0; q < *length; q++){
-    free(inputSkeleton[q]);
+  if(inputSkeleton != NULL){
+    for(int q = 0; q < *length; q++){
+      free(inputSkeleton[q]);
+    }
+    free(inputSkeleton);
+    inputSkeleton = NULL;
   }
-  free(inputSkeleton);
 #if _MPI
   int istart = 0;
   int iend = 0;
@@ -682,7 +724,7 @@ void inject_skele(scalar c, double **inputSkeleton, int *length, int reali){
     //points and keep consisten numbering;
     double **pointfull = malloc(ilength * sizeof(double*));//holds our points in relevant positions
     int **neighborfull = malloc(ilength * sizeof(double*));//holds our neighbor points to relevant positions
-    int *neighborfulllength = malloc(ilength * sizeof(int));//holds the amount of neighbors which we have
+    int *neighborfulllength = calloc(ilength , sizeof(int));//holds the amount of neighbors which we have
     for(int i = 0; i < ilength; i++){
         pointfull[i] = calloc(dim + 1,sizeof(double));//set space for dim + r
         neighborfull[i] = calloc(1,sizeof(double));//only set space for one for now...
@@ -716,11 +758,9 @@ void inject_skele(scalar c, double **inputSkeleton, int *length, int reali){
     skel->neighbors = neighborfull;
     skel->nlengths = neighborfulllength;
     //now that we have put our values safely into their own space we get rid of other allocations
-    free(addid);
-    for(int i = 0; i < csindx; i++){
-      free(computeSkel[i]);
+    for(int i = 0; i < *length; i++){
+      if(computeSkel[i] != NULL)free(computeSkel[i]);
     }
-    free(computeSkel);
     //Next we can go through and add in our intermediate values
     boundary({fid});
     for(int q = max_level - 1; q >= 0; q--){
@@ -730,7 +770,7 @@ void inject_skele(scalar c, double **inputSkeleton, int *length, int reali){
     foreach(){
       if(fid[] == 0.){
         double val = 0.;
-        foreach_neighbor(){
+        foreach_neighbor(1){
           if(fid[] > 0.99){
             //printf("val1 = %f -> %f\n",val,fid[]);
             val = -1. * fid[];
@@ -739,8 +779,21 @@ void inject_skele(scalar c, double **inputSkeleton, int *length, int reali){
         }
         fid[] = val;
       }
+      if(fid[] > 0.99){
+        int nref = (int)fid[] - 1;//shit down
+        double href = fid[];
+        foreach_neighbor(1){
+          //if neighbor has val we add it to our structure
+          if(fid[] > 0.99 && fid[] != href){
+            printf("adding %d & %f\n",nref,fid[]);
+            addneighbor(skel,nref,(int)fid[] - 1);
+          }
+        }
+      }
     }
   }
+  free(computeSkel);
+  free(addid);
   //at the end we want to be sure and clean each
 }
 
@@ -766,7 +819,7 @@ void scanSkel(scalar * interfaces,int i){
         }
       }
 #endif
-      double **calcskeleton;//skeleton container
+      double **calcskeleton = NULL;//skeleton container
       int skelelength = 0;
       printf("calc @ %d\n",i);
 #if _MPI
@@ -790,7 +843,7 @@ void real_vof_advection (scalar * interfaces, int i)
     step function which guarantees exact mass conservation for the
     multi-dimensional advection scheme (provided the advection velocity
     field is exactly non-divergent). */
-    scalar fid = c.fid;
+    //scalar fid = c.fid;
     struct skeledata *sd = c.skel;
     scalar cc[], * tcl = NULL, * tracers = c.tracers;    
     for (scalar t in tracers) {
@@ -825,7 +878,7 @@ void real_vof_advection (scalar * interfaces, int i)
       void (* sweep[dimension]) (scalar, scalar, scalar *);
       int d = 0;
       foreach_dimension()
-        sweep[d++] = sweep_s_x;
+        sweep[d++] = skeladv_x;
       for (d = 0; d < dimension; d++)
         sweep[(i + d) % dimension] (c, cc, tcl);
       delete (tcl), free (tcl);
@@ -872,8 +925,6 @@ void destroySkel(scalar *interfaces){
   free(active_PID);
 #endif
 }
-
-    
 
 event vof (i++){
   vof_advection (interfaces, i);

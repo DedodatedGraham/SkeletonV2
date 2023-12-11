@@ -373,7 +373,16 @@ static inline void smoothvof_restriction(Point point, scalar s){
     }
 }
 #endif
-
+int checknorm(double *p0,double *p1){
+    double dp = 0.;
+    for(int i = 0; i < dimension; i++){
+        dp = dp + p0[dimension+i]  * p1[dimension+i];
+    }
+    if(dp >= 0){
+        return 1;
+    }
+    return 0;
+}
 //Basilisk -> Skeleton -> Basilisk MPI comunication 
 #if _MPI
 void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_level){
@@ -465,12 +474,6 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
             smoothnow->points[ref][2] = n.x;
             smoothnow->points[ref][3] = n.y;
             //printf("setting %d\n",ref);
-            foreach_neighbor(){
-                int nref = (int)vofref[];
-                if(cell.pid != pid() && c[] > 1e-6 && c[] < 1.-1e-6 && vofref[] != nodata && smoothnow->mpicomputed[nref] < 0){
-                    smoothnow->mpicomputed[nref] = cell.pid;
-                }
-            }
         }
     }
     fflush(voffile);
@@ -480,6 +483,15 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
     //multigrid_restriction({vofref});
     boundary({vofref});
     MPI_Barrier(MPI_COMM_WORLD);
+    foreach(){
+        struct smooths *smoothnow = vofref.smooth;
+        foreach_neighbor(){
+            int nref = (int)vofref[];
+            if(cell.pid != pid() && c[] > 1e-6 && c[] < 1.-1e-6 && vofref[] != nodata && smoothnow->mpicomputed[nref] < 0 && !smoothnow->points[nref][0]){
+                smoothnow->mpicomputed[nref] = cell.pid;
+            }
+        }
+    }
     //After our barrier we want to gather MPI values and store them inside our structure
     //To do this we will first build a list of pid's we will need to send&recieve from, each will have to send and recieve some amount of values
     int *pidmarker = calloc(comm_size , sizeof(int));//counts wanted information
@@ -557,16 +569,17 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
         }
         MPI_Barrier(MPI_COMM_WORLD);//barrier ensures all processes will stay relevant to eachother
     }
+    vofref.smooth = smoothp;
     for(int i = 0; i < comm_size; i++){
         free(pidlocation[i]);
     }
     free(pidlocation);
     free(pidmarker);
+    struct smooths *smoothnow = vofref.smooth;
     foreach(){
         if(c[] > 1e-6 && c[] < 1.-1e-6 && vofref[] != nodata){
             int ref = (int)vofref[];
             //printf("calc @ %f - level %d\n",vofref[],depth());
-            struct smooths *smoothnow = vofref.smooth;
             //Here we know we are currently located at an interface point we want. 
             double **localSpline = malloc(25*sizeof(double*));//allocated max amount of points
             for(int i = 0; i < 25; i++){
@@ -575,13 +588,13 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
             //First we will go though and collect all needed 
             //First in X
             int indx = 0;
-            //double *pnow = smoothnow->points[ref];
+            double *pnow = smoothnow->points[ref];
             foreach_neighbor(){
                 if(c[] > 1e-6 && c[] < 1.-1e-6 && vofref[] != nodata){
                     int nref = (int)vofref[];
                     //printf("nref->%d/%f\n",nref,vofref[]);
                     double *pnew = smoothnow->points[nref];
-                    if(pnew[0] != 0. && pnew[1] != 0.){
+                    if(pnew[0] != 0. && pnew[1] != 0. && checknorm(pnow,pnew)){
                         localSpline[indx][0] = pnew[0];
                         localSpline[indx][1] = pnew[1];
                         indx++;
@@ -770,6 +783,7 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
             if(testx > x + Delta/2 || testx < x - Delta/2){
                 if(testy > y + Delta/2 || testy < y - Delta/2){
                     printf("\nerror tracker point out of bounds :( - %d (%d/%d)\n",ref,pid(),cell.pid);
+                    printf("ref got: %d [%f,%f,%f,%f]\n",ref,smoothnow->points[ref][0],smoothnow->points[ref][1],smoothnow->points[ref][2],smoothnow->points[ref][3]);
                     printf("point in - [%f,%f,%f,%f]\n",smoothnow->points[ref][0],smoothnow->points[ref][1],smoothnow->points[ref][2],smoothnow->points[ref][3]);
                     printf("point out - [%f,%f,%f,%f]\n",testx,testy,smoothnow->smoothpoints[ref][2],smoothnow->smoothpoints[ref][3]);
                     for(int q = 0; q < indx; q++){
@@ -815,17 +829,10 @@ void extract_ip_MPI(double ***parr,scalar c,scalar vofref,int *countn,int *dim,i
             int ref = (int)vofref[];
             struct smooths *smoothnow = vofref.smooth;
             for(int q = 0; q < *dim; q++){
-                if(isnan(smoothnow->smoothpoints[ref][q]) || isnan(smoothnow->smoothpoints[ref][q+*dim])){
-                    printf("error from smoothnow[%d] [%d] or [%d]\n",ref,q,q+*dim);
-                }
                 passarr[pid()][i[pid()]][q] = smoothnow->smoothpoints[ref][q];//set x
                 passarr[pid()][i[pid()]][q+*dim] = smoothnow->smoothpoints[ref][q+*dim];//set xnorm
             }
             passarr[pid()][i[pid()]][*dim*2] = fabs(1./kappa[]);
-            if(isnan(passarr[pid()][i[pid()]][0]) || isnan(passarr[pid()][i[pid()]][1]) || isnan(passarr[pid()][i[pid()]][2]) || isnan(passarr[pid()][i[pid()]][3])){
-                double *pnt = smoothnow->smoothpoints[ref];
-                printf("error0 @ %d => [%f,%f,%f,%f]\n",ref,pnt[0],pnt[1],pnt[2],pnt[3]);
-            } 
             i[pid()]++;
             //finally we loop through our close neighbors and grab their values
             foreach_neighbor(){
@@ -836,10 +843,6 @@ void extract_ip_MPI(double ***parr,scalar c,scalar vofref,int *countn,int *dim,i
                         passarr[pid()][i[pid()]][q+*dim] = smoothnow->smoothpoints[nref][q+*dim];//set xnorm
                     }
                     passarr[pid()][i[pid()]][*dim*2] = fabs(1./kappa[]);
-                    if(isnan(passarr[pid()][i[pid()]][0]) || isnan(passarr[pid()][i[pid()]][1]) || isnan(passarr[pid()][i[pid()]][2]) || isnan(passarr[pid()][i[pid()]][3])){
-                        double *pnt = smoothnow->smoothpoints[nref];
-                        printf("error1 @ %d => [%f,%f,%f,%f]\n",nref,pnt[0],pnt[1],pnt[2],pnt[3]);
-                    } 
                     i[pid()]++;
                 }
             }
