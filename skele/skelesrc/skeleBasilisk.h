@@ -274,7 +274,7 @@ double** output_points_2smooth(struct OutputXYNorm p, int *nrow,int *ndim, doubl
     }
     return arr;
 }
-//to keep x,y,nx,and ny data together we create 
+
 struct smooths{
     double **points;//will be [[x0,y0,nx0,ny0],...,[xl-1,yl-1,nxl-1,nyl-1]]
     double **smoothpoints;//will be [[x0,y0,nx0,ny0],...,[xl-1,yl-1,nxl-1,nyl-1]]
@@ -291,12 +291,7 @@ attribute{
 //functions for verifying information/sorting
 int ensureDistance(double *p1,double *p2, double distance){
     double neededdis = distance * 3.;//3 * delta should be max distance of a stencils reach
-#if dimension == 2
-    int dim = 2;
-#else
-    int dim = 3;
-#endif
-    if(getDistance(p1,p2,&dim) > neededdis){
+    if(getDistance(p1,p2) > neededdis){
         return 0;
     } 
     return 1;
@@ -311,16 +306,14 @@ int insidebounds(double *ppoint,double tx, double ty, double tz, double tdelta){
     double minx = tx - half;
     double maxy = ty + half;
     double miny = ty - half;
+    double maxz = 0.,minz=0.;
 #if dimension == 3
-    double maxz = tz + half;
-    double minz = tz - half;
+    maxz = tz + half;
+    minz = tz - half;
 #endif
     if(ppoint[0] < maxx && ppoint[0] > minx){
         if(ppoint[1] < maxy && ppoint[1] > miny){
-#if dimension == 3
-            if(ppoint[2] < maxz && ppoint[2] > minz)
-#endif
-                return 1;
+            if(dimension != 3 || (ppoint[2] < maxz && ppoint[2] > minz))return 1;
         }
     }
     return 0;
@@ -331,7 +324,6 @@ int insidebounds(double *ppoint,double tx, double ty, double tz, double tdelta){
 static void smoothvof_prolongation(Point point, scalar s){
     double val = s[];
     if(s[] != nodata){
-        //printf("prr\n");
         double *ppoint = s.smooth->points[(int)s[]];
         foreach_child(){
             //We need to refrence the structure to determine which cell will have our refrence, otherwise we set value to -1
@@ -355,22 +347,15 @@ static void smoothvof_prolongation(Point point, scalar s){
 }
 
 static inline void smoothvof_restriction(Point point, scalar s){
-    //printf("vrr\n");
     int pass = 0;
     double val = nodata;
     foreach_child(){//we pick the first child to hold a point when we upscale, allows for even distribution of points/smoothening
-        if(s[] != nodata){
-            //printf("sb4->%f\n",s[]);
-        }
         if(!pass && s[] != nodata){
             val = s[];
             pass++;
         }
     }
     s[] = val;
-    if(s[] != nodata){
-        //printf("saf->%f\n\n",s[]);
-    }
 }
 #endif
 int checknorm(double *p0,double *p1){
@@ -410,13 +395,11 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
     int *calcl = calloc(1,sizeof(int));
     int lstart = 0;
     for(int i = 0; i < comm_size; i++){
-        //printf("size %d => %d\n",i,localcalc[i]);
         if(i <= pid() - 1){
             lstart += localcalc[i];
         }
         *calcl += localcalc[i];
     }
-    //printf("totalsize = %d, local size stat = %d,local size end = %d\n",*calcl,lstart,lstart + localcalc[pid()]);
     smooth->length = calcl;
     double **vofpoints = malloc(*calcl * sizeof(double*));
     double **smoothpoints = malloc(*calcl * sizeof(double*));
@@ -444,7 +427,6 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
     boundary({vofref});//update over MPI for correct foreach
     //restriction({vofref});
     for(int q = max_level - 1; q >= 0; q--){
-        //printf("aahh%d tree?%d\n",q,tree_is_full());
         boundary_level({vofref},q);
     }
     boundary({vofref});//update over MPI for correct foreach
@@ -459,7 +441,11 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
     foreach(){
         int ref = (int)vofref[];
         struct smooths *smoothnow = vofref.smooth;
+#if dimension == 2
         fprintf(voffile,"%f %f %f \n",x,y,Delta);//outputs x y delta for reconstruction of vof field
+#else
+        fprintf(voffile,"%f %f %f %f \n",x,y,z,Delta);//outputs x y delta for reconstruction of vof field
+#endif
         if(c[] > 1e-6 && c[] < 1.-1e-6 && vofref[] != nodata){
             coord n = facet_normal(point, c, s);
 	        double aalpha = plane_alpha(c[], n);
@@ -471,15 +457,20 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
             //set the structures point value, should apply for all
             smoothnow->points[ref][0] = (x+Delta*pc.x);
             smoothnow->points[ref][1] = (y+Delta*pc.y);
+#if dimension == 2
             smoothnow->points[ref][2] = n.x;
             smoothnow->points[ref][3] = n.y;
-            //printf("setting %d\n",ref);
+#else
+            smoothnow->points[ref][2] = (z+Delta*pc.z);
+            smoothnow->points[ref][3] = n.x;
+            smoothnow->points[ref][4] = n.y;
+            smoothnow->points[ref][5] = n.z;
+#endif
         }
     }
     fflush(voffile);
     fclose(voffile);
     //Calculate the interface data
-    //printf("(%d/%d)starting 2\n",pid(),comm_size);
     //multigrid_restriction({vofref});
     boundary({vofref});
     MPI_Barrier(MPI_COMM_WORLD);
@@ -543,6 +534,10 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
                         smoothp->points[pidlocation[j][q]][1] = bufrec[q*nc+1];
                         smoothp->points[pidlocation[j][q]][2] = bufrec[q*nc+2];
                         smoothp->points[pidlocation[j][q]][3] = bufrec[q*nc+3];
+#if dimension == 3
+                        smoothp->points[pidlocation[j][q]][4] = bufrec[q*nc+4];
+                        smoothp->points[pidlocation[j][q]][5] = bufrec[q*nc+5];
+#endif
                     }
                     free(bufrec);
                 }
@@ -557,10 +552,14 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
                 //Now that we have recieved the requested locations of points, we will wrap them up and send them over
                 double *bufsend = malloc(nc*counts*sizeof(double*));//we do light 'serization' really just extending out lists and rebuilding them
                 for(int j = 0; j < counts; j++){
-                    bufsend[j*nc  ] = smoothp->points[bufrec[j]][0];//assign x
-                    bufsend[j*nc+1] = smoothp->points[bufrec[j]][1];//assign y
-                    bufsend[j*nc+2] = smoothp->points[bufrec[j]][2];//assign nx
-                    bufsend[j*nc+3] = smoothp->points[bufrec[j]][3];//assign ny
+                    bufsend[j*nc  ] = smoothp->points[bufrec[j]][0];
+                    bufsend[j*nc+1] = smoothp->points[bufrec[j]][1];
+                    bufsend[j*nc+2] = smoothp->points[bufrec[j]][2];
+                    bufsend[j*nc+3] = smoothp->points[bufrec[j]][3];
+#if dimension == 3
+                    bufsend[j*nc+4] = smoothp->points[bufrec[j]][4];
+                    bufsend[j*nc+5] = smoothp->points[bufrec[j]][5];
+#endif
                 }
                 MPI_Send(bufsend,nc*counts,MPI_DOUBLE,i,2,MPI_COMM_WORLD);
                 free(bufrec);
@@ -576,13 +575,13 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
     free(pidlocation);
     free(pidmarker);
     struct smooths *smoothnow = vofref.smooth;
+    int nls = pow(5,dimension);
     foreach(){
         if(c[] > 1e-6 && c[] < 1.-1e-6 && vofref[] != nodata){
             int ref = (int)vofref[];
-            //printf("calc @ %f - level %d\n",vofref[],depth());
             //Here we know we are currently located at an interface point we want. 
-            double **localSpline = malloc(25*sizeof(double*));//allocated max amount of points
-            for(int i = 0; i < 25; i++){
+            double **localSpline = malloc(nls*sizeof(double*));//allocated max amount of points
+            for(int i = 0; i < nls; i++){
                 localSpline[i] = calloc((nc/2),sizeof(double));
             }
             //First we will go though and collect all needed 
@@ -597,175 +596,109 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
                     if(pnew[0] != 0. && pnew[1] != 0. && checknorm(pnow,pnew)){
                         localSpline[indx][0] = pnew[0];
                         localSpline[indx][1] = pnew[1];
+#if dimension == 3
+                        localSpline[indx][2] = pnew[1];
+#endif
                         indx++;
-
                     }
                 }
             }
             //Now we have all the points we want, so we next find our approx valuesj
             int n = 2;//order of our fit
+#if dimension == 2
+            //2D smoothing
             if(indx > n){
                 //allocate
-                double *X = (double*)calloc((2*n+1) , sizeof(double));
-                double *Y = (double*)calloc((n + 1) , sizeof(double));
-                double **B = (double**)calloc((n+1) , sizeof(double*));
-                double *A = (double*)calloc((n + 1) , sizeof(double));
+                double *X = calloc((2*n+1) , sizeof(double));
+                double *Y = calloc((n + 1) , sizeof(double));
+                double **B= malloc((n+1)   * sizeof(double*));
+                double *A = calloc((n + 1) , sizeof(double));
                 for(int i = 0; i < n+1; i++){
                     B[i] = malloc((n+2) * sizeof(double));
                 }
                 //calc arrays
+                int jx,jy;
                 if(fabs(smoothnow->points[ref][3]) > fabs(smoothnow->points[ref][2])){ 
-                    for(int i = 0; i <= 2*n; i++){
-                        X[i] = 0;
-                        for(int j = 0; j < indx; j++){
-                            X[i] = X[i] + pow(localSpline[j][0],i);
-                        }
-                    }
-                    for(int i = 0; i <= n; i++){
-                        Y[i] = 0;
-                        for(int j = 0; j < indx; j ++){
-                            Y[i] = Y[i] + pow(localSpline[j][0],i)*localSpline[j][1];
-                        }
-                    }
-                    //make B
-                    for(int i = 0; i <= n; i++){
-                        for(int j = 0; j <= n; j++){
-                            B[i][j] = X[i+j];
-                        }
-                    }
-                    for(int i = 0; i <= n; i++){
-                        B[i][n+1] = Y[i];
-                    }
-                    getCoeffGE(n+1,n+2,&B,&A);
-                    //Finally we will Get our current point
-                    smoothnow->smoothpoints[ref][0] = smoothnow->points[ref][0];
-                    smoothnow->smoothpoints[ref][1] = 0;
-                    double *AP = (double*)calloc(n+1,sizeof(double));
-                    for(int i = 0; i <= n; i++){
-                        smoothnow->smoothpoints[ref][1] = smoothnow->smoothpoints[ref][1] + pow(smoothnow->points[ref][0],i) * A[i];
-                        AP[i] = A[i] * i;
-                    }
-                    //and then calculate the norms using the prime
-                    //First we calculate the tangent m at our point
-                    double m = 0;
-                    for(int i = 0; i <= n; i++){
-                        if(i != 0){
-                            m = m + AP[i] * pow(smoothnow->points[ref][0],i-1);
-                        }
-                    }
-                    //normal m = -1/m
-                    m = -1 * (1/m);
-                    double b = (-1 * m * smoothnow->smoothpoints[ref][0]) + smoothnow->smoothpoints[ref][1];
-                    //Calculate temp
-                    //If were to the right side of the x center, we will calculate with x-1
-                    //left side calculate with x+1?
-                    double tx;
-                    if(smoothnow->points[ref][2] < 0.){
-                        tx = smoothnow->smoothpoints[ref][0] - 1;
-                    }
-                    else{
-                        tx = smoothnow->smoothpoints[ref][0] + 1;
-                    }
-                    double ty = m * tx + b;
-                    //Find direction vector to make
-                    double tnormx = tx - smoothnow->smoothpoints[ref][0];
-                    double tnormy = ty - smoothnow->smoothpoints[ref][1];
-                    //finally we normalize
-                    double bottom = sqrt(pow(tnormx,2)+pow(tnormy,2));
-                    smoothnow->smoothpoints[ref][2] = tnormx / bottom;
-                    smoothnow->smoothpoints[ref][3] = tnormy / bottom;
-                    //ensure norms are correct direction before outputting
-                    if(smoothnow->smoothpoints[ref][2] > 0. && !(smoothnow->points[ref][2] > 0.)){
-                        smoothnow->smoothpoints[ref][2] = -1 * smoothnow->smoothpoints[ref][2];
-                    }
-                    else if(smoothnow->smoothpoints[ref][2] < 0. && !(smoothnow->points[ref][2] < 0.)){
-                        smoothnow->smoothpoints[ref][2] = -1 * smoothnow->smoothpoints[ref][2];
-                    }
-                    if(smoothnow->smoothpoints[ref][3] > 0. && !(smoothnow->points[ref][3] > 0.)){
-                        smoothnow->smoothpoints[ref][3] = -1 * smoothnow->smoothpoints[ref][3];
-                    }
-                    else if(smoothnow->smoothpoints[ref][3] < 0. && !(smoothnow->points[ref][3] < 0.)){
-                        smoothnow->smoothpoints[ref][3] = -1 * smoothnow->smoothpoints[ref][3];
-                    }
-                    free(A);
-                    free(AP);
+                    jx=0,jy=1;
                 }
                 else{
-                    for(int i = 0; i <= 2*n; i++){
-                        X[i] = 0;
-                        for(int j = 0; j < indx; j++){
-                            X[i] = X[i] + pow(localSpline[j][1],i);
-                        }
-                    }
-                    for(int i = 0; i <= n; i++){
-                        Y[i] = 0;
-                        for(int j = 0; j < indx; j ++){
-                            Y[i] = Y[i] + pow(localSpline[j][1],i)*localSpline[j][0];
-                        }
-                    }
-                    //make B
-                    for(int i = 0; i <= n; i++){
-                        for(int j = 0; j <= n; j++){
-                            B[i][j] = X[i+j];
-                        }
-                    }
-                    for(int i = 0; i <= n; i++){
-                        B[i][n+1] = Y[i];
-                    }
-                    getCoeffGE(n+1,n+2,&B,&A);
-                    //Finally we will Get our current point
-                    smoothnow->smoothpoints[ref][1] = smoothnow->points[ref][1];
-                    smoothnow->smoothpoints[ref][0] = 0;
-                    double *AP = (double*)calloc(n+1,sizeof(double));
-                    for(int i = 0; i <= n; i++){
-                        smoothnow->smoothpoints[ref][0] = smoothnow->smoothpoints[ref][0] + pow(smoothnow->points[ref][1],i) * A[i];
-                        AP[i] = A[i] * i;
-                    }
-                    //and then calculate the norms using the prime
-                    //First we calculate the tangent m at our point
-                    double m = 0;
-                    for(int i = 0; i <= n; i++){
-                        if(i != 0){
-                            m = m + AP[i] * pow(smoothnow->points[ref][1],i-1);
-                        }
-                    }
-                    //normal m = -1/m
-                    m = -1 * (1/m);
-                    double b = (-1 * m * smoothnow->smoothpoints[ref][1]) + smoothnow->smoothpoints[ref][0];
-                    //Calculate temp
-                    //If were to the right side of the x center, we will calculate with x-1
-                    //left side calculate with x+1?
-                    double ty;
-                    if(smoothnow->points[ref][3] < 0.){
-                        ty = smoothnow->smoothpoints[ref][1] - 1;
-                    }
-                    else{
-                        ty = smoothnow->smoothpoints[ref][1] + 1;
-                    }
-                    double tx = m * ty + b;
-                    //Find direction vector to make
-                    double tnormx = tx - smoothnow->smoothpoints[ref][0];
-                    double tnormy = ty - smoothnow->smoothpoints[ref][1];
-                    //finally we normalize
-                    double bottom = sqrt(pow(tnormx,2)+pow(tnormy,2));
-                    smoothnow->smoothpoints[ref][2] = tnormx / bottom;
-                    smoothnow->smoothpoints[ref][3] = tnormy / bottom;
-                    //ensure normals are pointing in correct direction
-                    if(smoothnow->smoothpoints[ref][2] > 0. && !(smoothnow->points[ref][2] > 0.)){
-                        smoothnow->smoothpoints[ref][2] = -1 * smoothnow->smoothpoints[ref][2];
-                    }
-                    else if(smoothnow->smoothpoints[ref][2] < 0. && !(smoothnow->points[ref][2] < 0.)){
-                        smoothnow->smoothpoints[ref][2] = -1 * smoothnow->smoothpoints[ref][2];
-                    }
-                    if(smoothnow->smoothpoints[ref][3] > 0. && !(smoothnow->points[ref][3] > 0.)){
-                        smoothnow->smoothpoints[ref][3] = -1 * smoothnow->smoothpoints[ref][3];
-                    }
-                    else if(smoothnow->smoothpoints[ref][3] < 0. && !(smoothnow->points[ref][3] < 0.)){
-                        smoothnow->smoothpoints[ref][3] = -1 * smoothnow->smoothpoints[ref][3];
-                    }
-                    free(A);
-                    free(AP);
+                    jx=1,jy=0;
+                        
                 }
+                for(int i = 0; i <= 2*n; i++){
+                    X[i] = 0;
+                    for(int j = 0; j < indx; j++){
+                        X[i] = X[i] + pow(localSpline[j][jx],i);
+                    }
+                }
+                for(int i = 0; i <= n; i++){
+                    Y[i] = 0;
+                    for(int j = 0; j < indx; j ++){
+                        Y[i] = Y[i] + pow(localSpline[j][jx],i)*localSpline[j][jy];
+                    }
+                }
+                //make B
+                for(int i = 0; i <= n; i++){
+                    for(int j = 0; j <= n; j++){
+                        B[i][j] = X[i+j];
+                    }
+                }
+                for(int i = 0; i <= n; i++){
+                    B[i][n+1] = Y[i];
+                }
+                getCoeffGE(n+1,n+2,&B,&A);
+                //Finally we will Get our current point
+                smoothnow->smoothpoints[ref][jx] = smoothnow->points[ref][jx];
+                smoothnow->smoothpoints[ref][jy] = 0;
+                double *AP = calloc(n+1,sizeof(double));
+                for(int i = 0; i <= n; i++){
+                    smoothnow->smoothpoints[ref][jy] = smoothnow->smoothpoints[ref][jy] + pow(smoothnow->points[ref][jx],i) * A[i];
+                    AP[i] = A[i] * i;
+                }
+                //and then calculate the norms using the prime
+                //First we calculate the tangent m at our point
+                double m = 0;
+                for(int i = 0; i <= n; i++){
+                    if(i != 0){
+                        m = m + AP[i] * pow(smoothnow->points[ref][jx],i-1);
+                    }
+                }
+                //normal m = -1/m
+                m = -1 * (1/m);
+                double b = (-1 * m * smoothnow->smoothpoints[ref][jx]) + smoothnow->smoothpoints[ref][jy];
+                //Calculate temp
+                //If were to the right side of the x center, we will calculate with x-1
+                //left side calculate with x+1?
+                double tx;
+                if(smoothnow->points[ref][jx+dimension] < 0.){
+                    tx = smoothnow->smoothpoints[ref][jx] - 1;
+                }
+                else{
+                    tx = smoothnow->smoothpoints[ref][jx] + 1;
+                }
+                double ty = m * tx + b;
+                //Find direction vector to make
+                double tnormx = tx - smoothnow->smoothpoints[ref][jx];
+                double tnormy = ty - smoothnow->smoothpoints[ref][jy];
+                //finally we normalize
+                double bottom = sqrt(pow(tnormx,2)+pow(tnormy,2));
+                smoothnow->smoothpoints[ref][jx+dimension] = tnormx / bottom;
+                smoothnow->smoothpoints[ref][jy+dimension] = tnormy / bottom;
+                //ensure norms are correct direction before outputting
+                if(smoothnow->smoothpoints[ref][2] > 0. && !(smoothnow->points[ref][2] > 0.)){
+                    smoothnow->smoothpoints[ref][2] = -1 * smoothnow->smoothpoints[ref][2];
+                }
+                else if(smoothnow->smoothpoints[ref][2] < 0. && !(smoothnow->points[ref][2] < 0.)){
+                    smoothnow->smoothpoints[ref][2] = -1 * smoothnow->smoothpoints[ref][2];
+                }
+                if(smoothnow->smoothpoints[ref][3] > 0. && !(smoothnow->points[ref][3] > 0.)){
+                    smoothnow->smoothpoints[ref][3] = -1 * smoothnow->smoothpoints[ref][3];
+                }
+                else if(smoothnow->smoothpoints[ref][3] < 0. && !(smoothnow->points[ref][3] < 0.)){
+                    smoothnow->smoothpoints[ref][3] = -1 * smoothnow->smoothpoints[ref][3];
+                }
+                free(A);
+                free(AP);
                 //freeup variables
                 for(int i = 0; i < n+1; i++){
                     free(B[i]);
@@ -774,25 +707,133 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
                 free(X);
                 free(Y);
             }
+#else
+            //3D smoothening using z(x,y) = a0 + a1x + .. + anx^n + an+1y + ... + a2ny^n
+            if(indx > n){
+                //allocate
+                double *X = calloc((2*n+1) , sizeof(double));
+                double *Y = calloc((2*n+1) , sizeof(double));
+                double *Z = calloc((2*n+2) , sizeof(double));
+                double **B= malloc((2*n+1) * sizeof(double*));
+                double *A = calloc((2*n+1) , sizeof(double));
+                for(int i = 0; i < n+1; i++){
+                    B[i] = malloc((2*n+2) * sizeof(double));
+                }
+                //calc arrays
+                int jx,jy,jz;
+                if(fabs(smoothnow->points[ref][5]) > fabs(smoothnow->points[ref][3]) && fabs(smoothnow->points[ref][5]) > fabs(smoothnow->points[ref][4]){ 
+                    jx=0,jy=1,jz=2;
+                }
+                else if(fabs(smoothnow->points[ref][4]) > fabs(smoothnow->points[ref][3]) && fabs(smoothnow->points[ref][4]) > fabs(smoothnow->points[ref][5]){ 
+                    jx=0,jy=2,jz=1;
+                }
+                else{
+                    jx=1,jy=2,jz=0;
+                }
+                for(int i = 0; i <= 2*n; i++){
+                    X[i] = 0;
+                    for(int j = 0; j < indx; j++){
+                        X[i] = X[i] + pow(localSpline[j][jx],i);
+                    }
+                }
+                for(int i = 0; i <= 2*n; i++){
+                    Y[i] = 0;
+                    for(int j = 0; j < indx; j++){
+                        Y[i] = Y[i] + pow(localSpline[j][jy],i);
+                    }
+                }
+                //Z splits into X and Y based sections 
+                for(int i = 0; i <= n; i++){
+                    Z[i] = 0;
+                    for(int j = 0; j < indx; j ++){
+                        Z[i] = Z[i] + pow(localSpline[j][jx],i)*localSpline[j][jz];
+                        Z[i+n+1] = Z[i+n+1] + pow(localSpline[j][jy],i)*localSpline[j][jz];
+                    }
+                }
+                //make B
+                for(int i = 0; i <= n; i++){
+                    for(int j = 0; j <= n; j++){
+                        B[i][j] = X[i+j];//set topleft (x*x)
+                        B[i+n+1][j+n+1] = Y[i+j];//bottom right(y*y)
+                    }
+                }
+                for(int i = 0; i <= n; i++){
+                    for(int j = n+1; j <= 2*n; j++){
+                        B[i][j] = X[i]*Y[j-(n+1)];//set others (x*y)
+                        B[j][i] = X[j-(n+1)]*Y[i];
+                    }
+                }
+                //set zval
+                for(int i = 0; i <= 2*n; i++){
+                    B[i][2*n+1] = Z[i];//set z val
+                }
+                getCoeffGE(2*n+1,2*n+2,&B,&A);
+                //Finally we will Get our current point
+                smoothnow->smoothpoints[ref][jx] = smoothnow->points[ref][jx];
+                smoothnow->smoothpoints[ref][jy] = 0;
+                double *AP = calloc(n+1,sizeof(double));
+                for(int i = 0; i <= n; i++){
+                    smoothnow->smoothpoints[ref][jy] = smoothnow->smoothpoints[ref][jy] + pow(smoothnow->points[ref][jx],i) * A[i];
+                    AP[i] = A[i] * i;
+                }
+                //and then calculate the norms using the prime
+                //First we calculate the tangent m at our point
+                double m = 0;
+                for(int i = 0; i <= n; i++){
+                    if(i != 0){
+                        m = m + AP[i] * pow(smoothnow->points[ref][jx],i-1);
+                    }
+                }
+                //normal m = -1/m
+                m = -1 * (1/m);
+                double b = (-1 * m * smoothnow->smoothpoints[ref][jx]) + smoothnow->smoothpoints[ref][jy];
+                //Calculate temp
+                //If were to the right side of the x center, we will calculate with x-1
+                //left side calculate with x+1?
+                double tx;
+                if(smoothnow->points[ref][jx+dimension] < 0.){
+                    tx = smoothnow->smoothpoints[ref][jx] - 1;
+                }
+                else{
+                    tx = smoothnow->smoothpoints[ref][jx] + 1;
+                }
+                double ty = m * tx + b;
+                //Find direction vector to make
+                double tnormx = tx - smoothnow->smoothpoints[ref][jx];
+                double tnormy = ty - smoothnow->smoothpoints[ref][jy];
+                //finally we normalize
+                double bottom = sqrt(pow(tnormx,2)+pow(tnormy,2));
+                smoothnow->smoothpoints[ref][jx+dimension] = tnormx / bottom;
+                smoothnow->smoothpoints[ref][jy+dimension] = tnormy / bottom;
+                //ensure norms are correct direction before outputting
+                if(smoothnow->smoothpoints[ref][2] > 0. && !(smoothnow->points[ref][2] > 0.)){
+                    smoothnow->smoothpoints[ref][2] = -1 * smoothnow->smoothpoints[ref][2];
+                }
+                else if(smoothnow->smoothpoints[ref][2] < 0. && !(smoothnow->points[ref][2] < 0.)){
+                    smoothnow->smoothpoints[ref][2] = -1 * smoothnow->smoothpoints[ref][2];
+                }
+                if(smoothnow->smoothpoints[ref][3] > 0. && !(smoothnow->points[ref][3] > 0.)){
+                    smoothnow->smoothpoints[ref][3] = -1 * smoothnow->smoothpoints[ref][3];
+                }
+                else if(smoothnow->smoothpoints[ref][3] < 0. && !(smoothnow->points[ref][3] < 0.)){
+                    smoothnow->smoothpoints[ref][3] = -1 * smoothnow->smoothpoints[ref][3];
+                }
+                free(A);
+                free(AP);
+                //freeup variables
+                for(int i = 0; i < n+1; i++){
+                    free(B[i]);
+                }
+                free(B);
+                free(X);
+                free(Y);
+
+            }
+#endif
             else{
-                printf("\n\n\nerror warning @ %d\n\n\n",ref);
                 for(int q = 0; q < dimension * 2; q++)smoothnow->smoothpoints[ref][q] = smoothnow->points[ref][q];
             }
-            double testx = smoothnow->smoothpoints[ref][0];
-            double testy = smoothnow->smoothpoints[ref][1];
-            if(testx > x + Delta/2 || testx < x - Delta/2){
-                if(testy > y + Delta/2 || testy < y - Delta/2){
-                    printf("\nerror tracker point out of bounds :( - %d (%d/%d)\n",ref,pid(),cell.pid);
-                    printf("ref got: %d [%f,%f,%f,%f]\n",ref,smoothnow->points[ref][0],smoothnow->points[ref][1],smoothnow->points[ref][2],smoothnow->points[ref][3]);
-                    printf("point in - [%f,%f,%f,%f]\n",smoothnow->points[ref][0],smoothnow->points[ref][1],smoothnow->points[ref][2],smoothnow->points[ref][3]);
-                    printf("point out - [%f,%f,%f,%f]\n",testx,testy,smoothnow->smoothpoints[ref][2],smoothnow->smoothpoints[ref][3]);
-                    for(int q = 0; q < indx; q++){
-                        printf("ls - [%f,%f]\n",localSpline[q][0],localSpline[q][1]);
-                    }
-                    printf("\n");
-                }
-            }
-            for(int i = 0;i < 25; i++){
+            for(int i = 0;i < nls; i++){
                 free(localSpline[i]);
             }
             free(localSpline);
@@ -803,7 +844,7 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
     //finally we need to free the struct and its variables allocated
     free(localcalc);
 }
-void extract_ip_MPI(double ***parr,scalar c,scalar vofref,int *countn,int *dim,int *active_PID, double t){
+void extract_ip_MPI(double ***parr,scalar c,scalar vofref,int *countn,int *active_PID, double t){
     int comm_size;
     MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
     //because of weirdness with basilisk, we will write to interficial datafiles and then extract points from said files
@@ -816,7 +857,7 @@ void extract_ip_MPI(double ***parr,scalar c,scalar vofref,int *countn,int *dim,i
     passarr[pid()] = malloc(*countn * sizeof(double*));
     int *tagarr = malloc(*countn * sizeof(int));
     for(int i = 0; i < *countn; i++){
-        passarr[pid()][i] = calloc((*dim * 2) + 1,sizeof(double));
+        passarr[pid()][i] = calloc((dimension * 2) + 1,sizeof(double));
         tagarr[i] = 1;
     }
     char savename[80];
@@ -828,21 +869,21 @@ void extract_ip_MPI(double ***parr,scalar c,scalar vofref,int *countn,int *dim,i
         if(c[] > 1e-6 && c[] < 1.-1e-6 && vofref[] != nodata){
             int ref = (int)vofref[];
             struct smooths *smoothnow = vofref.smooth;
-            for(int q = 0; q < *dim; q++){
+            for(int q = 0; q < dimension; q++){
                 passarr[pid()][i[pid()]][q] = smoothnow->smoothpoints[ref][q];//set x
-                passarr[pid()][i[pid()]][q+*dim] = smoothnow->smoothpoints[ref][q+*dim];//set xnorm
+                passarr[pid()][i[pid()]][q+dimension] = smoothnow->smoothpoints[ref][q+dimension];//set xnorm
             }
-            passarr[pid()][i[pid()]][*dim*2] = fabs(1./kappa[]);
+            passarr[pid()][i[pid()]][dimension*2] = fabs(1./kappa[]);
             i[pid()]++;
             //finally we loop through our close neighbors and grab their values
             foreach_neighbor(){
                 if(c[] > 1e-6 && c[] < 1.-1e-6 && cell.pid != pid() && vofref[] != nodata){
                     int nref = (int)vofref[];
-                    for(int q = 0; q < *dim; q++){
+                    for(int q = 0; q < dimension; q++){
                         passarr[pid()][i[pid()]][q] = smoothnow->smoothpoints[nref][q];//set x
-                        passarr[pid()][i[pid()]][q+*dim] = smoothnow->smoothpoints[nref][q+*dim];//set xnorm
+                        passarr[pid()][i[pid()]][q+dimension] = smoothnow->smoothpoints[nref][q+dimension];//set xnorm
                     }
-                    passarr[pid()][i[pid()]][*dim*2] = fabs(1./kappa[]);
+                    passarr[pid()][i[pid()]][dimension*2] = fabs(1./kappa[]);
                     i[pid()]++;
                 }
             }
@@ -851,7 +892,7 @@ void extract_ip_MPI(double ***parr,scalar c,scalar vofref,int *countn,int *dim,i
     int newcount = 0; 
     for(int q = 0; q < *countn; q++){
         //first we check our point, verify its not 0's, to ensure thge thin
-        for(int p = 0; p < (*dim * 2) + 1; p++){
+        for(int p = 0; p < (dimension * 2) + 1; p++){
             if(passarr[pid()][q][p] == 0.){
                 tagarr[q] = 0;
             }
@@ -863,13 +904,13 @@ void extract_ip_MPI(double ***parr,scalar c,scalar vofref,int *countn,int *dim,i
         if(tagarr[q]){
             for(int j = 0; j < q; j++){
                 int counts = 0;
-                for(int p = 0; p < (*dim * 2) + 1; p++){
+                for(int p = 0; p < (dimension * 2) + 1; p++){
                     //check individual values for each
                     if(passarr[pid()][q][p] == passarr[pid()][j][p]){
                         counts++;
                     }
                 }
-                if(counts == (*dim * 2) + 1){
+                if(counts == (dimension * 2) + 1){
                     tagarr[q] = 0;
                 }
                 if(!tagarr[q]){
@@ -895,8 +936,8 @@ void extract_ip_MPI(double ***parr,scalar c,scalar vofref,int *countn,int *dim,i
     int q = 0;
     for(int t = 0; t < *countn; t++){
         if(tagarr[t]){// && passarr[pid()][t][*dim] != 0. && passarr[pid()][t][*dim+1] != 0.){
-            newarr[q] = calloc((*dim * 2) + 1,sizeof(double));
-            for(int p = 0; p < (*dim * 2) + 1; p++){
+            newarr[q] = calloc((dimension * 2) + 1,sizeof(double));
+            for(int p = 0; p < (dimension * 2) + 1; p++){
                 newarr[q][p] = passarr[pid()][t][p];
             }
             //printf("newinterface Skeleton - %d => [%f,%f,%f,%f]\n",q,passarr[pid()][q][0],passarr[pid()][q][1],passarr[pid()][q][2],passarr[pid()][q][3]);
@@ -916,10 +957,9 @@ void extract_ip_MPI(double ***parr,scalar c,scalar vofref,int *countn,int *dim,i
     *parr = newarr;
 }
 //run MPI
-void calcSkeletonMPI(scalar f,double *alpha, int *dim,int max_level,double L,double t,double ***pskeleton, int *pskelelength,int *active_PID){ 
+void calcSkeletonMPI(scalar f,double *alpha,int max_level,double L,double t,double ***pskeleton, int *pskelelength,int *active_PID){ 
     int comm_size;
     MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
-    //printf("(%d/%d): made to start\n", pid(),comm_size);
     MPI_Barrier(MPI_COMM_WORLD);
     //for calculating local skeleton first before one full skeleton will be ran
     
@@ -938,7 +978,6 @@ void calcSkeletonMPI(scalar f,double *alpha, int *dim,int max_level,double L,dou
             }
         }
     }
-    //printf("(%d/%d): counted: %d\n", pid(),comm_size,countn[pid()]);
     
     //set up for skeleton
     double mindis = 10.;
@@ -948,7 +987,6 @@ void calcSkeletonMPI(scalar f,double *alpha, int *dim,int max_level,double L,dou
         }
     }
     MPI_Barrier(MPI_COMM_WORLD);
-    //printf("mindis:%f\n",mindis); 
     struct OutputXYNorm sP; sP.c = f; sP.level = max_level;
     scalar vofref[];
     vofref.refine = vofref.prolongation = smoothvof_prolongation;
@@ -957,14 +995,13 @@ void calcSkeletonMPI(scalar f,double *alpha, int *dim,int max_level,double L,dou
         vofref[] = -1.;
     }
     smooth_interface_MPI(sP,vofref,t,max_level);
-    //printf("(%d/%d): smoothed\n", pid(),comm_size);
     boundary({vofref});//ensure values are updated for easy reads
     MPI_Barrier(MPI_COMM_WORLD);
     
     double **interfacePoints;
     //smooth interface points
     //next grab interface points
-    extract_ip_MPI(&interfacePoints,f,vofref,&countn[pid()],dim,active_PID,t);
+    extract_ip_MPI(&interfacePoints,f,vofref,&countn[pid()],active_PID,t);
     delete({vofref});
     struct smooths *smooth = vofref.smooth;
     for(int i = 0; i < *smooth->length; i++){
@@ -977,25 +1014,18 @@ void calcSkeletonMPI(scalar f,double *alpha, int *dim,int max_level,double L,dou
     free(smooth->length);
     free(smooth);
     smooth = NULL;
-    //printf("(%d/%d): got smooth\n",pid(),comm_size);
-    //int holdIPM = countn[pid()];
     
     //calc skeleton
-    //printf("(%d/%d): starting local skeleton\n", pid(),comm_size);
     countn[pid()] = countn[pid()] - 1;
     double skelemin = mindis * 0.5;
     char savename[80];
-    //printf("sklelemin -> %f\n",skelemin);
     double **skeleton = NULL; 
-    skeletize(interfacePoints,&countn[pid()],dim,savename,&skelemin,false,*alpha,&skeleton);
+    skeletize(interfacePoints,&countn[pid()],savename,&skelemin,false,*alpha,&skeleton);
     //Next we thin out our skeleton
-    //printf("(%d/%d): smoothing local skeleton\n", pid(),comm_size);
     double thindis = mindis;//when r is more than delta/2 :(
     char noname[80];
     sprintf(noname,"dat/skeletonthin-%5.3f-p%d.dat",t,pid());
-    //printf("name - %5.3f %d\n",t,pid());
-    //printf("=%s",noname);
-    thinSkeleton(&skeleton,dim,&countn[pid()],alpha,&thindis,noname);
+    thinSkeleton(&skeleton,&countn[pid()],alpha,&thindis,noname);
     MPI_Barrier(MPI_COMM_WORLD);
     
     sprintf(savename,"dat/skeletonscatter-%5.3f-p%d.dat",t,pid());
@@ -1007,16 +1037,13 @@ void calcSkeletonMPI(scalar f,double *alpha, int *dim,int max_level,double L,dou
     fclose(savefile);
     
 
-    //printf("(%d/%d): making spline\n", pid(),comm_size);
     ////create spline of skeleton
     //int skelen = 4;//n of splines
     //double del = L/pow(max_level,2);
     //double minbranchlength = 0.01;
     //int mxpt = 100; 
     //skeleReduce(skeleton,del,&minbranchlength,&countn,dim,&mxpt,t,skelen);
-    //printf("(%d/%d):finished-stalling\n", pid(),comm_size);
     MPI_Barrier(MPI_COMM_WORLD);
-    //printf("(%d/%d):finished-pass\n", pid(),comm_size);
 
     //Clean up needed
     //finally assign our needed pointers to look at the right place
