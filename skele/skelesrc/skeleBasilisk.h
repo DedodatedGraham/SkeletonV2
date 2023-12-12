@@ -713,18 +713,18 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
                 //allocate
                 double *X = calloc((2*n+1) , sizeof(double));
                 double *Y = calloc((2*n+1) , sizeof(double));
-                double *Z = calloc((2*n+2) , sizeof(double));
-                double **B= malloc((2*n+1) * sizeof(double*));
-                double *A = calloc((2*n+1) , sizeof(double));
-                for(int i = 0; i < n+1; i++){
-                    B[i] = malloc((2*n+2) * sizeof(double));
+                double *Z = calloc(2*(n+1) , sizeof(double));
+                double **B= malloc(2*(n+1) * sizeof(double*));
+                double *A = calloc(2*(n+1) , sizeof(double));
+                for(int i = 0; i < 2*(n+1); i++){
+                    B[i] = malloc(2*(n+1) + 1 * sizeof(double));
                 }
                 //calc arrays
                 int jx,jy,jz;
-                if(fabs(smoothnow->points[ref][5]) > fabs(smoothnow->points[ref][3]) && fabs(smoothnow->points[ref][5]) > fabs(smoothnow->points[ref][4]){ 
+                if(fabs(smoothnow->points[ref][5]) > fabs(smoothnow->points[ref][3]) && fabs(smoothnow->points[ref][5]) > fabs(smoothnow->points[ref][4])){ 
                     jx=0,jy=1,jz=2;
                 }
-                else if(fabs(smoothnow->points[ref][4]) > fabs(smoothnow->points[ref][3]) && fabs(smoothnow->points[ref][4]) > fabs(smoothnow->points[ref][5]){ 
+                else if(fabs(smoothnow->points[ref][4]) > fabs(smoothnow->points[ref][3]) && fabs(smoothnow->points[ref][4]) > fabs(smoothnow->points[ref][5])){ 
                     jx=0,jy=2,jz=1;
                 }
                 else{
@@ -754,80 +754,109 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
                 for(int i = 0; i <= n; i++){
                     for(int j = 0; j <= n; j++){
                         B[i][j] = X[i+j];//set topleft (x*x)
+                        B[i][j+n+1] = X[i]*Y[j];
+                        B[i+n+1][j] = X[j]*Y[i];
                         B[i+n+1][j+n+1] = Y[i+j];//bottom right(y*y)
                     }
                 }
-                for(int i = 0; i <= n; i++){
-                    for(int j = n+1; j <= 2*n; j++){
-                        B[i][j] = X[i]*Y[j-(n+1)];//set others (x*y)
-                        B[j][i] = X[j-(n+1)]*Y[i];
-                    }
-                }
                 //set zval
-                for(int i = 0; i <= 2*n; i++){
+                for(int i = 0; i <= 2*(n+1); i++){
                     B[i][2*n+1] = Z[i];//set z val
                 }
-                getCoeffGE(2*n+1,2*n+2,&B,&A);
+                printf("\nB:\n");
+                for(int i = 0; i < 2*(n+1); i++){
+                    for(int j = 0; j < 2*(n+1) + 1; i++){
+                        printf("%5.3f ",B[i][j]);
+                    }
+                    printf("\n");
+                }
+                printf("\n");
+                getCoeffGE(2*(n+1),2*(n+1)+1,&B,&A);
                 //Finally we will Get our current point
                 smoothnow->smoothpoints[ref][jx] = smoothnow->points[ref][jx];
-                smoothnow->smoothpoints[ref][jy] = 0;
-                double *AP = calloc(n+1,sizeof(double));
+                smoothnow->smoothpoints[ref][jy] = smoothnow->points[ref][jy];
+                smoothnow->smoothpoints[ref][jz] = 0;
+                double *AP = calloc(2*(n+1),sizeof(double));
                 for(int i = 0; i <= n; i++){
-                    smoothnow->smoothpoints[ref][jy] = smoothnow->smoothpoints[ref][jy] + pow(smoothnow->points[ref][jx],i) * A[i];
+                    smoothnow->smoothpoints[ref][jz] = smoothnow->smoothpoints[ref][jz] + pow(smoothnow->points[ref][jx],i) * A[i];
+                    smoothnow->smoothpoints[ref][jz] = smoothnow->smoothpoints[ref][jz] + pow(smoothnow->points[ref][jy],i) * A[i+(n+1)];
                     AP[i] = A[i] * i;
+                    AP[i+(n+1)] = A[i+(n+1)] * i;
                 }
                 //and then calculate the norms using the prime
                 //First we calculate the tangent m at our point
-                double m = 0;
+                double mx = 0;
+                double my = 0;
                 for(int i = 0; i <= n; i++){
                     if(i != 0){
-                        m = m + AP[i] * pow(smoothnow->points[ref][jx],i-1);
+                        mx = mx + AP[i] * pow(smoothnow->points[ref][jx],i-1);
+                        my = my + AP[i+(n+1)] * pow(smoothnow->points[ref][jy],i-1);
                     }
                 }
                 //normal m = -1/m
-                m = -1 * (1/m);
-                double b = (-1 * m * smoothnow->smoothpoints[ref][jx]) + smoothnow->smoothpoints[ref][jy];
+                mx = -1 * (1/mx);
+                my = -1 * (1/my);
+                double bx = (-1 * mx * smoothnow->smoothpoints[ref][jx]) + smoothnow->smoothpoints[ref][jz];
+                double by = (-1 * my * smoothnow->smoothpoints[ref][jy]) + smoothnow->smoothpoints[ref][jz];
                 //Calculate temp
                 //If were to the right side of the x center, we will calculate with x-1
                 //left side calculate with x+1?
-                double tx;
+                double tx,ty;
                 if(smoothnow->points[ref][jx+dimension] < 0.){
                     tx = smoothnow->smoothpoints[ref][jx] - 1;
                 }
                 else{
                     tx = smoothnow->smoothpoints[ref][jx] + 1;
                 }
-                double ty = m * tx + b;
+                if(smoothnow->points[ref][jy+dimension] < 0.){
+                    ty = smoothnow->smoothpoints[ref][jy] - 1;
+                }
+                else{
+                    ty = smoothnow->smoothpoints[ref][jy] + 1;
+                }
+                double tz = mx * tx + my * ty + bx + by;
                 //Find direction vector to make
                 double tnormx = tx - smoothnow->smoothpoints[ref][jx];
                 double tnormy = ty - smoothnow->smoothpoints[ref][jy];
+                double tnormz = tz - smoothnow->smoothpoints[ref][jy];
                 //finally we normalize
-                double bottom = sqrt(pow(tnormx,2)+pow(tnormy,2));
+                double bottom = sqrt(pow(tnormx,2)+pow(tnormy,2)+pow(tnormz,2));
                 smoothnow->smoothpoints[ref][jx+dimension] = tnormx / bottom;
                 smoothnow->smoothpoints[ref][jy+dimension] = tnormy / bottom;
+                smoothnow->smoothpoints[ref][jz+dimension] = tnormz / bottom;
                 //ensure norms are correct direction before outputting
-                if(smoothnow->smoothpoints[ref][2] > 0. && !(smoothnow->points[ref][2] > 0.)){
-                    smoothnow->smoothpoints[ref][2] = -1 * smoothnow->smoothpoints[ref][2];
-                }
-                else if(smoothnow->smoothpoints[ref][2] < 0. && !(smoothnow->points[ref][2] < 0.)){
-                    smoothnow->smoothpoints[ref][2] = -1 * smoothnow->smoothpoints[ref][2];
-                }
                 if(smoothnow->smoothpoints[ref][3] > 0. && !(smoothnow->points[ref][3] > 0.)){
                     smoothnow->smoothpoints[ref][3] = -1 * smoothnow->smoothpoints[ref][3];
                 }
                 else if(smoothnow->smoothpoints[ref][3] < 0. && !(smoothnow->points[ref][3] < 0.)){
                     smoothnow->smoothpoints[ref][3] = -1 * smoothnow->smoothpoints[ref][3];
                 }
+                if(smoothnow->smoothpoints[ref][4] > 0. && !(smoothnow->points[ref][4] > 0.)){
+                    smoothnow->smoothpoints[ref][4] = -1 * smoothnow->smoothpoints[ref][4];
+                }
+                else if(smoothnow->smoothpoints[ref][4] < 0. && !(smoothnow->points[ref][4] < 0.)){
+                    smoothnow->smoothpoints[ref][4] = -1 * smoothnow->smoothpoints[ref][4];
+                }
+                if(smoothnow->smoothpoints[ref][5] > 0. && !(smoothnow->points[ref][5] > 0.)){
+                    smoothnow->smoothpoints[ref][5] = -1 * smoothnow->smoothpoints[ref][5];
+                }
+                else if(smoothnow->smoothpoints[ref][5] < 0. && !(smoothnow->points[ref][5] < 0.)){
+                    smoothnow->smoothpoints[ref][5] = -1 * smoothnow->smoothpoints[ref][5];
+                }
+                double *pbefore = smoothnow->points[ref];
+                double *pafter = smoothnow->smoothpoints[ref];
+                printf("before=[%f %f %f %f %f %f]\n",pbefore[0],pbefore[1],pbefore[2],pbefore[3],pbefore[4],pbefore[5]);
+                printf("after=[%f %f %f %f %f %f]\n",pafter[0],pafter[1],pafter[2],pafter[3],pafter[4],pafter[5]);
                 free(A);
                 free(AP);
                 //freeup variables
-                for(int i = 0; i < n+1; i++){
+                for(int i = 0; i < 2*(n+1); i++){
                     free(B[i]);
                 }
                 free(B);
                 free(X);
                 free(Y);
-
+                free(Z);
             }
 #endif
             else{
