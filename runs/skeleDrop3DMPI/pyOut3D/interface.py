@@ -1,5 +1,7 @@
 import matplotlib
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.colors import ListedColormap
 from matplotlib.collections import PatchCollection
 from matplotlib.patches import Rectangle
@@ -39,12 +41,14 @@ def LoadInterface(dim,time,np,root):
                     interface[i][3].append(float(row[3]))
                     interface[i][4].append(float(row[4]))
                     interface[i][5].append(float(row[5]))
+                    interface[i][6].append(float(row[5]))
     return interface
 
-def PlotInterface(interface,dim,time,np,ax,cmap,maxk):
+def PlotInterface(interface,dim,time,np,ax,cmap):
     #Plots interface data according to process
     for i in range(np):
         if len(interface[i][0]) > 0:
             color = cmap(i / np)
-            ax.scatter(interface[i][0],interface[i][1],s=1,color=color)
-            ax.quiver(interface[i][0],interface[i][1],interface[i][2],interface[i][3],scale=100.0,color=color)
+            ax.scatter(interface[i][0],interface[i][1],interface[i][2],s=1,color=color)
+            #print(len(interface[i][0]),len(interface[i][1]),len(interface[i][2]),len(interface[i][3]),len(interface[i][4]),len(interface[i][5]))
+            #ax.quiver(interface[i][0],interface[i][1],interface[i][2],interface[i][3],interface[i][4],interface[i][5],length=1,color=color)

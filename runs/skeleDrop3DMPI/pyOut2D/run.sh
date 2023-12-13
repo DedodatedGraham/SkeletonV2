@@ -8,13 +8,13 @@ clear
 
 #Normal Run
 #np=2
-#python3 plot.py $np 2 0 615 0
+#python3 plot.py $np 3 0 30 0
 #./movie.sh
 
 
 #MPI Run
 np=2
-python3 plot.py $np 2 0 478 1
+python3 plot.py $np 3 0 30 1
 ./movie.sh
 
 

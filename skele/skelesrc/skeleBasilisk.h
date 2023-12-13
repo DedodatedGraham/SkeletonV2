@@ -449,19 +449,25 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
         if(c[] > 1e-6 && c[] < 1.-1e-6 && vofref[] != nodata){
             coord n = facet_normal(point, c, s);
 	        double aalpha = plane_alpha(c[], n);
-	        coord pc;
-	        double area = plane_area_center(n, aalpha, &pc);
-	        if(area==0){
-	            printf("Area=Null\n");// This statement is just to make some use of the area info. otherwise compiler throws warning!!
-	        }
-            //set the structures point value, should apply for all
+            normalize(&n);
+#if dimension == 2
+	        coord pc[2];
+	        plane_area_center(n, aalpha, &pc);
             smoothnow->points[ref][0] = (x+Delta*pc.x);
             smoothnow->points[ref][1] = (y+Delta*pc.y);
-#if dimension == 2
             smoothnow->points[ref][2] = n.x;
             smoothnow->points[ref][3] = n.y;
 #else
-            smoothnow->points[ref][2] = (z+Delta*pc.z);
+	        coord pc[12];
+	        int m = facets(n, aalpha, pc, 1.);
+            for(int i = 0; i < m; i++){
+                smoothnow->points[ref][0] = smoothnow->points[ref][0] + (x+Delta*pc[i].x);
+                smoothnow->points[ref][1] = smoothnow->points[ref][1] + (y+Delta*pc[i].y);
+                smoothnow->points[ref][2] = smoothnow->points[ref][2] + (z+Delta*pc[i].z);
+            }
+            smoothnow->points[ref][0] = smoothnow->points[ref][0] / m;
+            smoothnow->points[ref][1] = smoothnow->points[ref][1] / m;
+            smoothnow->points[ref][2] = smoothnow->points[ref][2] / m;
             smoothnow->points[ref][3] = n.x;
             smoothnow->points[ref][4] = n.y;
             smoothnow->points[ref][5] = n.z;
@@ -597,7 +603,7 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
                         localSpline[indx][0] = pnew[0];
                         localSpline[indx][1] = pnew[1];
 #if dimension == 3
-                        localSpline[indx][2] = pnew[1];
+                        localSpline[indx][2] = pnew[2];
 #endif
                         indx++;
                     }
@@ -708,117 +714,63 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
                 free(Y);
             }
 #else
+            n = 2;//in 3D we settle for a plane normally
             //3D smoothening using z(x,y) = a0 + a1x + .. + anx^n + an+1y + ... + a2ny^n
             if(indx > n){
                 //allocate
-                double *X = calloc((2*n+1) , sizeof(double));
-                double *Y = calloc((2*n+1) , sizeof(double));
-                double *Z = calloc(2*(n+1) , sizeof(double));
-                double **B= malloc(2*(n+1) * sizeof(double*));
-                double *A = calloc(2*(n+1) , sizeof(double));
-                for(int i = 0; i < 2*(n+1); i++){
-                    B[i] = malloc(2*(n+1) + 1 * sizeof(double));
+                double **B = malloc((2*n+1) * sizeof(double*));
+                double  *A = calloc((2*n+1) , sizeof(double ));
+                for(int i = 0; i < 2*n+1; i++){
+                    B[i]   = calloc((2*n+2) , sizeof(double ));
                 }
                 //calc arrays
                 int jx,jy,jz;
-                if(fabs(smoothnow->points[ref][5]) > fabs(smoothnow->points[ref][3]) && fabs(smoothnow->points[ref][5]) > fabs(smoothnow->points[ref][4])){ 
+                if(fabs(smoothnow->points[ref][5]) >= fabs(smoothnow->points[ref][3]) && fabs(smoothnow->points[ref][5]) >= fabs(smoothnow->points[ref][4])){ 
                     jx=0,jy=1,jz=2;
                 }
-                else if(fabs(smoothnow->points[ref][4]) > fabs(smoothnow->points[ref][3]) && fabs(smoothnow->points[ref][4]) > fabs(smoothnow->points[ref][5])){ 
+                else if(fabs(smoothnow->points[ref][4]) >= fabs(smoothnow->points[ref][3]) && fabs(smoothnow->points[ref][4]) >= fabs(smoothnow->points[ref][5])){ 
                     jx=0,jy=2,jz=1;
                 }
                 else{
                     jx=1,jy=2,jz=0;
                 }
-                for(int i = 0; i <= 2*n; i++){
-                    X[i] = 0;
-                    for(int j = 0; j < indx; j++){
-                        X[i] = X[i] + pow(localSpline[j][jx],i);
+                //Set X, half x half y
+                //Finally set B
+                //X*X terms
+                for(int i = 0; i < 2*n + 1; i++){
+                    //shift between x & y values
+                    int indi=jx,powi=i;
+                    if(i > n)indi=jy,powi=i-n;
+                    for(int j = 0; j < 2*n + 1; j++){
+                        int indj=jx,powj=j;
+                        if(j > n)indj=jy,powj=j-n;
+                        for(int q = 0; q < indx; q++){
+                            B[i][j] = B[i][j] + pow(localSpline[q][indi],powi) * pow(localSpline[q][indj],powj);
+                        }
+                    }
+                    for(int q = 0; q < indx; q++){
+                        B[i][2*n+1] = B[i][2*n+1] + localSpline[q][jz] * pow(localSpline[q][indi],powi);
                     }
                 }
-                for(int i = 0; i <= 2*n; i++){
-                    Y[i] = 0;
-                    for(int j = 0; j < indx; j++){
-                        Y[i] = Y[i] + pow(localSpline[j][jy],i);
-                    }
-                }
-                //Z splits into X and Y based sections 
-                for(int i = 0; i <= n; i++){
-                    Z[i] = 0;
-                    for(int j = 0; j < indx; j ++){
-                        Z[i] = Z[i] + pow(localSpline[j][jx],i)*localSpline[j][jz];
-                        Z[i+n+1] = Z[i+n+1] + pow(localSpline[j][jy],i)*localSpline[j][jz];
-                    }
-                }
-                //make B
-                for(int i = 0; i <= n; i++){
-                    for(int j = 0; j <= n; j++){
-                        B[i][j] = X[i+j];//set topleft (x*x)
-                        B[i][j+n+1] = X[i]*Y[j];
-                        B[i+n+1][j] = X[j]*Y[i];
-                        B[i+n+1][j+n+1] = Y[i+j];//bottom right(y*y)
-                    }
-                }
-                //set zval
-                for(int i = 0; i <= 2*(n+1); i++){
-                    B[i][2*n+1] = Z[i];//set z val
-                }
-                printf("\nB:\n");
-                for(int i = 0; i < 2*(n+1); i++){
-                    for(int j = 0; j < 2*(n+1) + 1; i++){
-                        printf("%5.3f ",B[i][j]);
-                    }
-                    printf("\n");
-                }
-                printf("\n");
-                getCoeffGE(2*(n+1),2*(n+1)+1,&B,&A);
+                getCoeffGE(2*n+1,2*(n+1),&B,&A);
                 //Finally we will Get our current point
                 smoothnow->smoothpoints[ref][jx] = smoothnow->points[ref][jx];
                 smoothnow->smoothpoints[ref][jy] = smoothnow->points[ref][jy];
                 smoothnow->smoothpoints[ref][jz] = 0;
-                double *AP = calloc(2*(n+1),sizeof(double));
-                for(int i = 0; i <= n; i++){
-                    smoothnow->smoothpoints[ref][jz] = smoothnow->smoothpoints[ref][jz] + pow(smoothnow->points[ref][jx],i) * A[i];
-                    smoothnow->smoothpoints[ref][jz] = smoothnow->smoothpoints[ref][jz] + pow(smoothnow->points[ref][jy],i) * A[i+(n+1)];
-                    AP[i] = A[i] * i;
-                    AP[i+(n+1)] = A[i+(n+1)] * i;
+                for(int i = 0; i < 2*n + 1; i++){
+                    int addi = jx,powi = i; 
+                    if(i > n)addi = jy,powi = i-n;
+                    double addup = A[i] * pow(smoothnow->smoothpoints[ref][addi],powi);
+                    smoothnow->smoothpoints[ref][jz] = smoothnow->smoothpoints[ref][jz] + addup;
                 }
-                //and then calculate the norms using the prime
-                //First we calculate the tangent m at our point
-                double mx = 0;
-                double my = 0;
-                for(int i = 0; i <= n; i++){
-                    if(i != 0){
-                        mx = mx + AP[i] * pow(smoothnow->points[ref][jx],i-1);
-                        my = my + AP[i+(n+1)] * pow(smoothnow->points[ref][jy],i-1);
-                    }
+                double dzdx = 0.,dzdy = 0.;
+                for(int i = 1; i <= n; i++){
+                    dzdx = dzdx + A[i  ] * i * pow(smoothnow->smoothpoints[ref][jx],i-1);
+                    dzdy = dzdy + A[i+n] * i * pow(smoothnow->smoothpoints[ref][jy],i-1);
                 }
-                //normal m = -1/m
-                mx = -1 * (1/mx);
-                my = -1 * (1/my);
-                double bx = (-1 * mx * smoothnow->smoothpoints[ref][jx]) + smoothnow->smoothpoints[ref][jz];
-                double by = (-1 * my * smoothnow->smoothpoints[ref][jy]) + smoothnow->smoothpoints[ref][jz];
-                //Calculate temp
-                //If were to the right side of the x center, we will calculate with x-1
-                //left side calculate with x+1?
-                double tx,ty;
-                if(smoothnow->points[ref][jx+dimension] < 0.){
-                    tx = smoothnow->smoothpoints[ref][jx] - 1;
-                }
-                else{
-                    tx = smoothnow->smoothpoints[ref][jx] + 1;
-                }
-                if(smoothnow->points[ref][jy+dimension] < 0.){
-                    ty = smoothnow->smoothpoints[ref][jy] - 1;
-                }
-                else{
-                    ty = smoothnow->smoothpoints[ref][jy] + 1;
-                }
-                double tz = mx * tx + my * ty + bx + by;
-                //Find direction vector to make
-                double tnormx = tx - smoothnow->smoothpoints[ref][jx];
-                double tnormy = ty - smoothnow->smoothpoints[ref][jy];
-                double tnormz = tz - smoothnow->smoothpoints[ref][jy];
+                double tnormx = dzdx;
+                double tnormy = dzdy;
+                double tnormz = -1;
                 //finally we normalize
                 double bottom = sqrt(pow(tnormx,2)+pow(tnormy,2)+pow(tnormz,2));
                 smoothnow->smoothpoints[ref][jx+dimension] = tnormx / bottom;
@@ -843,20 +795,12 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
                 else if(smoothnow->smoothpoints[ref][5] < 0. && !(smoothnow->points[ref][5] < 0.)){
                     smoothnow->smoothpoints[ref][5] = -1 * smoothnow->smoothpoints[ref][5];
                 }
-                double *pbefore = smoothnow->points[ref];
-                double *pafter = smoothnow->smoothpoints[ref];
-                printf("before=[%f %f %f %f %f %f]\n",pbefore[0],pbefore[1],pbefore[2],pbefore[3],pbefore[4],pbefore[5]);
-                printf("after=[%f %f %f %f %f %f]\n",pafter[0],pafter[1],pafter[2],pafter[3],pafter[4],pafter[5]);
                 free(A);
-                free(AP);
                 //freeup variables
-                for(int i = 0; i < 2*(n+1); i++){
+                for(int i = 0; i < 2*n + 1; i++){
                     free(B[i]);
                 }
                 free(B);
-                free(X);
-                free(Y);
-                free(Z);
             }
 #endif
             else{
@@ -1016,7 +960,8 @@ void calcSkeletonMPI(scalar f,double *alpha,int max_level,double L,double t,doub
         }
     }
     MPI_Barrier(MPI_COMM_WORLD);
-    struct OutputXYNorm sP; sP.c = f; sP.level = max_level;
+    face vector ps = {{-1}};
+    struct OutputXYNorm sP; sP.c = f; sP.level = max_level;sP.s = ps;
     scalar vofref[];
     vofref.refine = vofref.prolongation = smoothvof_prolongation;
     vofref.coarsen = vofref.restriction  = smoothvof_restriction;
@@ -1060,7 +1005,11 @@ void calcSkeletonMPI(scalar f,double *alpha,int max_level,double L,double t,doub
     sprintf(savename,"dat/skeletonscatter-%5.3f-p%d.dat",t,pid());
     FILE *savefile = fopen(savename,"w");
     for(int i = 0; i < countn[pid()]; i++){
+#if dimension == 2
         fprintf(savefile,"%f %f %f %f %f\n",skeleton[i][0],skeleton[i][1],skeleton[i][2],skeleton[i][3],skeleton[i][4]);
+#else
+        fprintf(savefile,"%f %f %f %f %f %f\n",skeleton[i][0],skeleton[i][1],skeleton[i][2],skeleton[i][3],skeleton[i][4],skeleton[i][5]);
+#endif
     } 
     fflush(savefile);
     fclose(savefile);

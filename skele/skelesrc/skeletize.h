@@ -292,6 +292,7 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *length,double *mi
     double **interfacePoint = malloc(MAXCYCLES * sizeof(double*));
     int captured = 0;
     for(int i = 0; i < *length + 1; i++){
+        //printf("skel %d / %d\n",i,*length);
         //Goes through each point of the list & generates a skeleton point
         //First step is to make an initial guess
         bool completeCase = true;
@@ -470,7 +471,7 @@ void thinSkeleton(double ***pskeleton,int *length,double *alpha,double *thindis,
         int holdl = *length;
         bool addq = false;
         for(int i = *length - 1; i >=0; i--){
-            if((skeleton[i][3] < *alpha) || (skeleton[i][2]  > *thindis) || (skeleton[i][4] < 1.)){
+            if((skeleton[i][dimension+1] < *alpha) || (skeleton[i][dimension]  > *thindis) || (skeleton[i][dimension+2] < 1.)){
                 //If bad point we will shift everything down one; removing it later
 #if dimension == 2
                 fprintf(fp,"%f %f %f %f %f\n",skeleton[i][0],skeleton[i][1],skeleton[i][2],skeleton[i][3],skeleton[i][4]);

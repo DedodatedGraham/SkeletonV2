@@ -37,19 +37,19 @@ def Load(dim,time,np,root):
     datatag.append(1)
 
     #Load SkeletonSpline
-    skeletonspline = LoadSkeletonSpline(dim,time,np,root)
-    data.append(skeletonspline)
-    datatag.append(2)
+    #skeletonspline = LoadSkeletonSpline(dim,time,np,root)
+    #data.append(skeletonspline)
+    #datatag.append(2)
 
     #Load vofGrid
-    grid = LoadGrid(dim,time,np,root)
-    data.append(grid)
-    datatag.append(3)
+    #grid = LoadGrid(dim,time,np,root)
+    #data.append(grid)
+    #datatag.append(3)
 
     #Load ThinSkeleton
-    #tskeleton = LoadThinSkeleton(dim,time,np,root)
-    #data.append(tskeleton)
-    #datatag.append(4)
+    tskeleton = LoadThinSkeleton(dim,time,np,root)
+    data.append(tskeleton)
+    datatag.append(4)
 
     #finally return data we loaded
     return data,datatag
@@ -63,41 +63,9 @@ def Plot(data,datatag,dim,time,np,ax):
     for i in range(len(data)):
         did = datatag[i]
         if did == 0:
-            maxx = 0
-            minx = 1000000
-            maxy = 0
-            miny = 1000000
             maxk = 0
-            #cx = 0
-            #cy = 0
-            #scale = 0
-            #cnt = 0
-            #for j in range(len(data[i])):
-            #    #loop through np
-            #    for q in range(len(data[i][j][0])):
-            #        if(not math.isnan(data[i][j][0][q])):
-            #            cx += data[i][j][0][q]
-            #        if(not math.isnan(data[i][j][1][q])):
-            #            cy += data[i][j][1][q]
-            #        if(data[i][j][0][q] > maxx):
-            #            maxx = data[i][j][0][q]
-            #        if(data[i][j][0][q] < minx):
-            #            minx = data[i][j][0][q]
-            #        if(data[i][j][1][q] > maxy):
-            #            maxy = data[i][j][1][q]
-            #        if(data[i][j][1][q] < miny):
-            #            miny = data[i][j][1][q]
-            #        if(data[i][j][4][q] > maxk):
-            #            maxk = data[i][j][4][q]
-            #        cnt += 1
-            #cx /= cnt
-            #cy /= cnt
-            #scale = (max(maxx-minx,maxy-miny) / 2) + 0.15
-            #we define our center based on our interface aswell
-            #ax.set_xlim(cx - scale,cx + scale)
-            #ax.set_ylim(cy - scale,cy + scale)
-            ax.set_xlim(0,1)
-            ax.set_ylim(0,1)
+            ax.set_xlim(2,4)
+            ax.set_ylim(-1,1)
             PlotInterface(data[i],dim,time,np,ax,jaggcmap,maxk)
         elif did == 1:
             PlotSkeleton(data[i],dim,time,np,ax,smoothcmap)
@@ -164,7 +132,7 @@ if __name__ == "__main__":
     root = os.path.split(os.path.dirname(os.path.abspath(__file__)))[0] + r'/'
     dt = 0.001
     datalocation = root + r'dat/'
-    savelocation = root + r'pyOut/Img/'
+    savelocation = root + r'pyOut2D/Img/'
     if(mode == 0):
         fig = plt.figure()
         main(fig,np,dim,start_time,max_time,root,datalocation,savelocation)
