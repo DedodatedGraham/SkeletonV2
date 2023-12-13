@@ -211,8 +211,7 @@ void destroyRInter(struct reconstructIntermediate *ri,struct skeledata *sd){
 //which dont cross their connecting line
 void computeSkelNorm(double *skel0,double *skel1,double *output){
   //compute needed values
-  int dim = dimension;
-  double dist   = getDistance(skel0,skel1,&dim); 
+  double dist   = getDistance(skel0,skel1); 
   double dydx   = (skel1[0] - skel0[0]) / (skel1[1] - skel0[1] + SEPS);
   double drdist = (skel1[2] - skel0[2]) / (dist + SEPS);
   double dy2    = dydx   * dydx;

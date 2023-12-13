@@ -3,11 +3,9 @@
 #endif
 
 #if dimension == 2
-int dim = 2;
 double *getBounds(double x, double y, double Delta){
   double *retpoint = malloc(4*sizeof(double));//[Xmin,Xmax,Ymin,Ymax]
 #else
-int dim = 3;
 double *getBounds(double x, double y,double z, double Delta){
   double *retpoint = malloc(6*sizeof(double));
 #endif
@@ -522,7 +520,7 @@ static void skeladv_x (scalar c, scalar cc, scalar * tcl)
     corresponding *upwind* cell (either 0 or -1). */
 
     double un = uf.x[]*dt/(Delta*fm.x[] + SEPS), s = sign(un);
-    int i = -(s + 1.)/2.;
+    //int i = -(s + 1.)/2.;
 
     /**
     We also check that we are not violating the CFL condition. */
@@ -656,21 +654,21 @@ void inject_skele(scalar c, double **inputSkeleton, int *length, int reali){
         computeSkel[csindx] = calloc(4,sizeof(double));//alloc for a new point
 #endif
         int q, tot =  0;
-        for(q = 0; q < dim+1; q++){
+        for(q = 0; q < dimension+1; q++){
           computeSkel[csindx][q] = inputSkeleton[i][q];
         }
         tot++;
         for(int j = i+1; j < *length;j++){
           //secondary loop for averaging
           if(!addid[j] && pointInsideCell(bounds,inputSkeleton[j])){
-            for(q = 0; q < dim+1; q++){
+            for(q = 0; q < dimension+1; q++){
               computeSkel[csindx][q] += inputSkeleton[j][q];
             }
             tot++;
             addid[j]++;
           }
         }
-        for(q = 0; q < dim+1; q++){
+        for(q = 0; q < dimension+1; q++){
           computeSkel[csindx][q] = computeSkel[csindx][q] / tot;
         }
         fid[] = (double)csindx + 1.;//we build ID's up and set local counts 
@@ -726,7 +724,7 @@ void inject_skele(scalar c, double **inputSkeleton, int *length, int reali){
     int **neighborfull = malloc(ilength * sizeof(double*));//holds our neighbor points to relevant positions
     int *neighborfulllength = calloc(ilength , sizeof(int));//holds the amount of neighbors which we have
     for(int i = 0; i < ilength; i++){
-        pointfull[i] = calloc(dim + 1,sizeof(double));//set space for dim + r
+        pointfull[i] = calloc(dimension + 1,sizeof(double));//set space for dim + r
         neighborfull[i] = calloc(1,sizeof(double));//only set space for one for now...
     }
 #if _MPI
@@ -736,7 +734,7 @@ void inject_skele(scalar c, double **inputSkeleton, int *length, int reali){
       if(fid[] > 0.99){
         int localtag = (int)fid[] - 1;//currently holds our position of computeSkel
         //Now we want to transfer our allocated computeSkel into our structure
-        skelPushValues(pointfull[inow[pid()]],computeSkel[localtag],dim + 1);//swap compute to our pointfull
+        skelPushValues(pointfull[inow[pid()]],computeSkel[localtag],dimension + 1);//swap compute to our pointfull
         fid[] = (double)inow[pid()] + 1.;//apply upshift
         inow[pid()]++;
       }
@@ -748,7 +746,7 @@ void inject_skele(scalar c, double **inputSkeleton, int *length, int reali){
       if(fid[] != 0.){
         int localtag = (int)fid[] - 1;//currently holds our position of computeSkel
         //Now we want to transfer our allocated computeSkel into our structure
-        skelPushValues(pointfull[inow],computeSkel[localtag],dim + 1);//swap compute to our pointfull
+        skelPushValues(pointfull[inow],computeSkel[localtag],dimension + 1);//swap compute to our pointfull
         fid[] = (double)inow + 1.;//apply upshift
         inow++;
       }
@@ -823,9 +821,9 @@ void scanSkel(scalar * interfaces,int i){
       int skelelength = 0;
       printf("calc @ %d\n",i);
 #if _MPI
-      calcSkeletonMPI(c,&salpha,&dim,max_level,L,(double)i/1000.,&calcskeleton,&skelelength,active_PID);
+      calcSkeletonMPI(c,&salpha,max_level,L,(double)i/1000.,&calcskeleton,&skelelength,active_PID);
 #else
-      calcSkeleton(c,&salpha,&dim,max_level,L,(double)i/1000.,&calcskeleton,&skelelength);
+      calcSkeleton(c,&salpha,max_level,L,(double)i/1000.,&calcskeleton,&skelelength);
 #endif
       inject_skele(c,calcskeleton,&skelelength,i);//insert skeletons into field
     }
