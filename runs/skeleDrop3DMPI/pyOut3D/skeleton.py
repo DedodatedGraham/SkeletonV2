@@ -106,11 +106,26 @@ def PlotSkeleton(skeleton,dim,time,np,ax,cmap):
 
 def PlotThinSkeleton(skeleton,dim,time,np,ax,cmap):
     #Plots  data according to process
+    maxcolor = 0;
+    mincolor = 1000000;
     for i in range(np):
         if len(skeleton[i][0]) > 0:
+            colortrace = []
             for q in range(len(skeleton[i][0])):
-                color = cmap(i / np)
+                colortrace.append(skeleton[i][3][q])
+                color = cmap(colortrace[q])
+                #color = cmap(i / np)
                 ax.scatter(skeleton[i][0][q],skeleton[i][1][q],skeleton[i][2][q],s=4,color=color)
+            tmax = max(colortrace)
+            tmin = min(colortrace)
+            if tmax > maxcolor:
+                maxcolor = tmax
+            if tmin < mincolor:
+                mincolor = tmin
+    norm = plt.Normalize(vmin=mincolor, vmax=maxcolor)
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])  # This line is necessary for the color bar to work properly
+    cbar = plt.colorbar(sm, ax=ax)
 
 
 

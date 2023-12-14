@@ -466,6 +466,7 @@ void skeletize(double **points,int *length,char path[80],double *mindis,bool isv
 void thinSkeleton(double ***pskeleton,int *length,double *alpha,double *thindis,char outname[80]){
     double **skeleton = *pskeleton;
     //we need to handle situations 
+    printf("inl = %d\n",*length);
     FILE * fp = fopen (outname, "w");
     if(*length > 0){
         int holdl = *length;
@@ -511,6 +512,7 @@ void thinSkeleton(double ***pskeleton,int *length,double *alpha,double *thindis,
     }
     fflush(fp);
     fclose(fp);
+    printf("outl = %d\n",*length);
     *pskeleton = skeleton;
 }
 //Gets spline

@@ -444,7 +444,7 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
 #if dimension == 2
         fprintf(voffile,"%f %f %f \n",x,y,Delta);//outputs x y delta for reconstruction of vof field
 #else
-        fprintf(voffile,"%f %f %f %f \n",x,y,z,Delta);//outputs x y delta for reconstruction of vof field
+        //fprintf(voffile,"%f %f %f %f \n",x,y,z,Delta);//outputs x y delta for reconstruction of vof field
 #endif
         if(c[] > 1e-6 && c[] < 1.-1e-6 && vofref[] != nodata){
             coord n = facet_normal(point, c, s);
@@ -817,7 +817,7 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
     //finally we need to free the struct and its variables allocated
     free(localcalc);
 }
-void extract_ip_MPI(double ***parr,scalar c,scalar vofref,int *countn,int *active_PID, double t){
+void extract_ip_MPI(double ***parr,scalar c,scalar vofref,int *countn, double t){
     int comm_size;
     MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
     //because of weirdness with basilisk, we will write to interficial datafiles and then extract points from said files
@@ -930,7 +930,7 @@ void extract_ip_MPI(double ***parr,scalar c,scalar vofref,int *countn,int *activ
     *parr = newarr;
 }
 //run MPI
-void calcSkeletonMPI(scalar f,double *alpha,int max_level,double L,double t,double ***pskeleton, int *pskelelength,int *active_PID){ 
+void calcSkeletonMPI(scalar f,double *alpha,int max_level,double L,double t,double ***pskeleton, int *pskelelength){ 
     int comm_size;
     MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
     MPI_Barrier(MPI_COMM_WORLD);
@@ -975,7 +975,7 @@ void calcSkeletonMPI(scalar f,double *alpha,int max_level,double L,double t,doub
     double **interfacePoints;
     //smooth interface points
     //next grab interface points
-    extract_ip_MPI(&interfacePoints,f,vofref,&countn[pid()],active_PID,t);
+    extract_ip_MPI(&interfacePoints,f,vofref,&countn[pid()],t);
     delete({vofref});
     struct smooths *smooth = vofref.smooth;
     for(int i = 0; i < *smooth->length; i++){
@@ -990,7 +990,9 @@ void calcSkeletonMPI(scalar f,double *alpha,int max_level,double L,double t,doub
     smooth = NULL;
     
     //calc skeleton
-    countn[pid()] = countn[pid()] - 1;
+    if(countn[pid()]){
+        countn[pid()] = countn[pid()] - 1;
+    }
     double skelemin = mindis * 0.5;
     char savename[80];
     double **skeleton = NULL; 

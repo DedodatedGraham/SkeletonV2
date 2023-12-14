@@ -16,10 +16,11 @@
 
 #define LARGE 1e36
 
-double max_level = 9;
+double max_level = 8;
 double L = 5;
 double t_out = 0.010;       
-double t_end = 0.040;    
+double t_end = 0.02;
+//double t_end = 0.320;    
 
 /** dimensionless properties, normalized by scaling variables rhol, D, sigma
  */
@@ -146,6 +147,7 @@ event init (t = 0)
 
 event snapshot (t += t_out; t<=t_end ) {
   char name[80];
+  printf("t=%05.3f\n",t);
   sprintf (name, "dumps/snapshot-%05.3f.gfs", t);
   output_gfs (file = name, t=t, list = {f,u,p});
 

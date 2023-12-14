@@ -7,15 +7,15 @@ clear
 ./clean.sh
 
 #Normal Run
-np=2
-python3 plot.py $np 3 0 30 0
-./movie.sh
+#np=12
+#python3 plot.py $np 3 0 250 0
+#./movie.sh
 
 
 #MPI Run
-#np=2
-#python3 plot.py $np 3 0 1 1
-#./movie.sh
+np=12
+python3 plot.py $np 3 0 250 1
+./movie.sh
 
 
 
