@@ -821,10 +821,11 @@ void scanSkel(scalar * interfaces,int i){
       int skelelength = 0;
       printf("calc @ %d\n",i);
 #if _MPI
-      calcSkeletonMPI(c,&salpha,max_level,L,(double)i/1000.,&calcskeleton,&skelelength,active_PID);
+      calcSkeletonMPI(c,&salpha,max_level,L,(double)i/1000.,&calcskeleton,&skelelength);
 #else
       calcSkeleton(c,&salpha,max_level,L,(double)i/1000.,&calcskeleton,&skelelength);
 #endif
+      printf("sl=%d\n",skelelength);
       inject_skele(c,calcskeleton,&skelelength,i);//insert skeletons into field
     }
   }
