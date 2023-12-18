@@ -472,7 +472,7 @@ void thinSkeleton(double ***pskeleton,int *length,double *alpha,double *thindis,
         int holdl = *length;
         bool addq = false;
         for(int i = *length - 1; i >=0; i--){
-            if((skeleton[i][dimension+1] < *alpha) || (skeleton[i][dimension]  > *thindis) || (skeleton[i][dimension+2] < 1.)){
+            if((skeleton[i][dimension+1] < *alpha) || skeleton[i][dimension] < *thindis*2. || skeleton[i][dimension] > 0.1){// || (skeleton[i][dimension]  > *thindis) || (skeleton[i][dimension+2] < 1.)){
                 //If bad point we will shift everything down one; removing it later
 #if dimension == 2
                 fprintf(fp,"%f %f %f %f %f\n",skeleton[i][0],skeleton[i][1],skeleton[i][2],skeleton[i][3],skeleton[i][4]);

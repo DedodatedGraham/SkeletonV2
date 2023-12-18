@@ -28,9 +28,9 @@ def Load(dim,time,np,root):
     #2 => skeleton(spline)
 
     #Load interface
-    #interface = LoadInterface(dim,time,np,root)
-    #data.append(interface)
-    #datatag.append(0)
+    interface = LoadInterface(dim,time,np,root)
+    data.append(interface)
+    datatag.append(0)
 
     #Load Skeleton
     #skeleton = LoadSkeleton(dim,time,np,root)
@@ -48,9 +48,9 @@ def Load(dim,time,np,root):
     #datatag.append(3)
 
     #Load ThinSkeleton
-    tskeleton = LoadThinSkeleton(dim,time,np,root)
-    data.append(tskeleton)
-    datatag.append(4)
+    #tskeleton = LoadThinSkeleton(dim,time,np,root)
+    #data.append(tskeleton)
+    #datatag.append(4)
 
     #finally return data we loaded
     return data,datatag

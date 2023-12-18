@@ -16,7 +16,7 @@
 
 #define LARGE 1e36
 
-double max_level = 8;
+double max_level = 9;
 double L = 5;
 double t_out = 0.010;       
 double t_end = 0.02;
@@ -121,17 +121,35 @@ int main(int argc, char * argv[])
 
 /**
 The initial drop is spherical. */
-
+double voidintsphere(double x,double y,double z,double r,double x0, double y0, double z0){
+    double outer = -sq(x-x0)-sq(y-y0)-sq(z-z0)+sq(r);
+    double inner = -sq(x-x0)-sq(y-y0)-sq(z-z0)+sq((r-0.1)+ 0.02*cos(10.*atan2(y-y0,x-x0)));
+    if(inner <= 0.){
+        //not inside inner
+        if(x-x0 > 0. && outer > 0.){
+            //if in right half
+            return outer;
+        }
+    }
+    if(x-x0 >= -0.2 && x-x0 <= 0.2){
+        //place our torus
+        double tor = -sq((r-0.05) - sqrt(sq(y-y0) + sq(z-z0)))-sq(x-x0)+sq(0.1); 
+        if(tor > 0.)return tor;
+    }
+    //if nothing else we return our inside val
+    if(inner < 0.)return inner;
+    return -inner;
+}
 event init (t = 0)
 {
   if (!restore (file = "dump")) {
 
-    double Rd = 0.5;
-    double x0 = 0.5+h;
+    double Rd = 0.55;
+    double x0 = 0.55+h;
     int init_max_level = min(12,max_level); 
 
     refine (  sq(y)+sq(x-x0)+sq(z)<sq(0.6) && sq(y)+sq(x-x0)+sq(z)>sq(0.4) && level < init_max_level );
-    fraction (f, -sq(y)-sq(x-x0)-sq(z)+sq(Rd));
+    fraction (f,voidintsphere(x,y,z,Rd,x0,0.,0.));
     /** It is important to initialize the flow field. If u.x=0, Poisson
     solver crahses. If u.x=u0*(1-f[]), the interface velocity is too large
     and will induce erroneous deformation at early time and wrong pressure 

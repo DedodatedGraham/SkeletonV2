@@ -106,7 +106,7 @@ def PlotSkeleton(skeleton,dim,time,np,ax,cmap):
             if tmin < mincolor:
                 mincolor = tmin
     #finally we plot our colorbar :)
-    norm = plt.Normalize(vmin=mincolor, vmax=maxcolor)
+    norm = plt.Normalize(vmin=mincolor, vmax=0.05)
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
     sm.set_array([])  # This line is necessary for the color bar to work properly
     cbar = plt.colorbar(sm, ax=ax)

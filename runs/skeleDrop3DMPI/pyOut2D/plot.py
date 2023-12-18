@@ -47,9 +47,9 @@ def Load(dim,time,np,root):
     #datatag.append(3)
 
     #Load ThinSkeleton
-    tskeleton = LoadThinSkeleton(dim,time,np,root)
-    data.append(tskeleton)
-    datatag.append(4)
+    #tskeleton = LoadThinSkeleton(dim,time,np,root)
+    #data.append(tskeleton)
+    #datatag.append(4)
 
     #finally return data we loaded
     return data,datatag
