@@ -123,7 +123,7 @@ int main(int argc, char * argv[])
 The initial drop is spherical. */
 double voidintsphere(double x,double y,double z,double r,double x0, double y0, double z0){
     double outer = -sq(x-x0)-sq(y-y0)-sq(z-z0)+sq(r);
-    double inner = -sq(x-x0)-sq(y-y0)-sq(z-z0)+sq((r-0.1)+ 0.02*cos(10.*atan2(y-y0,x-x0)));
+    double inner = -sq(x-x0)-sq(y-y0)-sq(z-z0)+sq((r-0.1)+ 0.05*cos(4.*atan2(sqrt(sq(y-y0)+sq(z-z0)),x-x0)));
     if(inner <= 0.){
         //not inside inner
         if(x-x0 > 0. && outer > 0.){
@@ -133,7 +133,7 @@ double voidintsphere(double x,double y,double z,double r,double x0, double y0, d
     }
     if(x-x0 >= -0.2 && x-x0 <= 0.2){
         //place our torus
-        double tor = -sq((r-0.05) - sqrt(sq(y-y0) + sq(z-z0)))-sq(x-x0)+sq(0.1); 
+        double tor = -sq((r-0.05) - sqrt(sq(y-y0) + sq(z-z0)))-sq(x-x0)+sq(0.05); 
         if(tor > 0.)return tor;
     }
     //if nothing else we return our inside val
