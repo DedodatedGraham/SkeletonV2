@@ -142,7 +142,7 @@ double voidintsphere(double x,double y,double z,double r,double x0, double y0, d
 }
 event init (t = 0)
 {
-  if (!restore (file = "importDump/dump-0.4280")) {
+  if (!restore (file = "importDump/dump")){
 
     double Rd = 0.55;
     double x0 = 0.55+h;

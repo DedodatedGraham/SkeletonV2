@@ -21,7 +21,8 @@ extern scalar *interfacefid;//id
 
 double max_level = 6;
 double t_out = 0.01;       
-double T_END = 4.;
+double T_END = 0.05;
+//double T_END = 4.;
 //double T_END = 2.00;
 
 /** dimensionless properties, normalized by scaling variables rhol, D, sigma

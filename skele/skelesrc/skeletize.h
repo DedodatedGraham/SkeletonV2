@@ -284,6 +284,7 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *length,double *mi
     double guessr = *length;
     int extra = 3;//save r, alpha, kappa to relevant skeletonpoints
     double **skeleton = malloc((*length + 1) * sizeof(double*));
+    printf("+%d\n",*length+1);
     for(int i = 0; i < *length+1;i++){
         skeleton[i] = calloc((dimension + extra) , sizeof(double));
     }
@@ -496,8 +497,11 @@ void thinSkeleton(double ***pskeleton,int *length,double *alpha,double *thindis,
             }
         }
         if(*length > 0){
-            for(int i = *length; i < holdl; i++){
-                free(skeleton[i]);
+            printf("-%d\n",holdl - *length);
+            for(int i = *length; i < holdl+1; i++){
+                if(skeleton[i] != NULL){
+                    free(skeleton[i]);
+                }
             }
             skeleton = realloc(skeleton,*length * sizeof(double*));
         }
