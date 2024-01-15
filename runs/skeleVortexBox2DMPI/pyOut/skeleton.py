@@ -86,18 +86,13 @@ def PlotSkeleton(skeleton,dim,time,np,ax,cmap):
             #scatter whole skeleton at once
             #ax.scatter(skeleton[i][0],skeleton[i][1],s=4,color=color)
             for q in range(len(skeleton[i][0])):
-                ##colortrace.append(skeleton[i][2][q] / skeleton[i][4][q])
+                #colortrace.append(skeleton[i][2][q] / skeleton[i][4][q])
                 colortrace.append(skeleton[i][2][q])
                 color = cmap(colortrace[q])
-                #color = cmap(i / np)
-                ax.scatter(skeleton[i][0][q],skeleton[i][1][q],s=4,color=color)
+                maxcolor = max(maxcolor,colortrace[q])
+                mincolor = min(mincolor,colortrace[q])
+                ax.scatter(skeleton[i][0][q],skeleton[i][1][q],s=1,color=color)
             #after the plotting we set max and min if possible
-            tmax = max(colortrace)
-            tmin = min(colortrace)
-            if tmax > maxcolor:
-                maxcolor = tmax
-            if tmin < mincolor:
-                mincolor = tmin
     #finally we plot our colorbar :)
     norm = plt.Normalize(vmin=mincolor, vmax=maxcolor)
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)

@@ -21,8 +21,8 @@ extern scalar *interfacefid;//id
 
 double max_level = 6;
 double t_out = 0.01;       
-//double T_END = 15.;
-double T_END = 2.00;
+double T_END = 4.;
+//double T_END = 2.00;
 
 /** dimensionless properties, normalized by scaling variables rhol, D, sigma
  */
@@ -154,7 +154,7 @@ event snapshot (t += t_out; t<=T_END) {
 
     //finally output timer and results as this takes bulk of process
     timernow = clock();
-    double cpu_time_used = ((double) (timernow - timerlast)) / (CLOCKS_PER_SEC * comm_size);
+    double cpu_time_used = ((double) (timernow - timerlast)) / (CLOCKS_PER_SEC);
     timertotal += cpu_time_used;
     printf("calc @ t=%f\n",t);
     fprintf(stdout,"Total Time used: %fm: %fs\n",floor(timertotal / 60.),timertotal - 60 * (floor(timertotal / 60.)));

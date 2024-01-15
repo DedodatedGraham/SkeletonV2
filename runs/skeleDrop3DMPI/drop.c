@@ -19,7 +19,7 @@
 double max_level = 9;
 double L = 5;
 double t_out = 0.010;       
-double t_end = 0.02;
+double t_end = 0.5;
 //double t_end = 0.320;    
 
 /** dimensionless properties, normalized by scaling variables rhol, D, sigma
@@ -123,7 +123,7 @@ int main(int argc, char * argv[])
 The initial drop is spherical. */
 double voidintsphere(double x,double y,double z,double r,double x0, double y0, double z0){
     double outer = -sq(x-x0)-sq(y-y0)-sq(z-z0)+sq(r);
-    double inner = -sq(x-x0)-sq(y-y0)-sq(z-z0)+sq((r-0.1)+ 0.05*cos(4.*atan2(sqrt(sq(y-y0)+sq(z-z0)),x-x0)));
+    double inner = -sq(x-x0)-sq(y-y0)-sq(z-z0)+sq((r-0.1)+ 0.07*sin(2.*atan2(sqrt(sq(y-y0)+sq(z-z0)),x-x0)));
     if(inner <= 0.){
         //not inside inner
         if(x-x0 > 0. && outer > 0.){
@@ -142,7 +142,7 @@ double voidintsphere(double x,double y,double z,double r,double x0, double y0, d
 }
 event init (t = 0)
 {
-  if (!restore (file = "dump")) {
+  if (!restore (file = "importDump/dump-0.4280")) {
 
     double Rd = 0.55;
     double x0 = 0.55+h;
@@ -160,6 +160,9 @@ event init (t = 0)
     }
     boundary ({f,u.x});
 
+  }
+  else{
+      printf("loaded!\n");
   }
 }
 

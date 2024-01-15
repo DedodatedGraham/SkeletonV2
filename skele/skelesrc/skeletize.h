@@ -436,8 +436,6 @@ void skeletize(double **points,int *length,char path[80],double *mindis,bool isv
     if(*length > 0){
         //Create our kd tree for calculation
         struct kdleaf *kdstruct = NULL;
-        int comm_size;
-        MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
         CreateStructure(points,&kdstruct,0,0,*length,0);//make kd-struct
         if(kdstruct== NULL){
             printf("error\n");
@@ -466,13 +464,14 @@ void skeletize(double **points,int *length,char path[80],double *mindis,bool isv
 void thinSkeleton(double ***pskeleton,int *length,double *alpha,double *thindis,char outname[80]){
     double **skeleton = *pskeleton;
     //we need to handle situations 
-    printf("inl = %d\n",*length);
+    printf("inl = %d / %f\n",*length,*thindis);
     FILE * fp = fopen (outname, "w");
     if(*length > 0){
         int holdl = *length;
         bool addq = false;
         for(int i = *length - 1; i >=0; i--){
-            if((skeleton[i][dimension+1] < *alpha) || skeleton[i][dimension] < *thindis*2. || skeleton[i][dimension] > 0.1){// || (skeleton[i][dimension]  > *thindis) || (skeleton[i][dimension+2] < 1.)){
+            //printf("%f\n",*thindis);
+            if((skeleton[i][dimension+1] < *alpha) || skeleton[i][dimension] < *thindis || skeleton[i][dimension] > 0.5){// || (skeleton[i][dimension]  > *thindis) || (skeleton[i][dimension+2] < 1.)){
                 //If bad point we will shift everything down one; removing it later
 #if dimension == 2
                 fprintf(fp,"%f %f %f %f %f\n",skeleton[i][0],skeleton[i][1],skeleton[i][2],skeleton[i][3],skeleton[i][4]);

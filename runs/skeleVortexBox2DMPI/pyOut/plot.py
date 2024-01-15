@@ -37,9 +37,9 @@ def Load(dim,time,np,root):
     datatag.append(1)
 
     #Load SkeletonSpline
-    skeletonspline = LoadSkeletonSpline(dim,time,np,root)
-    data.append(skeletonspline)
-    datatag.append(2)
+    #skeletonspline = LoadSkeletonSpline(dim,time,np,root)
+    #data.append(skeletonspline)
+    #datatag.append(2)
 
     #Load vofGrid
     #grid = LoadGrid(dim,time,np,root)
@@ -47,9 +47,9 @@ def Load(dim,time,np,root):
     #datatag.append(3)
 
     #Load ThinSkeleton
-    tskeleton = LoadThinSkeleton(dim,time,np,root)
-    data.append(tskeleton)
-    datatag.append(4)
+    #tskeleton = LoadThinSkeleton(dim,time,np,root)
+    #data.append(tskeleton)
+    #datatag.append(4)
 
     #finally return data we loaded
     return data,datatag
@@ -59,51 +59,38 @@ def Plot(data,datatag,dim,time,np,ax):
     #cmap = matplotlib.colormaps.get_cmap("tab20") #for plotting different pid
     smoothcmap = matplotlib.colormaps.get_cmap("winter") #for plotting smooth
     jaggcmap = matplotlib.colormaps.get_cmap("tab20") #for plotting pid
-    plt.title("time:{:3.3f}".format(time))
+    #plt.title("time:{:3.3f}".format(time))
+    ax.axis('off')
     for i in range(len(data)):
         did = datatag[i]
         if did == 0:
-            maxx = 0
-            minx = 1000000
-            maxy = 0
-            miny = 1000000
             maxk = 0
-            #cx = 0
-            #cy = 0
-            #scale = 0
-            #cnt = 0
-            #for j in range(len(data[i])):
-            #    #loop through np
-            #    for q in range(len(data[i][j][0])):
-            #        if(not math.isnan(data[i][j][0][q])):
-            #            cx += data[i][j][0][q]
-            #        if(not math.isnan(data[i][j][1][q])):
-            #            cy += data[i][j][1][q]
-            #        if(data[i][j][0][q] > maxx):
-            #            maxx = data[i][j][0][q]
-            #        if(data[i][j][0][q] < minx):
-            #            minx = data[i][j][0][q]
-            #        if(data[i][j][1][q] > maxy):
-            #            maxy = data[i][j][1][q]
-            #        if(data[i][j][1][q] < miny):
-            #            miny = data[i][j][1][q]
-            #        if(data[i][j][4][q] > maxk):
-            #            maxk = data[i][j][4][q]
-            #        cnt += 1
-            #cx /= cnt
-            #cy /= cnt
-            #scale = (max(maxx-minx,maxy-miny) / 2) + 0.15
-            #we define our center based on our interface aswell
-            #ax.set_xlim(cx - scale,cx + scale)
-            #ax.set_ylim(cy - scale,cy + scale)
-            ax.set_xlim(0,1)
-            ax.set_ylim(0,1)
+            minx = 1.0
+            miny = 1.0
+            maxx = 0.0
+            maxy = 0.0
+            #setup general viewpoint
+            for j in range(np):
+                if len(data[i][j][0]) > 0:
+                    for q in range(len(data[i][j][0])):
+                        #take each position
+                        minx = min(minx,data[i][j][0][q])
+                        miny = min(miny,data[i][j][1][q])
+                        maxx = max(maxx,data[i][j][0][q])
+                        maxy = max(maxy,data[i][j][1][q])
+            #have min & maxes, now we set to wanted caps ~ 0.01
+            minx = math.floor(minx*100.)/100.-0.05
+            miny = math.floor(miny*100.)/100.-0.05
+            maxx = math.ceil(maxx*100.)/100.+0.05
+            maxy = math.ceil(maxy*100.)/100.+0.05
+            ax.set_xlim(minx,maxx)
+            ax.set_ylim(miny,maxy)
             PlotInterface(data[i],dim,time,np,ax,jaggcmap,maxk)
         elif did == 1:
             PlotSkeleton(data[i],dim,time,np,ax,smoothcmap)
             #PlotSkeleton(data[i],dim,time,np,ax,jaggcmap)
         elif did == 2:
-            PlotSkeletonSpline(data[i],dim,time,np,ax,smoothcmap)
+            PlotSkeletonSpline(data[i],dim,time,np,ax,jaggcmap)
         elif did == 3:
             PlotGrid(data[i],dim,time,np,ax,jaggcmap)
         elif did == 4:
@@ -111,6 +98,7 @@ def Plot(data,datatag,dim,time,np,ax):
         else:
             print("not implemented yet")
 def Save(root,plt,time):
+    plt.gca().set_aspect('equal', adjustable='box')
     timeform = '{:3.3f}'.format(time)
     save = root + r'plot-' + timeform.zfill(6) + r'.png'.format(time)
     plt.savefig(save,dpi=1000)

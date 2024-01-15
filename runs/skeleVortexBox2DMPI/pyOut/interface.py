@@ -45,6 +45,6 @@ def PlotInterface(interface,dim,time,np,ax,cmap,maxk):
     #Plots interface data according to process
     for i in range(np):
         if len(interface[i][0]) > 0:
-            color = cmap(i / np)
-            ax.scatter(interface[i][0],interface[i][1],s=1,color=color)
-            ax.quiver(interface[i][0],interface[i][1],interface[i][2],interface[i][3],scale=100.0,color=color)
+            #color = cmap(i / np)
+            ax.scatter(interface[i][0],interface[i][1],s=1,color='black')
+            #ax.quiver(interface[i][0],interface[i][1],interface[i][2],interface[i][3],scale=25.0,color='black')
