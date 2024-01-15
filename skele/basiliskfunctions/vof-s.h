@@ -2,6 +2,8 @@
 #define _skel = 1
 #endif
 
+
+int doSmooth = 1;
 #if dimension == 2
 double *getBounds(double x, double y, double Delta){
   double *retpoint = malloc(4*sizeof(double));//[Xmin,Xmax,Ymin,Ymax]
@@ -795,7 +797,7 @@ void inject_skele(scalar c, double **inputSkeleton, int *length, int reali){
   //at the end we want to be sure and clean each
 }
 
-double salpha = 25 * PI / 180;/////INPUT ANGLE TO SKELETON 
+double salpha = 40 * PI / 180;/////INPUT ANGLE TO SKELETON 
 //scan skel will detect & create skeletons
 void scanSkel(scalar * interfaces,int i){
   for (scalar c in interfaces) {
@@ -821,12 +823,12 @@ void scanSkel(scalar * interfaces,int i){
       int skelelength = 0;
       printf("calc @ %d\n",i);
 #if _MPI
-      calcSkeletonMPI(c,&salpha,max_level,L,(double)i/1000.,&calcskeleton,&skelelength);
+      calcSkeletonMPI(c,&salpha,max_level,L,(double)i/1000.,&calcskeleton,&skelelength,doSmooth);
 #else
-      calcSkeleton(c,&salpha,max_level,L,(double)i/1000.,&calcskeleton,&skelelength);
+      calcSkeleton(c,&salpha,max_level,L,(double)i/1000.,&calcskeleton,&skelelength,doSmooth);
 #endif
       printf("sl=%d\n",skelelength);
-      inject_skele(c,calcskeleton,&skelelength,i);//insert skeletons into field
+      //inject_skele(c,calcskeleton,&skelelength,i);//insert skeletons into field
     }
   }
 
