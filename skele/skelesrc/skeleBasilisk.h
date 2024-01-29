@@ -405,17 +405,9 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
     //Because MPI we smooth alittle differently, first we compute true vof points and normals
     //Next we will then add the smoothening to a seperate scaalar
     //Finally we can extrat the fully smooth scalar using noauto for specified region :) 
-    char vofout[80];
-    sprintf(vofout,"dat/vofinfo-%5.3f-p%d.dat",t,pid());
-    FILE *voffile = fopen(vofout,"w");
     foreach(){
         int ref = (int)vofref[];
         struct smooths *smoothnow = vofref.smooth;
-#if dimension == 2
-        //fprintf(voffile,"%f %f %f \n",x,y,Delta);//outputs x y delta for reconstruction of vof field
-#else
-        //fprintf(voffile,"%f %f %f %f \n",x,y,z,Delta);//outputs x y delta for reconstruction of vof field
-#endif
         if(c[] > 1e-6 && c[] < 1.-1e-6 && vofref[] != nodata){
             coord n = facet_normal(point, c, s);
 	        double aalpha = plane_alpha(c[], n);
@@ -444,8 +436,6 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
 #endif
         }
     }
-    fflush(voffile);
-    fclose(voffile);
     //Calculate the interface data
     //multigrid_restriction({vofref});
     boundary({vofref});
@@ -976,7 +966,8 @@ void calcSkeletonMPI(scalar f,double *alpha,int max_level,double L,double t,doub
     double skelemin = mindis * 0.5;
     char savename[80];
     double **skeleton = NULL; 
-    skeletize(interfacePoints,&countn[pid()],savename,&skelemin,false,*alpha,&skeleton);
+    skeletizeMPI(interfacePoints,&countn[pid()],savename,&skelemin,false,*alpha,&skeleton);
+    MPI_Barrier(MPI_COMM_WORLD);
     //Next we thin out our skeleton
     double thindis = mindis;//when r is more than delta/2 :(
     char noname[80];
@@ -1573,9 +1564,9 @@ void calcSkeleton(scalar f,double *alpha,int max_level,double L,double t,double 
     char savename[80];
     double **skeleton = NULL; 
     skeletize(interfacePoints,&countn,savename,&skelemin,false,*alpha,&skeleton);
-    printf("skele\n");
+    //printf("skele\n");
     //Next we thin out our skeleton
-    double thindis = mindis*2;//when r is more than delta/2 :(
+    double thindis = mindis;//when r is more than delta/2 :(
     char noname[80];
     sprintf(noname,"dat/skeletonthin-%5.3f-p%d.dat",t,0);
     thinSkeleton(&skeleton,&countn,alpha,&thindis,noname);
@@ -1588,7 +1579,7 @@ void calcSkeleton(scalar f,double *alpha,int max_level,double L,double t,double 
         fprintf(savefile,"%f %f %f %f %f %f\n",skeleton[i][0],skeleton[i][1],skeleton[i][2],skeleton[i][3],skeleton[i][4],skeleton[i][5]);
 #endif
     } 
-    printf("save\n");
+    //printf("save\n");
     fflush(savefile);
     fclose(savefile);
     

@@ -284,7 +284,7 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *length,double *mi
     double guessr = *length;
     int extra = 3;//save r, alpha, kappa to relevant skeletonpoints
     double **skeleton = malloc((*length + 1) * sizeof(double*));
-    printf("+%d\n",*length+1);
+    //printf("+%d\n",*length+1);
     for(int i = 0; i < *length+1;i++){
         skeleton[i] = calloc((dimension + extra) , sizeof(double));
     }
@@ -432,6 +432,39 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *length,double *mi
     *newl = captured;
     *pskeleton = skeleton;
 }
+#if _MPI
+//Implementation for skeletizing a mpi function
+void skeletizeMPI(double **points,int *length,char path[80],double *mindis,bool isvofactive,double wantedAngle,double ***pskeleton){
+    double **skeleton = NULL; 
+    if(*length > 0){
+        //Create our kd tree for calculation
+        struct kdleaf *kdstruct = NULL;
+        CreateStructure(points,&kdstruct,0,0,*length,0);//make kd-struct
+        if(kdstruct== NULL){
+            printf("error\n");
+        }
+        //Calculate our distance ratio
+        if(wantedAngle > 180){
+            wantedAngle = 180;
+        }
+        double calcratio = 0.0;
+        calcratio = tan(wantedAngle);
+        //Next our skeleton will be calculated
+        int newl = 0;
+        makeSkeleton(points,kdstruct,length,mindis,path,isvofactive,&calcratio,&newl,&skeleton);
+        //Finally clean up to prevent memeory error
+        for(int i = 0;i < *length + 1; i++){
+            free(points[i]);
+        }
+        free(points);
+        points = NULL;
+        kdDestroy(&kdstruct);
+        length = &newl;
+
+    }
+    *pskeleton = skeleton;
+}
+#else
 void skeletize(double **points,int *length,char path[80],double *mindis,bool isvofactive,double wantedAngle,double ***pskeleton){
     double **skeleton = NULL; 
     if(*length > 0){
@@ -462,10 +495,11 @@ void skeletize(double **points,int *length,char path[80],double *mindis,bool isv
     }
     *pskeleton = skeleton;
 }
+#endif
 void thinSkeleton(double ***pskeleton,int *length,double *alpha,double *thindis,char outname[80]){
     double **skeleton = *pskeleton;
     //we need to handle situations 
-    printf("inl = %d / %f\n",*length,*thindis);
+    //printf("inl = %d / %f\n",*length,*thindis);
     FILE * fp = fopen (outname, "w");
     if(*length > 0){
         int holdl = *length;
@@ -497,7 +531,7 @@ void thinSkeleton(double ***pskeleton,int *length,double *alpha,double *thindis,
             }
         }
         if(*length > 0){
-            printf("-%d\n",holdl - *length);
+            //printf("-%d\n",holdl - *length);
             for(int i = *length; i < holdl+1; i++){
                 if(skeleton[i] != NULL){
                     free(skeleton[i]);
@@ -515,7 +549,7 @@ void thinSkeleton(double ***pskeleton,int *length,double *alpha,double *thindis,
     }
     fflush(fp);
     fclose(fp);
-    printf("outl = %d\n",*length);
+    //printf("outl = %d\n",*length);
     *pskeleton = skeleton;
 }
 //Gets spline
@@ -2720,6 +2754,7 @@ double getFactorial(int num){
 //    //free/destroy
 //    destroybezData(&bd);
 //}
+#if _GSL
 void getCoeffBL(int row, int col, double ***pa, double **px,double **pp,int dim){
     //solve bezier for linear non constrained problem
     //finally we solve the equation A*P=X
@@ -3765,3 +3800,4 @@ void skeleReduce(double **skeleton,double delta,double *minblen,int *length,int 
 
     }
 }
+#endif
