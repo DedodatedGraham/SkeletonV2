@@ -14,53 +14,21 @@ int skelePartition(double **arr, int lbound, int tbound, int axis,int mode){
     for(int j = lbound; j < tbound; j++){
         if(arr[j][axis] <= pivot){
 	        i++;
-#if dimension == 2    
-	        skeleSwap(&arr[i][0], &arr[j][0]);
-	        skeleSwap(&arr[i][1], &arr[j][1]);
-	        skeleSwap(&arr[i][2], &arr[j][2]);
-            if(mode == 0){
-                skeleSwap(&arr[i][3], &arr[j][3]);
-                skeleSwap(&arr[i][4], &arr[j][4]);
+            for(int q = 0; q < dimension + mode; q++){
+	            skeleSwap(&arr[i][q], &arr[j][q]);
             }
-#else
-            skeleSwap(&arr[i][0], &arr[j][0]);
-	        skeleSwap(&arr[i][1], &arr[j][1]);
-	        skeleSwap(&arr[i][2], &arr[j][2]);
-	        skeleSwap(&arr[i][3], &arr[j][3]);
-            if(mode == 0){
-                skeleSwap(&arr[i][4], &arr[j][4]);
-                skeleSwap(&arr[i][5], &arr[j][5]);
-                skeleSwap(&arr[i][6], &arr[j][6]);
-            }
-#endif
 	    }
     }
-#if dimension == 2    
-    skeleSwap(&arr[i + 1][0], &arr[tbound][0]);
-	skeleSwap(&arr[i + 1][1], &arr[tbound][1]);
-	skeleSwap(&arr[i + 1][2], &arr[tbound][2]);
-    if(mode == 0){
-	    skeleSwap(&arr[i + 1][3], &arr[tbound][3]);
-	    skeleSwap(&arr[i + 1][4], &arr[tbound][4]);
+    for(int q = 0; q < dimension + mode; q++){
+        skeleSwap(&arr[i + 1][q], &arr[tbound][q]);
     }
-#else    
-    skeleSwap(&arr[i + 1][0], &arr[tbound][0]);
-	skeleSwap(&arr[i + 1][1], &arr[tbound][1]);
-	skeleSwap(&arr[i + 1][2], &arr[tbound][2]);
-	skeleSwap(&arr[i + 1][3], &arr[tbound][3]);
-    if(mode == 0){
-        skeleSwap(&arr[i + 1][4], &arr[tbound][4]);
-        skeleSwap(&arr[i + 1][5], &arr[tbound][5]);
-        skeleSwap(&arr[i + 1][6], &arr[tbound][6]);
-    }
-#endif 
     int temp_pivot = i+1;
     return temp_pivot;
 }
 
 void skeleQuickSort(double **arr, int lbound, int tbound, int axis,int mode){
     //lbound => lower bounds
-    //tbound => top bounds
+    //tbound => top bounds/length of array
     //Axis is axis to sort alng
     //1 => x
     //2 => y

@@ -7,6 +7,11 @@
 
 #include "skeleQuicksort.h"
 
+
+#if _MPI
+int comm_size;
+int curID;
+#endif 
 //First we define a data structure, it will point to the data points
 struct kdleaf{
     //Bounds and position
@@ -16,6 +21,13 @@ struct kdleaf{
     double **origin;//node point [x,y] or [x,y,z] @ pos 0
                     //If lowest layer, then list of points
     struct kdleaf *left,*right; 
+#if _MPI
+    //if MPI we will have addition information
+    bool *refflag;
+    double **refPts;
+    int *refID;//location of given point 
+    int *refleng;
+#endif
 };
 
 //method for getting distance
@@ -30,8 +42,12 @@ double getDistance(double *point1,double *point2){
     distance = sqrt(distance);
     return distance;
 }
-
-double *getNearest(double *searchpoint,struct kdleaf *kdstruct, int *length,double **ignorepoint,int *ileng,double *lowestdistance){
+#if _MPI 
+double *getNearest(double *searchpoint,struct kdleaf *kdstruct,double **ignorepoint,int *ileng,double *lowestdistance,int *outcode){
+    int oc = -1;
+#else
+double *getNearest(double *searchpoint,struct kdleaf *kdstruct,double **ignorepoint,int *ileng,double *lowestdistance){
+#endif
     double *retpoint = NULL;
     if(kdstruct->flag == NULL){
         printf("error\n");
@@ -74,12 +90,20 @@ double *getNearest(double *searchpoint,struct kdleaf *kdstruct, int *length,doub
         bool side = searchpoint[*kdstruct->axis] < (kdstruct->origin)[0][*kdstruct->axis];
         if(side){
             if(kdstruct->left != NULL){
-                retpoint = getNearest(searchpoint,kdstruct->left,length,ignorepoint,ileng,lowestdistance);
+#if _MPI
+                retpoint = getNearest(searchpoint,kdstruct->left,ignorepoint,ileng,lowestdistance,outcode);
+#else
+                retpoint = getNearest(searchpoint,kdstruct->left,ignorepoint,ileng,lowestdistance);
+#endif
             }
         }
         else{
             if(kdstruct->right != NULL){
-                retpoint = getNearest(searchpoint,kdstruct->right,length,ignorepoint,ileng,lowestdistance);   
+#if _MPI
+                retpoint = getNearest(searchpoint,kdstruct->right,ignorepoint,ileng,lowestdistance,outcode);   
+#else
+                retpoint = getNearest(searchpoint,kdstruct->right,ignorepoint,ileng,lowestdistance);   
+#endif
             }
         }
         //next we will test if we need to go to the other side of the struct
@@ -89,12 +113,20 @@ double *getNearest(double *searchpoint,struct kdleaf *kdstruct, int *length,doub
             double templowdis = 0.0;
             if(side){
                 if(kdstruct->right != NULL){
-                    tempretpoint = getNearest(searchpoint,kdstruct->right,length,ignorepoint,ileng,&templowdis);   
+#if _MPI
+                    tempretpoint = getNearest(searchpoint,kdstruct->right,ignorepoint,ileng,&templowdis,outcode);   
+#else
+                    tempretpoint = getNearest(searchpoint,kdstruct->right,ignorepoint,ileng,&templowdis);   
+#endif
                 }
             }
             else{
                 if(kdstruct->left != NULL){
-                    tempretpoint = getNearest(searchpoint,kdstruct->left,length,ignorepoint,ileng,&templowdis);
+#if _MPI
+                    tempretpoint = getNearest(searchpoint,kdstruct->left,ignorepoint,ileng,&templowdis,outcode);
+#else
+                    tempretpoint = getNearest(searchpoint,kdstruct->left,ignorepoint,ileng,&templowdis);
+#endif
                 }
             }
             if((*lowestdistance > templowdis|| *lowestdistance == 0.0) && templowdis != 0.0){
@@ -123,6 +155,20 @@ double *getNearest(double *searchpoint,struct kdleaf *kdstruct, int *length,doub
                 *lowestdistance = nodedis;
             }
         }
+#if _MPI
+        //If we are in an MPI program we might need to consider upper points
+        if(*(kdstruct->refflag)){
+            for(int i = 0; i < *kdstruct->refleng; i++){
+                double computeDistance = getDistance(searchpoint,(kdstruct->refPts)[i]);
+                if(computeDistance < *lowestdistance){
+                    *lowestdistance = computeDistance;
+                    retpoint = (kdstruct->refPts)[i];
+                    oc = (kdstruct->refID)[i];
+                }
+            }
+            if(oc != -1)*outcode = oc;
+        }
+#endif
     }
     return retpoint;
 }
@@ -148,6 +194,17 @@ void kdDestroy(struct kdleaf **kdstruct){
         free((*kdstruct)->leng);
         free((*kdstruct)->axis);
         free((*kdstruct)->flag);
+#if _MPI
+        if(*(tstruct->refflag)){
+            for(int i = 0; i <  *(tstruct->refleng); i++){
+                free((*kdstruct)->refPts[i]);
+            }
+            free((*kdstruct)->refPts);
+            free((*kdstruct)->refID);
+            free((*kdstruct)->refleng);
+        }
+        free((*kdstruct)->refflag);
+#endif
         free(*kdstruct);
         *kdstruct = NULL;
     }
@@ -155,81 +212,83 @@ void kdDestroy(struct kdleaf **kdstruct){
 
 //Create full recursive structure of kdtree
 void CreateStructure(double **points,struct kdleaf **kdstruct,int axis,int lower,int upper,int editleng){//,double *leftbound, double *rightbound){
-    //First we will sort along each needed axis
-    struct kdleaf* headkdstruct = malloc(sizeof(struct kdleaf));
-    if(axis == dimension){
-        axis = 0;//will correct back to right axis
-    }
-    //struct kdleaf currentkdstruct = *headkdstruct;
-    if(upper-lower > 5){
-        //Too many points, we will subdivide
-        //first sorts points
-        skeleQuickSort(points,lower,upper,axis,editleng);
-        //choses node
-        int nodeindex = (upper + lower) / 2; 
-        headkdstruct->origin = malloc(sizeof(double*));
-        headkdstruct->origin[0] = malloc(sizeof(double) * (dimension + editleng));
-        if(headkdstruct->origin == NULL){
-            printf("errL1\n");
+    if(upper - lower > 0){
+        //First we will sort along each needed axis
+        struct kdleaf* headkdstruct = malloc(sizeof(struct kdleaf));
+        if(axis == dimension){
+            axis = 0;//will correct back to right axis
         }
-        headkdstruct->origin[0][0] = points[nodeindex][0];
-        headkdstruct->origin[0][1] = points[nodeindex][1];
-        if(dimension + editleng == 3){
-            headkdstruct->origin[0][2] = points[nodeindex][2];
-        }
-        if(headkdstruct->origin[0] == NULL){
-            printf("errL2\n");
-        }
-        //make leaf & allocate
-        int *taxis = malloc(sizeof(int));
-        *taxis = axis;
-        headkdstruct->axis = taxis;
-        bool *flag = malloc(sizeof(bool));
-        *flag = false;
-        headkdstruct->flag = flag; 
-        headkdstruct->leng = malloc(sizeof(int));
-        *headkdstruct->leng = 1;
-        //points now sorted, Next applying our node point and split the list to the appropiate list
-
-        CreateStructure(points,&headkdstruct->left,axis + 1,lower,nodeindex - 1,editleng);
-        CreateStructure(points,&headkdstruct->right,axis+ 1,nodeindex + 1,upper,editleng);
-    }
-    else{
-        if (upper - lower > 0){
-            headkdstruct->origin = malloc(sizeof(double*) * (upper - lower) );
+        //struct kdleaf currentkdstruct = *headkdstruct;
+        if(upper-lower > 5){
+            //Too many points, we will subdivide
+            //first sorts points
+            skeleQuickSort(points,lower,upper-1,axis,editleng);
+            //choses node
+            int nodeindex = (upper + lower) / 2; 
+            headkdstruct->origin = malloc(sizeof(double*));
+            headkdstruct->origin[0] = malloc(sizeof(double) * (dimension + editleng));
             if(headkdstruct->origin == NULL){
                 printf("errL1\n");
             }
-            for(int i = 0; i < upper - lower; i++){
-               
-                headkdstruct->origin[i] = malloc(sizeof(double) * (dimension + editleng));     
-                if(headkdstruct->origin[i] == NULL){
-                    printf("errL2\n");
-                }
-                headkdstruct->origin[i][0] = points[lower + i][0];
-                headkdstruct->origin[i][1] = points[lower + i][1];
-#if dimension == 3    
-                headkdstruct->origin[i][2] = points[lower + i][2];
-#endif
+            for(int q = 0; q < dimension + editleng; q++){
+                headkdstruct->origin[0][q] = points[nodeindex][q];
             }
-            //makes leaf
+            if(headkdstruct->origin[0] == NULL){
+                printf("errL2\n");
+            }
+            //make leaf & allocate
             int *taxis = malloc(sizeof(int));
             *taxis = axis;
             headkdstruct->axis = taxis;
             bool *flag = malloc(sizeof(bool));
-            *flag = true;
-            headkdstruct->flag = flag;
-            int leng = upper-lower;
+            *flag = false;
+            headkdstruct->flag = flag; 
             headkdstruct->leng = malloc(sizeof(int));
-            *headkdstruct->leng = leng;
+            *headkdstruct->leng = 1;
+            //points now sorted, Next applying our node point and split the list to the appropiate list
+
+            CreateStructure(points,&headkdstruct->left,axis + 1,lower,nodeindex - 1,editleng);
+            CreateStructure(points,&headkdstruct->right,axis+ 1,nodeindex + 1,upper,editleng);
         }
         else{
-            printf("error c3\n");
-            headkdstruct = NULL;
-            return;
+            if (upper - lower > 0){
+                headkdstruct->origin = malloc(sizeof(double*) * (upper - lower) );
+                if(headkdstruct->origin == NULL){
+                    printf("errL1\n");
+                }
+                for(int i = 0; i < upper - lower; i++){
+                   
+                    headkdstruct->origin[i] = malloc(sizeof(double) * (dimension + editleng));     
+                    if(headkdstruct->origin[i] == NULL){
+                        printf("errL2\n");
+                    }
+                    for(int q = 0; q < dimension + editleng; q++){
+                        headkdstruct->origin[i][q] = points[lower + i][q];
+                    }
+                }
+                //makes leaf
+                int *taxis = malloc(sizeof(int));
+                *taxis = axis;
+                headkdstruct->axis = taxis;
+                bool *flag = malloc(sizeof(bool));
+                *flag = true;
+                headkdstruct->flag = flag;
+                int leng = upper-lower;
+                headkdstruct->leng = malloc(sizeof(int));
+                *headkdstruct->leng = leng;
+            }
+            else{
+                printf("error c3\n");
+                headkdstruct = NULL;
+                return;
+            }
         }
-    }
     *kdstruct = headkdstruct;
+    }
+    else{
+        *kdstruct = NULL;
+        return;
+    }
 }
 
 #ifndef PI
@@ -278,21 +337,798 @@ void outputskeleton(double *points, double *interf,double alpha , int indx,char 
     fclose(fp);
 }
 
-void makeSkeleton(double **points,struct kdleaf *kdstruct,int *length,double *mindis,char path[80],bool isvofactive,double *disRatio,int *newl,double ***pskeleton){
+#if _MPI
+//3 functions for skeletonization
+//skeletize current points
+//transfer data (To and From)
+//loop both
+void MPIskeleton(double **points,struct kdleaf *kdstruct,int *length,int *alength,double *mindis,char path[80],double *disRatio,int *newl,double ***pskeleton,int **pdirectionList,double **pexportRad,int extra,int **pcomplete,int loopcount){
+    //Points leaving will either be: complete or need to be sent elsewhere
+    int MAXCYCLES = 50;
+    //allocate needed space
+    double guessr = (double)*length;
+    double **skeleton = *pskeleton;
+    int *directionList = *pdirectionList;
+    double *exportRad = *pexportRad;
+    int *complete  = *pcomplete;
+    if(skeleton == NULL){
+        //if the skeleton doesnt exist yet its first loop
+        skeleton = malloc((*length) * sizeof(double*));
+        directionList = malloc((*length) * sizeof(int));//will be > -1 if need to go to a PID
+        exportRad = malloc((*length) * sizeof(double));//will be > -1 if need to go to a PID
+        complete = calloc((*length) , sizeof(int));//holds completion marker
+        for(int i = 0; i < *length;i++){
+            skeleton[i] = calloc((dimension + extra) , sizeof(double));
+            directionList[i]=-1;
+        }
+    }
+    //temp calculation variables
+    double **centerPoint = malloc(MAXCYCLES * sizeof(double*));
+    double *radius = malloc(MAXCYCLES * sizeof(double));
+    double **interfacePoint = malloc(MAXCYCLES * sizeof(double*));
+    for(int i = 0; i < *length + *alength; i++){
+        if(complete[i]==0){
+            //printf("skel %d / %d\n",i,*length);
+            //Goes through each point of the list & generates a skeleton point
+            //First step is to make an initial guess
+            bool completeCase = true;
+            int index = 0; 
+            //we Grab our temp centerpoint and our ignore point
+            double *ttpoint = malloc(dimension * sizeof(double));
+            double **ilist = malloc(sizeof(double*));
+            double *ignorepoint = malloc(dimension * sizeof(double));
+            double tguessr;
+            if(loopcount){
+                tguessr=exportRad[i];
+            }
+            else{
+                tguessr=guessr;
+            }
+            for(int q = 0; q < dimension; q++){
+                ignorepoint[q] = points[i][q];
+                ttpoint[q] = points[i][q] - points[i][q+dimension] * tguessr;
+            }
+            ilist[0] = ignorepoint;
+            int ileng = 1;
+            double lowestdistance = 0; 
+            centerPoint[index] = ttpoint;//this gets overwritten first step, not sure if this plays a role, but this centerpoint will always be completely wrong 
+            //We calculate our starting furthest interface point
+            interfacePoint[index] = getNearest(ttpoint,kdstruct,ilist,&ileng,&lowestdistance,&directionList[i]);
+            //find starting radius for our starting interface point
+            double *sendpoint = points[i];
+            radius[index] = getRadius(sendpoint,interfacePoint[index]);
+            if(loopcount > 0 && radius[index] != 0. && fabs(radius[index] - exportRad[i]) < *mindis){
+                double distancecomp = getDistance(interfacePoint[index],points[i]);
+                double alpha = distancecomp / radius[index];
+                //convergance conditions
+                //our center point should remain the same
+                //printf("passing on start\n");
+                for(int ii = 0; ii < dimension;ii++){
+                    skeleton[i][ii] = centerPoint[index][ii];
+                }
+                skeleton[i][dimension] = radius[index];
+                skeleton[i][dimension+1] = alpha;
+                if(i < *length){
+                    skeleton[i][dimension+2] = points[i][(dimension * 2)]; 
+                }
+                complete[i] = 1;
+                completeCase = false; 
+            }
+            if(directionList[i] > -1){
+                exportRad[i] = radius[index];
+                complete[i] = -1;//mark for sending
+                completeCase = false;
+            }
+            while(completeCase){
+                if(index > MAXCYCLES - 2){
+                    break;
+                }
+                //get timestep centerpoint and ignore point(not completely nessicary)
+                for(int q = 0; q < dimension; q++){
+                    ignorepoint[q] = points[i][q];
+                    ttpoint[q] = points[i][q] - points[i][q+dimension] * radius[index];
+                }
+                ilist[0] = ignorepoint;
+                int ileng = 1;
+                //calculate our centerpoint
+                centerPoint[index] = ttpoint;
+                //calculate our interface point closest to the last centerpoint
+                lowestdistance = 0;
+                interfacePoint[index + 1] = getNearest(centerPoint[index],kdstruct,ilist,&ileng,&lowestdistance,&directionList[i]);
+                //finds the radius of our point and interface point 
+                radius[index + 1] = getRadius(points[i],interfacePoint[index + 1]);
+                //get distance comp, abs distance from point->interface point, for converge check
+                //check for completion of skeleton point
+                if(directionList[i] > -1){
+                    exportRad[i] = radius[index + 1];
+                    complete[i] = -1;//mark for sending
+                    break;
+                }
+                if(radius[index] != 0. && fabs(radius[index] - radius[index + 1]) < *mindis){
+                    double distancecomp = getDistance(interfacePoint[index + 1],points[i]);
+                    double alpha = distancecomp / radius[index + 1];
+                    //convergance conditions
+                    //our center point should remain the same
+                    for(int ii = 0; ii < dimension;ii++){
+                        skeleton[i][ii] = centerPoint[index][ii];
+                    }
+                    skeleton[i][dimension] = radius[index + 1];
+                    skeleton[i][dimension+1] = alpha;
+                    if(i < *length){
+                        skeleton[i][dimension+2] = points[i][(dimension * 2)]; 
+                    }
+                    if(loopcount == 0)printf("%d skele -> [%f %f %f %f]\n",i,skeleton[i][0],skeleton[i][1],skeleton[i][2],skeleton[i][3]);
+                    complete[i] = 1;
+                    completeCase = false; 
+                }
+                //Stop if too close 
+                if(radius[index + 1] < *mindis){
+                    complete[i] = 1;
+                    completeCase = false;
+                }
+                index = index + 1;
+            }
+            free(ttpoint);
+            free(ignorepoint);
+            free(ilist);
+        }
+    }
+    //printf("completeion[");
+    //for(int i = 0; i < *length + *alength; i++){
+    //    printf("%d,",complete[i]);
+    //}
+    //printf("]\n");
+    //free up needed values to prevent memory error
+    free(radius);
+    free(centerPoint);
+    free(interfacePoint);
+    radius = NULL;
+    centerPoint = NULL;
+    interfacePoint = NULL;
+    *pskeleton = skeleton;
+    *pdirectionList = directionList;
+    *pexportRad = exportRad;
+    *pcomplete = complete;
+}
+void intPack(double ***psendinfo,int sendleng,int sendDir,double **points,double *trackRad,int *trackDir,int *trackOrigin,int searchs,int searchLength,int skelePackSize){
+    double **sendinfo = malloc(sendleng*sizeof(double));
+    int k = 0;
+    for(int i = searchs; i < searchLength; i++){
+        if(trackDir[i] == sendDir){
+            sendinfo[k] = malloc(skelePackSize*sizeof(double));
+            //when these match we have information we want to aquire
+            //first add interficial info
+            for(int j = 0; j < dimension; j++){
+                sendinfo[k][j  ]         = points[i][j];
+                sendinfo[k][j+dimension] = points[i][j+dimension];
+            }
+            //then add radius & origin ID
+            sendinfo[k][skelePackSize-2] = trackRad[i];
+            sendinfo[k][skelePackSize-1] = (double)trackOrigin[i];
+            k++;
+        }
+    }
+    *psendinfo = sendinfo;
+}
+void intUnpack(double ***precvinfo, int recvleng,int *recvindx,double ***ppoints, double **ptrackRad, int **ptrackOrigin,int skelePackSize,int **pcomplete,int *length,double **spoints,double **pstrackRad){
+    double **recvinfo = *precvinfo;
+    double **points = *ppoints;
+    double *trackRad = *ptrackRad;
+    double *strackRad = *pstrackRad;
+    int *complete = *pcomplete;
+    int *trackOrigin = *ptrackOrigin;
+    int ri = *recvindx;
+    for(int i = 0; i < recvleng; i++){
+        if(recvinfo[i][skelePackSize-1] == pid()){
+            //if a point is coming home we dont need to allocate
+            //instead we locate our point 
+            for(int j = 0; j < *length; j++){
+                int passes = 1;
+                for(int q = 0; q < dimension; q++){
+                    if(spoints[j][q] != recvinfo[i][q] || spoints[j][q+dimension] != recvinfo[i][q+dimension]){
+                        passes = 0;
+                        break;
+                    }
+                }
+                if(passes){
+                    complete[j] = 0;
+                    printf("ls = %f\n",strackRad[j]);
+                    strackRad[j] = recvinfo[i][skelePackSize-2];
+                }
+            }
+        }
+        else{
+            points[ri] = malloc(2*dimension*sizeof(double));
+            for(int j = 0; j < dimension; j++){
+                points[ri][j]           = recvinfo[i][j];
+                points[ri][j+dimension] = recvinfo[i][j+dimension];
+            }
+            trackRad[ri]    = recvinfo[i][skelePackSize-2];
+            trackOrigin[ri] = recvinfo[i][skelePackSize-1];
+            ri++;
+            free(recvinfo[i]);
+        }
+    }
+    free(recvinfo);
+    recvinfo = NULL;
+    *precvinfo = recvinfo;
+    *recvindx = ri;
+    *ppoints = points;
+    *ptrackRad = trackRad;
+    *pstrackRad = strackRad;
+    *ptrackOrigin = trackOrigin;
+    *pcomplete = complete;
+}
+void skelePack(double ***psendinfo,int sendleng,int sendDir,double **points,double **skeleton,int *complete,int *trackOrigin,int startLength,int searchLength,int skelePackSize,int extra){
+    double **sendinfo = malloc(sendleng*sizeof(double*));
+    int k = 0;
+    for(int i = startLength; i < searchLength; i++){
+        if(complete[i]==1 && trackOrigin[i] == sendDir){
+            sendinfo[k] = malloc(skelePackSize*sizeof(double));
+            //if both true the point info needs to be packaged up accordingly
+            for(int j = 0; j < dimension; j++){
+                sendinfo[k][j]           = points[i][j];
+                sendinfo[k][j+dimension] = points[i][j+dimension];
+                sendinfo[k][j+dimension*2] = skeleton[i][j];
+            }
+            for(int j = 1 ; j <= extra; j++){
+                sendinfo[k][skelePackSize-j] = skeleton[i][dimension+extra-j];
+            }
+            k++;
+        }
+    }
+    //printf("\n");
+    //printf("(%d=>%d)skelePackresult => (%d/%d)\n",curID,sendDir,k,sendleng);
+    *psendinfo = sendinfo;
+}
+void skeleUnpack(double ***precvinfo, int recvleng,int searchLength,double **points,double ***pskeleton,int **pcomplete,int skelePackSize,int extra){
+    double **recvinfo = *precvinfo;
+    double **skeleton = *pskeleton;
+    int *complete = *pcomplete;
+    for(int i = 0; i < recvleng; i++){
+        //We have incoming skeletons, their space shoudl already exist
+        int trackp=0;
+        for(int j = 0; j < searchLength; j++){
+            int passes = 1;
+            for(int q = 0; q < dimension; q++){
+                if(points[j][q] != recvinfo[i][q] || points[j][q+dimension] != recvinfo[i][q+dimension]){
+                    passes = 0;
+                    break;
+                }
+            }
+            if(passes){
+                printf("%d finished %d\n",pid(),j);
+                trackp++;
+                //if our point matches our recieved point then we push the final information
+                for(int q = 0; q < dimension + extra; q++){
+                    skeleton[j][q] = recvinfo[i][2*dimension+q];
+                }
+                complete[j] = 1;
+            }
+        }
+        //if(!trackp)for(int j = 0; j < skelePackSize;j++)printf("unfound %f\n",recvinfo[i][j]);
+        if(trackp>1)printf("double track??\n");
+    }
+    for(int i = 0; i < recvleng; i++){
+      free(recvinfo[i]);
+    }
+    free(recvinfo);
+    recvinfo = NULL;
+    *precvinfo = recvinfo;
+    *pskeleton = skeleton;
+    *pcomplete = complete;
+}
+
+void MPIskeletonCom(int *test,double ***ppoints,int *length,int *alength,double ***pskeleton,double **ptrackRad,int **ptrackDir,int **ptrackOrigin, int skelePackSize, int **pcomplete,int extra,int loopcount){
+    int skeletonPackSize = (dimension * 2) + dimension + extra;//hold interface & skeleton information for matching
+    //Each step we need to loop through all requested sends and mark space in other nodes
+    int *visiting = calloc(comm_size , sizeof(int));//Contains PID index'd information on howmany are being sent 
+    int *incoming = calloc(comm_size , sizeof(int));//Contains PID index'd information on howmany are being recieved
+    int *fvisiting = calloc(comm_size , sizeof(int));//Contains PID index'd information on howmany finished are being sent 
+    int *fincoming = calloc(comm_size , sizeof(int));//Contains PID index'd information on howmany finished are being recieved
+    //These together hold a map of whats leaving & incoming
+    double **points = *ppoints;
+    double **skeleton = *pskeleton;
+    double *trackRad = *ptrackRad;
+    int *trackDir = *ptrackDir;
+    int *trackOrigin = *ptrackOrigin;
+    int *complete = *pcomplete;
+    //for(int i = *length; i < *length+*alength;i++)if(!complete[i])printf("trackingdir %d-%d -> %d\n",i,pid(),trackDir[i]);
+    int sumc=0;
+    for(int i = 0; i < *length;i++)if(complete[i]==1)sumc++;
+    printf("(%d/%d)\n",sumc,*length);
+    int startl = 0;
+    for(int j = startl; j < *length+*alength; j++){
+        if(trackDir[j]>=0&&complete[j]==-1)visiting[trackDir[j]]++;//count for pid and direction
+        if(j >= *length && complete[j]==1)fvisiting[trackOrigin[j]]++;
+    }
+    //first step we comunicate intended sending sizes  
+    int tsum = 0;
+    for(int i = 0; i < comm_size; i++){
+        if(i == curID){
+            for(int j = 0; j < comm_size; j++){
+                if(j != i){
+                    MPI_Send(&visiting[j],1,MPI_INT,j,0,MPI_COMM_WORLD);
+                    MPI_Send(&fvisiting[j],1,MPI_INT,j,0,MPI_COMM_WORLD);
+                    //printf("(%d -> %d) sent %d & %d\n",i,j,visiting[j],fvisiting[j]);
+                }
+            }
+        }
+        else{
+            MPI_Recv(&incoming[i],1,MPI_INT,i,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+            tsum = tsum + incoming[i];
+            MPI_Recv(&fincoming[i],1,MPI_INT,i,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+            //printf("(%d <- %d) recv %d & %d\n",curID,i,incoming[i],fincoming[i]);
+        }
+    }
+    //for(int i = 0; i < comm_size; i++){
+    //    if(i != pid())printf("%d -> %d in:[nd:%d d:%d] out:[nd:%d d:%d]\n",pid(),i,incoming[i],fincoming[i],visiting[i],fvisiting[i]);
+    //}
+    //printf("presend:\n");
+    //for(int i = *length; i < *length+*alength; i++){
+    //   printf("%d - [%f %f %f %f %f %f] sd:%d c:%d to:%d\n",i,points[i][0],points[i][1],points[i][2],points[i][3],points[i][4],points[i][5],complete[i]==1?trackOrigin[i]:trackDir[i],complete[i],trackOrigin[i]); 
+    //}
+    //printf("\n");
+    //printf("mark1\n");
+    MPI_Barrier(MPI_COMM_WORLD);
+    //Next we want to actually relay the information to and from desired PID's
+    //visiting and incoming have complete information, and thus we can skip uneeded communication
+    //printf("tsum=%d\n",tsum);
+    double **newpoints;
+    double *newtrackRad;
+    int *newtrackOrigin;
+    if(tsum > 0){
+        newpoints = malloc(tsum*sizeof(double*));
+        newtrackRad = calloc(tsum,sizeof(double));
+        newtrackOrigin = malloc(tsum*sizeof(int));
+    }
+    int newindx = 0;
+    for(int i = 0; i < comm_size; i++){
+        //Have i & j on opposite send/recieves to prevent blockage
+        if(i == curID){
+            //if were root always try to send
+            for(int j = 0; j < comm_size; j++){
+                if(j != i){
+                    if(visiting[j]){
+                        //printf("%d visiting %d\n",curID,j);
+                        //First send information to processor
+                        double **sendinfo;
+                        intPack(&sendinfo,visiting[j],j,points,trackRad,trackDir,trackOrigin,startl,*length+*alength,skelePackSize);
+                        for(int q = 0; q < visiting[j]; q++){
+                            MPI_Send(sendinfo[q],skelePackSize,MPI_DOUBLE,j,0,MPI_COMM_WORLD);
+                            free(sendinfo[q]);
+                        }
+                        free(sendinfo);
+                        visiting[j]=0;
+                    }
+                    if(incoming[j]){
+                        //printf("%d recieving %d\n",curID,j);
+                        //Then gather information if not gathered already
+                        double **recieveinfo = malloc(incoming[j]*sizeof(double*));
+                        for(int q = 0; q < incoming[j]; q++){
+                            recieveinfo[q] = malloc(skelePackSize*sizeof(double));
+                            MPI_Recv(recieveinfo[q],skelePackSize,MPI_DOUBLE,j,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+                        }
+                        intUnpack(&recieveinfo,incoming[j],&newindx,&newpoints,&newtrackRad,&newtrackOrigin,skelePackSize,&complete,length,points,&trackRad);
+                        incoming[j]=0;
+                    }
+                    //FINISHED POINTS
+                    if(fvisiting[j]){
+                        //printf("%d final visiting %d\n",curID,j);
+                        //First send information to processor
+                        double **sendinfo;
+                        skelePack(&sendinfo,fvisiting[j],j,points,skeleton,complete,trackOrigin,*length,*length+*alength,skeletonPackSize,extra);
+                        for(int q = 0; q < fvisiting[j]; q++){
+                            MPI_Send(sendinfo[q],skeletonPackSize,MPI_DOUBLE,j,0,MPI_COMM_WORLD);
+                        }
+                        for(int q = 0; q < fvisiting[j]; q++){
+                            free(sendinfo[q]);
+                        }
+                        free(sendinfo);
+                        fvisiting[j]=0;
+                    }
+                    if(fincoming[j]){
+                        //printf("%d finished recieving %d\n",curID,j);
+                        //Then gather information if not gathered already
+                        double **recieveinfo = malloc(fincoming[j]*sizeof(double*));
+                        for(int q = 0; q < fincoming[j]; q++){
+                            recieveinfo[q] = malloc(skeletonPackSize*sizeof(double));
+                            MPI_Recv(recieveinfo[q],skeletonPackSize,MPI_DOUBLE,j,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+                        }
+                        skeleUnpack(&recieveinfo,fincoming[j],*length,points,&skeleton,&complete,skeletonPackSize,extra);
+                        fincoming[j]=0;
+                    }
+                }
+            }
+        }
+        else{
+            if(incoming[i]){
+                //printf("%d recieving %d\n",curID,i);
+                //First gather information from main rank
+                double **recieveinfo = malloc(incoming[i]*sizeof(double*));
+                for(int q = 0; q < incoming[i]; q++){
+                    recieveinfo[q] = malloc(skelePackSize*sizeof(double));
+                    MPI_Recv(recieveinfo[q],skelePackSize,MPI_DOUBLE,i,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+                }
+                intUnpack(&recieveinfo,incoming[i],&newindx,&newpoints,&newtrackRad,&newtrackOrigin,skelePackSize,&complete,length,points,&trackRad);
+                incoming[i]=0;
+            }
+            if(visiting[i]){
+                //printf("%d visiting %d\n",curID,i);
+                //sending information if not already sent
+                double **sendinfo;
+                intPack(&sendinfo,visiting[i],i,points,trackRad,trackDir,trackOrigin,startl,*length+*alength,skelePackSize);
+                for(int q = 0; q < visiting[i]; q++){
+                    MPI_Send(sendinfo[q],skelePackSize,MPI_DOUBLE,i,0,MPI_COMM_WORLD);
+                    free(sendinfo[q]);
+                }
+                free(sendinfo);
+                visiting[i]=0;
+            }
+            //FINISHED POINTS
+            if(fincoming[i]){
+                //printf("%d finished recieving %d\n",curID,i);
+                //First gather information from main rank
+                double **recieveinfo = malloc(fincoming[i]*sizeof(double*));
+                for(int q = 0; q < fincoming[i]; q++){
+                    recieveinfo[q] = malloc(skeletonPackSize*sizeof(double));
+                    MPI_Recv(recieveinfo[q],skeletonPackSize,MPI_DOUBLE,i,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+                }
+                skeleUnpack(&recieveinfo,fincoming[i],*length,points,&skeleton,&complete,skeletonPackSize,extra);
+                fincoming[i]=0;
+            }
+            if(fvisiting[i]){
+                //printf("%d final visiting %d\n",curID,i);
+                //sending information if not already sent
+                double **sendinfo;
+                skelePack(&sendinfo,fvisiting[i],i,points,skeleton,complete,trackOrigin,*length,*length+*alength,skeletonPackSize,extra);
+                for(int q = 0; q < fvisiting[i]; q++){
+                    MPI_Send(sendinfo[q],skeletonPackSize,MPI_DOUBLE,i,0,MPI_COMM_WORLD);
+                    //printf("free %d\n",q);
+                }
+                for(int q = 0; q < fvisiting[i]; q++){
+                    free(sendinfo[q]);
+                }
+                free(sendinfo);
+                fvisiting[i]=0;
+            }
+        }
+        MPI_Barrier(MPI_COMM_WORLD);
+    }
+    //printf("mark2\n");
+    MPI_Barrier(MPI_COMM_WORLD);
+    //Next we set new values in place of old values
+    //Note we dont touch original points information
+    if((*length+*alength+newindx) > 0){
+        double **swappoints = malloc((*length+newindx)*sizeof(double*));
+        double *swaptrackRad = malloc((*length+newindx)*sizeof(double));
+        int *swaptrackOrigin = malloc((*length+newindx)*sizeof(int));
+        int *swaptrackDir = malloc((*length+newindx)*sizeof(int));
+        int *swapcomplete = malloc((*length+newindx)*sizeof(int));
+        double **swapskeleton = malloc((*length+newindx)*sizeof(double*));
+        //swap in old values
+        for(int i = 0; i < *length; i++){
+            swappoints[i] = malloc((2*dimension+1)*sizeof(double));
+            swapskeleton[i] = malloc((dimension+extra)*sizeof(double));
+            for(int q = 0; q < 2*dimension+1; q++)swappoints[i][q] = points[i][q];
+            for(int q = 0; q < dimension+extra; q++)swapskeleton[i][q] = skeleton[i][q];
+            swapcomplete[i] = complete[i];
+            swaptrackRad[i] = trackRad[i];
+            swaptrackDir[i] = -1;
+            swaptrackOrigin[i] = trackOrigin[i];
+        }
+        for(int i = 0; i < *length+*alength; i++){
+            free(points[i]);//throw away other PID info
+            free(skeleton[i]);
+        }
+        if(points != NULL)free(points);
+        if(skeleton != NULL)free(skeleton);
+        if(trackRad != NULL)free(trackRad);
+        if(trackOrigin != NULL )free(trackOrigin);
+        if(trackDir != NULL )free(trackDir);
+        if(complete != NULL ){
+          free(complete);
+          complete = NULL;
+        }
+        points = swappoints;
+        skeleton = swapskeleton;
+        trackRad = swaptrackRad;
+        trackOrigin = swaptrackOrigin ;
+        trackDir = swaptrackDir;
+        complete = swapcomplete;
+        for(int i = 0; i < newindx; i++){
+            points[i+*length] = malloc(2*dimension*sizeof(double));
+            skeleton[i+*length] = malloc((dimension+extra)*sizeof(double));
+            for(int j = 0; j < dimension; j++){
+                points[i+*length][j]           = newpoints[i][j];
+                points[i+*length][j+dimension] = newpoints[i][j+dimension];
+            }
+            free(newpoints[i]);
+            trackRad[i+*length]    = newtrackRad[i];
+            trackOrigin[i+*length] = newtrackOrigin[i];
+            complete[i+*length] = 0;
+            trackDir[i+*length] = -1;
+            if(skeleton[i+*length] == NULL)skeleton[i+*length] = calloc(dimension+extra,sizeof(double));//adjust correct memory
+        }
+    }
+    //for(int i = 0; i < newindx+*length;i++){
+    //  printf("point%d => [%f,%f,%f,%f,%f,%f]\n",i,points[i][0],points[i][1],points[i][2],points[i][3],points[i][4],points[i][5]);
+    //}
+    if(tsum > 0){
+        free(newpoints);
+        free(newtrackRad);
+        free(newtrackOrigin);
+
+    }
+    *ppoints = points;
+    *pskeleton = skeleton;
+    *ptrackRad = trackRad;
+    *ptrackDir = trackDir;
+    *ptrackOrigin = trackOrigin;
+    *pcomplete = complete;
+    *alength = newindx;
+    free(visiting);
+    free(incoming);
+    free(fvisiting);
+    free(fincoming);
+    //printf("mark3\n");
+    //Finally we want to check if our local section is fully complete
+    //printf("length=%d\n",*length);
+    //for(int i = 0; i < *length; i++){
+    //    if(!complete[i]){
+    //        printf("not complete %d [%f %f %f]\n",i,points[i][0],points[i][1],points[i][2]);
+    //    }
+    //}
+    for(int i = 0; i < *length; i++){
+        if(complete[i] != 1){
+            *test = 1;//if not complete we temporarility turn on
+            break;
+        }
+    }
+    //printf("postsend:\n");
+    //for(int i = *length; i < *length+*alength; i++){
+    //   printf("%d - [%f %f %f %f %f %f]\n",i,points[i][0],points[i][1],points[i][2],points[i][3],points[i][4],points[i][5]); 
+    //}
+    //for(int i = *length; i < *alength; i++){
+    //    printf("holding-%d [%f %f %f]\n",i,points[i][0],points[i][1],points[i][2]);
+    //}
+    //printf("got test %d\n",*test);
+    MPI_Barrier(MPI_COMM_WORLD);
+    //printf("mark4\n");
+    int testsum;
+    MPI_Reduce(test,&testsum,1,MPI_INT,MPI_SUM,0,MPI_COMM_WORLD);//calc sum on 0
+    MPI_Bcast(&testsum,1,MPI_INT,0,MPI_COMM_WORLD);//send sum out
+    if(testsum==0){
+        *test=1;
+    }
+    else{
+        *test=0;
+    }
+    //printf("mark5\n");
+    MPI_Barrier(MPI_COMM_WORLD);
+}
+void makeSkeletonMPI(double **points,struct kdleaf *kdstruct,int *length,double *mindis,char path[80],double *disRatio,int *newl,double ***pskeleton){
+    //complte -1 away from processor, 0 calculating, 1 done
+    int skelePackSize = 2*(dimension+1),runcase = 1,test = 0,alength = 0,*trackDir,*trackOrigin=malloc(*length*sizeof(int)),*complete,extra = 3;
+    for(int i = 0;i < *length;i++)trackOrigin[i]=pid();
+    double *trackRad;
+    int indx = 0;
+    while(runcase){
+        printf("step %d\n",indx); 
+        MPIskeleton(points,kdstruct,length,&alength,mindis,path,disRatio,newl,pskeleton,&trackDir,&trackRad,extra,&complete,indx);
+        MPI_Barrier(MPI_COMM_WORLD);
+        MPIskeletonCom(&test,&points,length,&alength,pskeleton,&trackRad,&trackDir,&trackOrigin,skelePackSize,&complete,extra,indx); 
+        MPI_Barrier(MPI_COMM_WORLD);
+        //printf("\n%d done (%d)\n\n",indx,test);
+        indx++;
+        if(test || indx == 10){
+            free(trackDir);
+            free(trackRad);
+            free(trackOrigin);
+            free(complete);
+            for(int i = 0;i < *length+alength; i++){
+                free(points[i]);
+            }
+            free(points);
+            points = NULL;
+            //run until all points are home
+            runcase = 0;
+        }
+        MPI_Barrier(MPI_COMM_WORLD);
+    }
+}
+
+//Add collected points to kd tree & set state
+void MPIsubflag(struct kdleaf **pheadKD){
+    struct kdleaf *headKD = *pheadKD;
+    if(headKD != NULL){
+        bool *refflag = malloc(sizeof(bool));
+        *refflag = false;
+        headKD->refflag = refflag;
+        if(!(*headKD->flag)){
+            MPIsubflag(&headKD->left);
+            MPIsubflag(&headKD->right);
+        }
+        *pheadKD = headKD;
+    }
+}
+void addkdref(struct kdleaf **pheadKD,int **ptrackPID,double ***pcollectPoints){
+    struct kdleaf *headKD = *pheadKD;
+    int *trackPID = *ptrackPID;
+    double **collectPoints = *pcollectPoints;
+    if(headKD != NULL){
+        int count = 0;
+        //get info
+        for(int i = 0; i < comm_size; i++){
+            if(trackPID[i]){
+                if(i != curID){
+                    count++;
+                }
+            }
+        }
+        //create upper structure & condense
+        double **refpts = malloc(count*sizeof(double*));
+        int *refID = malloc(count*sizeof(int));
+        bool *refflag = malloc(sizeof(bool));
+        int *refleng = malloc(sizeof(int));
+        *refflag = true;
+        *refleng = count;
+        int iloc = 0;
+        for(int i = 0; i < comm_size; i++){
+            if(trackPID[i] && i != curID){
+                //ensure we are adding
+                refpts[iloc] = malloc(dimension * sizeof(double));
+                for(int j = 0; j < dimension; j++){
+                    //copy info
+                    refpts[iloc][j] = collectPoints[i][j];
+                }
+                refID[iloc] = i;
+                iloc++;
+            }
+        }
+        //asign values
+        headKD->refID = refID;
+        headKD->refPts = refpts;
+        headKD->refflag = refflag;
+        headKD->refleng = refleng;
+        //printf("leng=>%d\n",*headKD->refleng);
+        for(int i = 0; i < *headKD->refleng; i++){
+            //printf("[%f,%f,%f]\n",(headKD->refPts)[i][0],(headKD->refPts)[i][1],(headKD->refPts)[i][2]);
+        }
+        //free point collections
+        for(int i = 0; i < comm_size; i++){
+            if(trackPID[i])free(collectPoints[i]);
+        }
+        if(!(*headKD->flag)){
+            MPIsubflag(&headKD->left);
+            MPIsubflag(&headKD->right);
+        }
+        //update upstream
+        *pheadKD = headKD;
+    }
+    //always clear these levels :)
+    if(collectPoints != NULL){
+        free(collectPoints);
+        collectPoints = NULL;
+    }
+    if(trackPID != NULL){
+        free(trackPID);
+        trackPID = NULL;
+    }
+    //update upstream
+    *ptrackPID = trackPID;
+    *pcollectPoints = collectPoints;
+}
+//function for comunication of MPI points
+void kdMPIrefs(struct kdleaf **pheadKD){
+    struct kdleaf *headKD = *pheadKD;
+    curID = pid();
+    MPI_Comm_size(MPI_COMM_WORLD,&comm_size);
+    double **collectPoints = malloc(comm_size * sizeof(double*));
+    int *trackPID = calloc(comm_size,sizeof(int));
+    //first set active & inactive PID's
+    for(int i = 0; i < comm_size; i++){
+        //if we are on current PID
+        if(i == curID){
+            int sendCode = 0;
+            if(headKD != NULL){
+                //if our kd tree exists, then we have a point
+                //so we set our point into collectPoints
+                collectPoints[i] = malloc(dimension*sizeof(double));
+                for(int j = 0; j < dimension; j++){
+                    collectPoints[i][j] = (headKD->origin)[0][j];
+                }
+                sendCode = 1;
+                trackPID[i] = 1;
+            }
+            else{
+                free(collectPoints);
+                collectPoints = NULL;
+            }
+            for(int j = 0; j < comm_size; j++){
+                if(j != i){
+                    MPI_Send(&sendCode,1,MPI_INT,j,0,MPI_COMM_WORLD);
+                }
+            }
+        }
+        //If recieving infomation
+        else{
+            MPI_Recv(&trackPID[i],1,MPI_INT,i,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+        }
+    }
+    //next send points
+    for(int i = 0; i < comm_size; i++){
+        if(trackPID[curID]){
+            //If PID is active && going to ID is active
+            if(i == curID){
+                double *sendPoint = malloc(dimension * sizeof(double));
+                for(int j = 0; j < dimension; j++){
+                    sendPoint[j] = collectPoints[i][j];
+                }
+                for(int j = 0; j < comm_size; j++){
+                    if(trackPID[j] && j != i){
+                        MPI_Send(sendPoint,dimension,MPI_DOUBLE,j,0,MPI_COMM_WORLD);
+                    }
+                }
+                free(sendPoint);
+            }
+            else if(trackPID[i]){
+                double *recvPoint = malloc(dimension * sizeof(double));
+                MPI_Recv(recvPoint,dimension,MPI_DOUBLE,i,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+                collectPoints[i] = malloc(dimension * sizeof(double));
+                for(int j = 0; j < dimension; j++){
+                    collectPoints[i][j] = recvPoint[j];
+                }
+                free(recvPoint);
+            }
+        }
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+    //Set new Points into kd-leaf
+    addkdref(&headKD,&trackPID,&collectPoints);
+    //Set Pointers upstream
+    *pheadKD = headKD;
+}
+//Implementation for skeletizing a mpi function
+void skeletizeMPI(double **points,int *length,char path[80],double *mindis,double wantedAngle,double ***pskeleton){
+    double **skeleton = NULL; 
+    //Create our kd tree for calculation
+    struct kdleaf *kdstruct = NULL;
+    //DOUBLECHECK!!!! dim+1?
+    CreateStructure(points,&kdstruct,0,0,*length,dimension+1);//make kd-struct
+    if(*length != 0 && kdstruct== NULL)printf("error\n");
+    //Calculate our distance ratio
+    wantedAngle = wantedAngle > 180. ? 180. : wantedAngle < 0.? 0. : wantedAngle;
+    double calcratio = 0.0;
+    calcratio = tan(wantedAngle);
+    int newl = 0;
+    MPI_Barrier(MPI_COMM_WORLD);
+    //Communicate points & locations as markers
+    kdMPIrefs(&kdstruct);
+    MPI_Barrier(MPI_COMM_WORLD);
+    //Next our skeleton will be calculated
+    makeSkeletonMPI(points,kdstruct,length,mindis,path,&calcratio,&newl,&skeleton);
+    //Finally clean up to prevent memeory error
+    kdDestroy(&kdstruct);
+    length = &newl;
+    MPI_Barrier(MPI_COMM_WORLD);
+    *pskeleton = skeleton;
+}
+#else
+void makeSkeleton(double **points,struct kdleaf *kdstruct,int *length,double *mindis,char path[80],double *disRatio,int *newl,double ***pskeleton){
     int MAXCYCLES = 50;
     //allocate needed space
     double guessr = *length;
     int extra = 3;//save r, alpha, kappa to relevant skeletonpoints
-    double **skeleton = malloc((*length + 1) * sizeof(double*));
-    //printf("+%d\n",*length+1);
-    for(int i = 0; i < *length+1;i++){
+    double **skeleton = malloc((*length) * sizeof(double*));
+    for(int i = 0; i < *length;i++){
         skeleton[i] = calloc((dimension + extra) , sizeof(double));
     }
     double **centerPoint = malloc(MAXCYCLES * sizeof(double*));
     double *radius = malloc(MAXCYCLES * sizeof(double));
     double **interfacePoint = malloc(MAXCYCLES * sizeof(double*));
     int captured = 0;
-    for(int i = 0; i < *length + 1; i++){
+    for(int i = 0; i < *length; i++){
         //printf("skel %d / %d\n",i,*length);
         //Goes through each point of the list & generates a skeleton point
         //First step is to make an initial guess
@@ -302,31 +1138,16 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *length,double *mi
         double *ttpoint = malloc(dimension * sizeof(double));
         double **ilist = malloc(sizeof(double*));
         double *ignorepoint = malloc(dimension * sizeof(double));
-        double ix = points[i][0];
-        double iy = points[i][1];
-        ignorepoint[0] = ix;
-        ignorepoint[1] = iy;
-#if dimension == 2    
-        double x = points[i][0] - points[i][2] * guessr;
-        double y = points[i][1] - points[i][3] * guessr;
-        ttpoint[0] = x;
-        ttpoint[1] = y;
-#else    
-        double x = points[i][0] - points[i][3] * guessr;
-        double y = points[i][1] - points[i][4] * guessr;
-        double z = points[i][2] - points[i][5] * guessr;
-        double iz = points[i][2];
-        ttpoint[0] = x;
-        ttpoint[1] = y;
-        ttpoint[2] = z;
-        ignorepoint[2] = iz;
-#endif
+        for(int q = 0; q < dimension; q++){
+            ignorepoint[q] = points[i][q];
+            ttpoint[q] = points[i][q] - points[i][q+dimension] * guessr;
+        }
         ilist[0] = ignorepoint;
         int ileng = 1;
         double lowestdistance = 0; 
         centerPoint[index] = ttpoint;//this gets overwritten first step, not sure if this plays a role, but this centerpoint will always be completely wrong 
         //We calculate our starting furthest interface point
-        interfacePoint[index] = getNearest(ttpoint,kdstruct,length,ilist,&ileng,&lowestdistance);
+        interfacePoint[index] = getNearest(ttpoint,kdstruct,ilist,&ileng,&lowestdistance);
         //find starting radius for our starting interface point
         double *sendpoint = points[i];
         radius[index] = getRadius(sendpoint,interfacePoint[index]); 
@@ -336,29 +1157,9 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *length,double *mi
                 break;
             }
             //get timestep centerpoint and ignore point(not completely nessicary)
-            if(dimension == 2){
-                double x = points[i][0] - points[i][2] * radius[index];
-                double y = points[i][1] - points[i][3] * radius[index];
-                double ix = points[i][0];
-                double iy = points[i][1];
-                ttpoint[0] = x;
-                ttpoint[1] = y;
-                ignorepoint[0] = ix;
-                ignorepoint[1] = iy;
-            }
-            else{
-                double x = points[i][0] - points[i][3] * radius[index];
-                double y = points[i][1] - points[i][4] * radius[index];
-                double z = points[i][2] - points[i][5] * radius[index];
-                double ix = points[i][0];
-                double iy = points[i][1];
-                double iz = points[i][2];
-                ttpoint[0] = x;
-                ttpoint[1] = y;
-                ttpoint[2] = z;
-                ignorepoint[0] = ix;
-                ignorepoint[1] = iy;
-                ignorepoint[2] = iz;
+            for(int q = 0; q < dimension; q++){
+                ignorepoint[q] = points[i][q];
+                ttpoint[q] = points[i][q] - points[i][q+dimension] * radius[index];
             }
             ilist[0] = ignorepoint;
             int ileng = 1;
@@ -366,14 +1167,14 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *length,double *mi
             centerPoint[index] = ttpoint;
             //calculate our interface point closest to the last centerpoint
             lowestdistance = 0;
-            interfacePoint[index + 1] = getNearest(centerPoint[index],kdstruct,length,ilist,&ileng,&lowestdistance);
+            interfacePoint[index + 1] = getNearest(centerPoint[index],kdstruct,ilist,&ileng,&lowestdistance);
             //finds the radius of our point and interface point 
             radius[index + 1] = getRadius(points[i],interfacePoint[index + 1]);
             //get distance comp, abs distance from point->interface point, for converge check
-            double distancecomp = getDistance(interfacePoint[index + 1],points[i]);
-            double alpha = distancecomp / radius[index + 1];
             //check for completion of skeleton point
             if(radius[index] != 0. && fabs(radius[index] - radius[index + 1]) < *mindis){
+                double distancecomp = getDistance(interfacePoint[index + 1],points[i]);
+                double alpha = distancecomp / radius[index + 1];
                 //convergance conditions
                 //our center point should remain the same
                 for(int ii = 0; ii < dimension;ii++){
@@ -385,36 +1186,8 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *length,double *mi
                 captured++;
                 completeCase = false;
             }
-            //temp out for smooth 
-            if(isvofactive){
-                if(index > 0 && distancecomp < radius[index + 1]){
-                    //distance of point->interface point is less than our radius, so we want to backstep
-                    for(int ii = 0; ii < dimension;ii++){
-                        skeleton[i][ii] = centerPoint[index-1][ii];
-                    }
-                    skeleton[i][dimension] = radius[index];
-                    skeleton[i][dimension+1] = alpha;
-                    skeleton[i][dimension+2] = points[i][(dimension * 2)]; 
-                    captured++;
-                    completeCase = false;
-                }
-                else if(radius[index + 1] < *mindis){
-                    //distance of point->interface point is less than our radius, so we want to backstep
-                    for(int ii = 0; ii < dimension;ii++){
-                        skeleton[i][ii] = centerPoint[index-1][ii];
-                    }
-                    skeleton[i][dimension] = radius[index];
-                    skeleton[i][dimension+1] = alpha;
-                    skeleton[i][dimension+2] = points[i][(dimension * 2)]; 
-                    captured++;
-                    completeCase = false;
-                }
-
-            }
-            else{
-                if(radius[index + 1] < *mindis){
-                    completeCase = false;
-                }
+            if(radius[index + 1] < *mindis){
+                completeCase = false;
             }
             index = index + 1;
         }
@@ -432,71 +1205,34 @@ void makeSkeleton(double **points,struct kdleaf *kdstruct,int *length,double *mi
     *newl = captured;
     *pskeleton = skeleton;
 }
-#if _MPI
-//Implementation for skeletizing a mpi function
-void skeletizeMPI(double **points,int *length,char path[80],double *mindis,bool isvofactive,double wantedAngle,double ***pskeleton){
+void skeletize(double **points,int *length,char path[80],double *mindis,double wantedAngle,double ***pskeleton){
     double **skeleton = NULL; 
     if(*length > 0){
         //Create our kd tree for calculation
         struct kdleaf *kdstruct = NULL;
-        CreateStructure(points,&kdstruct,0,0,*length,0);//make kd-struct
-        if(kdstruct== NULL){
-            printf("error\n");
-        }
+        CreateStructure(points,&kdstruct,0,0,*length,dimension+1);//make kd-struct
+        if(kdstruct== NULL)printf("error\n");
         //Calculate our distance ratio
-        if(wantedAngle > 180){
-            wantedAngle = 180;
-        }
+        wantedAngle = wantedAngle > 180. ? 180. : wantedAngle < 0.? 0. : wantedAngle;
         double calcratio = 0.0;
         calcratio = tan(wantedAngle);
         //Next our skeleton will be calculated
         int newl = 0;
-        makeSkeleton(points,kdstruct,length,mindis,path,isvofactive,&calcratio,&newl,&skeleton);
+        makeSkeleton(points,kdstruct,length,mindis,path,&calcratio,&newl,&skeleton);
         //Finally clean up to prevent memeory error
-        for(int i = 0;i < *length + 1; i++){
+        for(int i = 0;i < *length; i++){
             free(points[i]);
         }
         free(points);
         points = NULL;
         kdDestroy(&kdstruct);
         length = &newl;
-
-    }
-    *pskeleton = skeleton;
-}
-#else
-void skeletize(double **points,int *length,char path[80],double *mindis,bool isvofactive,double wantedAngle,double ***pskeleton){
-    double **skeleton = NULL; 
-    if(*length > 0){
-        //Create our kd tree for calculation
-        struct kdleaf *kdstruct = NULL;
-        CreateStructure(points,&kdstruct,0,0,*length,0);//make kd-struct
-        if(kdstruct== NULL){
-            printf("error\n");
-        }
-        //Calculate our distance ratio
-        if(wantedAngle > 180){
-            wantedAngle = 180;
-        }
-        double calcratio = 0.0;
-        calcratio = tan(wantedAngle);
-        //Next our skeleton will be calculated
-        int newl = 0;
-        makeSkeleton(points,kdstruct,length,mindis,path,isvofactive,&calcratio,&newl,&skeleton);
-        //Finally clean up to prevent memeory error
-        for(int i = 0;i < *length + 1; i++){
-            free(points[i]);
-        }
-        free(points);
-        points = NULL;
-        kdDestroy(&kdstruct);
-        length = &newl;
-
     }
     *pskeleton = skeleton;
 }
 #endif
 void thinSkeleton(double ***pskeleton,int *length,double *alpha,double *thindis,char outname[80]){
+    int extra = 3;
     double **skeleton = *pskeleton;
     //we need to handle situations 
     //printf("inl = %d / %f\n",*length,*thindis);
@@ -517,22 +1253,16 @@ void thinSkeleton(double ***pskeleton,int *length,double *alpha,double *thindis,
                     addq = true;
                 }
                 for(int j = i+1; j < *length; j++){
-                    skeleton[j-1][0] = skeleton[j][0];//x
-                    skeleton[j-1][1] = skeleton[j][1];//y
-                    skeleton[j-1][2] = skeleton[j][2];//z/r
-                    skeleton[j-1][3] = skeleton[j][3];//r/a
-                    skeleton[j-1][4] = skeleton[j][4];//a/k
-#if dimension == 3                    
-                    skeleton[j-1][5] = skeleton[j][5];//k
-#endif
+                    for(int q = 0; q < dimension + extra; q++){
+                        skeleton[j-1][q] = skeleton[j][q];
+                    }
                 }
                 int L = *length - 1;
                 *length = L;
             }
         }
         if(*length > 0){
-            //printf("-%d\n",holdl - *length);
-            for(int i = *length; i < holdl+1; i++){
+            for(int i = *length; i < holdl; i++){
                 if(skeleton[i] != NULL){
                     free(skeleton[i]);
                 }
@@ -540,7 +1270,7 @@ void thinSkeleton(double ***pskeleton,int *length,double *alpha,double *thindis,
             skeleton = realloc(skeleton,*length * sizeof(double*));
         }
         else{
-            for(int i = 0; i < holdl + 1; i++){
+            for(int i = 0; i < holdl; i++){
                 free(skeleton[i]);
             }
             free(skeleton);
@@ -549,7 +1279,6 @@ void thinSkeleton(double ***pskeleton,int *length,double *alpha,double *thindis,
     }
     fflush(fp);
     fclose(fp);
-    //printf("outl = %d\n",*length);
     *pskeleton = skeleton;
 }
 //Gets spline
@@ -2424,7 +3153,7 @@ void pathNodes(struct skeleDensity **sD,int *dim,int **nodeid, int *nodeidcount,
     //output data
     //connection ID's
     char conname[80];
-    sprintf (conname, "dat/connectionDat-%5.3f.dat", t);
+    sprintf (conname, "dat/connectionDat-%5.3f.txt", t);
     FILE * fpcon = fopen (conname, "w");
     for(int i = 0; i < *combocount;i++){
         fprintf(fpcon,"%d %d\n",nodeconnections[i][0],nodeconnections[i][1]);
@@ -2433,7 +3162,7 @@ void pathNodes(struct skeleDensity **sD,int *dim,int **nodeid, int *nodeidcount,
     fclose(fpcon);
     //Connection Index:
     char indxname[80];
-    sprintf (indxname, "dat/connectionidDat-%5.3f.dat", t);
+    sprintf (indxname, "dat/connectionidDat-%5.3f.txt", t);
     FILE * fpindx = fopen (indxname, "w");
     for(int i = 0; i < *nicount;i++){
         struct skeleBounds sb = (sd->sB[nodeindex[i][0]][nodeindex[i][1]][nodeindex[i][2]]);
@@ -2487,7 +3216,12 @@ double calcBezierErr(struct kdleaf *kdstruct,double **comppoints, int lengpoints
         double thiserror = 0.;
         int tleng = 1;
         double lowestdis = 0.;
-        double *nearpoint = getNearest(comppoints[i],&searchstruct,&lengpoints,&ignorepoint,&tleng,&lowestdis);
+#if _MPI
+        int trackcode;
+        double *nearpoint = getNearest(comppoints[i],&searchstruct,&ignorepoint,&tleng,&lowestdis,&trackcode);
+#else
+        double *nearpoint = getNearest(comppoints[i],&searchstruct,&ignorepoint,&tleng,&lowestdis);
+#endif
         //position error 
         for(int j = 0; j < *dim + 1; j++){
             double dif = fabs(nearpoint[j] - comppoints[i][j]);
@@ -3545,7 +4279,7 @@ void makeSpline(struct skeleDensity **sD,int *dim,double *tolerance,int *length,
     }
     for(int q = 0; q < combocount; q++){
         char indxname[80];
-        sprintf (indxname, "dat/splineBranchDat-%5.3f-P%d.dat", t, pid());
+        sprintf (indxname, "dat/splineBranchDat-%5.3f-P%d.txt", t, pid());
         FILE * fpindx = fopen (indxname, "a");
         //Out puts node0(x,y) , node1(x,y) , and then if n coeff
         if(newn[q] > 0){
@@ -3645,103 +4379,9 @@ void skeleReduce(double **skeleton,double delta,double *minblen,int *length,int 
         createSD(&sD,skeleton,length,dim,delta,xmax,xmin,ymax,ymin,zmax,zmin);
         makeNodePoint(&sD,dim);
         makeSpline(&sD,dim,&tolerance,length,t,&n);
-        ///////////////////////////////////////////////////////////////////////Clearance
-        //adapt_wavelet({hsd,hnpt,hlpt,hrpt},(double[]) {tolerance,tolerance,tolerance,tolerance}, sd.level,sd.level);
-        //adapt_wavelet2({hsd,hnpt,hlpt,hrpt},(double[]) {tolerance,tolerance,tolerance,tolerance},calclevel,calclevel);
-        //sd.sd = hsd; 
-        //sd.npt = hnpt;
-        //sd.lpt = hlpt;
-        //sd.rpt = hrpt;
-        //int tcount = 0; 
-        //foreach_level_or_leaf(calclevel){
-        //    sd.sd[] = 0.0;
-        //    sd.npt[] = 0;
-        //    if(x + Delta / 2 > sd.xmin && x - Delta / 2 < sd.xmax){
-        //        if(y + Delta / 2 > sd.ymin && y - Delta / 2 < sd.ymax){
-        //            //Here we are inside our relative bounds, now we will assign/count points 
-        //            bool tcounted = false;
-        //            for(int i = 0; i < *length; i++){
-        //                if(skeleton[i][0] > x - Delta / 2 && skeleton[i][0] < x + Delta / 2){
-        //                    if(skeleton[i][1] > y - Delta / 2 && skeleton[i][1] < y + Delta / 2){
-        //                        if(!tcounted){
-        //                            tcount++;
-        //                            tcounted = true;
-        //                        }
-        //                        sd.lpt.x[0,0,sd.npt[]] = skeleton[i][0];
-        //                        sd.lpt.y[0,0,sd.npt[]] = skeleton[i][1];
-        //                        sd.rpt[0,0,sd.npt[]] = skeleton[i][2];
-        //                        sd.npt[] = sd.npt[] + 1;
-        //                    }
-        //                }
-        //            }
-        //            //Next we calculate density for each inside
-        //            double area = Delta * Delta;
-        //            //fprintf(stdout,"area=%f\n",area);
-        //            sd.sd[] = sd.npt[] / area;
-        //        }
-        //    }
-        //}
-        ////next we will find local maximums for density  and create root points where we think they should be
-        //double **nodePoints = (double**)malloc(tcount * sizeof(double*));
-        //fprintf(stdout,"\ndim=%d\n\n",*dim);
-        //for(int tempi = 0; tempi < tcount; tempi++){
-        //    nodePoints[tempi] = (double*)malloc((*dim + 1) * sizeof(double));
-        //}
-        //int npcount = 0;
-        //foreach_level_or_leaf(calclevel){
-        //    if (sd.npt[] > 0){
-        //        //here we know we have points
-        //        bool allowthrough = true;
-        //        int nearcount = 0;
-        //        bool skip = false;
-        //        if(tcount > 9){
-        //            for(int q = -1; q <= 1;q++){    
-        //                for(int p = -1; p <= 1;p++){
-        //                    if(sd.sd[] < sd.sd[q,p]){
-        //                        allowthrough = false;
-        //                    }
-        //                    if(sd.npt[q,p] > 0 && q != 0 && p != 0){
-        //                        nearcount++;
-        //                    }
-        //                }
-        //            }
-        //        }
-        //        else{
-        //            skip = true;
-        //        }
-        //        if((allowthrough && nearcount != 0)|| nearcount == 1 || skip){
-        //            //We dont have enough to have a true local max, so we can just make a node point everywhere
-        //            double ax = 0.;
-        //            double ay = 0.;
-        //            double ar = 0.;
-        //            for(int i = 0; i < sd.npt[]; i++){
-        //                ax += sd.lpt.x[0,0,i]; 
-        //                ay += sd.lpt.y[0,0,i]; 
-        //                ar += sd.rpt[0,0,i];
-        //            }
-        //            ax = ax / sd.npt[];
-        //            ay = ay / sd.npt[];
-        //            ar = ar / sd.npt[];
-        //            nodePoints[npcount][0] = ax;
-        //            nodePoints[npcount][1] = ay;
-        //            nodePoints[npcount][2] = ar;
-        //            npcount++;
-        //        }
-        //    }
-        //}
-        
-        //Output variables
-        //char npname[80];
-        //sprintf (npname, "nodePoint-%5.3f.dat", t);
-        //FILE * fpnp = fopen (npname, "w");
-        //for(int i = 0; i < npcount; i++){
-        //    fprintf(fpnp,"%f %f %f\n",nodePoints[i][0],nodePoints[i][1],nodePoints[i][2]);
-        //}
-        //fflush(fpnp);
-        //fclose(fpnp);
 
         char boxname[80];
-        sprintf (boxname, "dat/boxDat-%5.3f.dat", t);
+        sprintf (boxname, "dat/boxDat-%5.3f.txt", t);
         FILE * fpbox = fopen (boxname, "w");
         for(int i = 0; i < *sD->row;i++){
             for(int j = 0; j < *sD->col;j++){
@@ -3757,7 +4397,7 @@ void skeleReduce(double **skeleton,double delta,double *minblen,int *length,int 
         
 
         char nodename[80];
-        sprintf (nodename, "dat/nodeDat-%5.3f.dat", t);
+        sprintf (nodename, "dat/nodeDat-%5.3f.txt", t);
         FILE * fpnode = fopen (nodename, "w");
         for(int i = 0; i < *sD->row;i++){
             for(int j = 0; j < *sD->col;j++){
@@ -3774,7 +4414,7 @@ void skeleReduce(double **skeleton,double delta,double *minblen,int *length,int 
         fclose(fpnode);
         
         char scname[80];
-        sprintf (scname, "dat/splinecalcDat-%5.3f.dat", t);
+        sprintf (scname, "dat/splinecalcDat-%5.3f.txt", t);
         FILE * fpsc = fopen (scname, "w");
         for(int i = 0; i < *sD->row;i++){
             for(int j = 0; j < *sD->col;j++){
@@ -3791,13 +4431,6 @@ void skeleReduce(double **skeleton,double delta,double *minblen,int *length,int 
         fclose(fpsc);
         destroySD(&sD,dim);
         
-        //cleanup var
-        //for(int i = 0; i < tcount; i++){
-        //    free(nodePoints[i]);
-        //}
-        //free(nodePoints);
-        //nodePoints = NULL;
-
     }
 }
 #endif

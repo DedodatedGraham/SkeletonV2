@@ -192,17 +192,9 @@ void unsmooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max
     //Because MPI we smooth alittle differently, first we compute true vof points and normals
     //Next we will then add the smoothening to a seperate scaalar
     //Finally we can extrat the fully smooth scalar using noauto for specified region :) 
-    char vofout[80];
-    sprintf(vofout,"dat/vofinfo-%5.3f-p%d.dat",t,pid());
-    FILE *voffile = fopen(vofout,"w");
     foreach(){
         int ref = (int)vofref[];
         struct smooths *smoothnow = vofref.smooth;
-#if dimension == 2
-        //fprintf(voffile,"%f %f %f \n",x,y,Delta);//outputs x y delta for reconstruction of vof field
-#else
-        //fprintf(voffile,"%f %f %f %f \n",x,y,z,Delta);//outputs x y delta for reconstruction of vof field
-#endif
         if(c[] > 1e-6 && c[] < 1.-1e-6 && vofref[] != nodata){
             coord n = facet_normal(point, c, s);
 	        double aalpha = plane_alpha(c[], n);
@@ -231,8 +223,6 @@ void unsmooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max
 #endif
         }
     }
-    fflush(voffile);
-    fclose(voffile);
     //Calculate the interface data
     //multigrid_restriction({vofref});
     //boundary({vofref});
@@ -785,6 +775,14 @@ void extract_ip_MPI(double ***parr,scalar c,scalar vofref,int *countn, double t)
     scalar kappa[];//get curvature
     curvature (c, kappa);
     boundary({kappa});
+    int lcount = 0;
+    foreach(noauto){
+        //Count local counts
+        if(c[] > 1e-6 &&  c[] < 1-1e-6){
+            lcount++;
+        }
+    }
+    *countn = lcount;
     //setup MPI array
     passarr = malloc(comm_size * sizeof(double**));
     passarr[pid()] = malloc(*countn * sizeof(double*));
@@ -794,7 +792,7 @@ void extract_ip_MPI(double ***parr,scalar c,scalar vofref,int *countn, double t)
         tagarr[i] = 1;
     }
     char savename[80];
-    sprintf(savename,"dat/interface-%5.3f-p%d.dat",t,pid());
+    sprintf(savename,"dat/interface-%5.3f-p%03d.txt",t,pid());
     FILE *savefile = fopen(savename,"w");
     int *i = calloc(comm_size,sizeof(int));
     foreach(){
@@ -808,18 +806,6 @@ void extract_ip_MPI(double ***parr,scalar c,scalar vofref,int *countn, double t)
             }
             passarr[pid()][i[pid()]][dimension*2] = fabs(1./kappa[]);
             i[pid()]++;
-            //finally we loop through our close neighbors and grab their values
-            foreach_neighbor(){
-                if(c[] > 1e-6 && c[] < 1.-1e-6 && cell.pid != pid() && vofref[] != nodata){
-                    int nref = (int)vofref[];
-                    for(int q = 0; q < dimension; q++){
-                        passarr[pid()][i[pid()]][q] = smoothnow->smoothpoints[nref][q];//set x
-                        passarr[pid()][i[pid()]][q+dimension] = smoothnow->smoothpoints[nref][q+dimension];//set xnorm
-                    }
-                    passarr[pid()][i[pid()]][dimension*2] = fabs(1./kappa[]);
-                    i[pid()]++;
-                }
-            }
         }
     }
     int newcount = 0; 
@@ -831,24 +817,6 @@ void extract_ip_MPI(double ***parr,scalar c,scalar vofref,int *countn, double t)
             }
             if(!tagarr[q]){
                 break;//allow early break out if 2 values are 0.0; only one should ever be possibly 0. 
-            }
-        }
-        //Next we do a backloop and verify the point hasnt been seen before
-        if(tagarr[q]){
-            for(int j = 0; j < q; j++){
-                int counts = 0;
-                for(int p = 0; p < (dimension * 2) + 1; p++){
-                    //check individual values for each
-                    if(passarr[pid()][q][p] == passarr[pid()][j][p]){
-                        counts++;
-                    }
-                }
-                if(counts == (dimension * 2) + 1){
-                    tagarr[q] = 0;
-                }
-                if(!tagarr[q]){
-                    break;//allow exit out
-                }
             }
         }
         if(tagarr[q]){
@@ -894,25 +862,8 @@ void calcSkeletonMPI(scalar f,double *alpha,int max_level,double L,double t,doub
     int comm_size;
     MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
     MPI_Barrier(MPI_COMM_WORLD);
-    //for calculating local skeleton first before one full skeleton will be ran
-    
-    //local counts
-    int *countn = calloc(comm_size,sizeof(int));
-    //int thisrank = pid();
-    foreach(){
-        if(f[] > 1e-6 && f[] < 1-1e-6){
-            //add to count from our opperating rank
-            countn[pid()]++;
-        }
-        foreach_neighbor(){
-            if(f[] > 1e-6 && f[] < 1-1e-6 && cell.pid != pid()){
-                //add count from other ranks, ensures enough space, we can decrease later
-                countn[pid()]++;
-            }
-        }
-    }
-    
     //set up for skeleton
+    int countn = 0;
     double mindis = 10.;
     foreach(reduction(min:mindis)){
         if(Delta < mindis){
@@ -945,7 +896,7 @@ void calcSkeletonMPI(scalar f,double *alpha,int max_level,double L,double t,doub
     double **interfacePoints;
     //smooth interface points
     //next grab interface points
-    extract_ip_MPI(&interfacePoints,f,vofref,&countn[pid()],t);
+    extract_ip_MPI(&interfacePoints,f,vofref,&countn,t);
     delete({vofref});
     struct smooths *smooth = vofref.smooth;
     for(int i = 0; i < *smooth->length; i++){
@@ -958,26 +909,22 @@ void calcSkeletonMPI(scalar f,double *alpha,int max_level,double L,double t,doub
     free(smooth->length);
     free(smooth);
     smooth = NULL;
-    
-    //calc skeleton
-    if(countn[pid()]){
-        countn[pid()] = countn[pid()] - 1;
-    }
     double skelemin = mindis * 0.5;
     char savename[80];
     double **skeleton = NULL; 
-    skeletizeMPI(interfacePoints,&countn[pid()],savename,&skelemin,false,*alpha,&skeleton);
+    printf("counted: %d\n",countn);
+    skeletizeMPI(interfacePoints,&countn,savename,&skelemin,*alpha,&skeleton);
     MPI_Barrier(MPI_COMM_WORLD);
     //Next we thin out our skeleton
     double thindis = mindis;//when r is more than delta/2 :(
     char noname[80];
-    sprintf(noname,"dat/skeletonthin-%5.3f-p%d.dat",t,pid());
-    thinSkeleton(&skeleton,&countn[pid()],alpha,&thindis,noname);
+    sprintf(noname,"dat/skeletonthin-%5.3f-p%03d.txt",t,pid());
+    thinSkeleton(&skeleton,&countn,alpha,&thindis,noname);
     MPI_Barrier(MPI_COMM_WORLD);
     
-    sprintf(savename,"dat/skeletonscatter-%5.3f-p%d.dat",t,pid());
+    sprintf(savename,"dat/skeletonscatter-%5.3f-p%03d.txt",t,pid());
     FILE *savefile = fopen(savename,"w");
-    for(int i = 0; i < countn[pid()]; i++){
+    for(int i = 0; i < countn; i++){
 #if dimension == 2
         fprintf(savefile,"%f %f %f %f %f\n",skeleton[i][0],skeleton[i][1],skeleton[i][2],skeleton[i][3],skeleton[i][4]);
 #else
@@ -998,8 +945,7 @@ void calcSkeletonMPI(scalar f,double *alpha,int max_level,double L,double t,doub
 
     //Clean up needed
     //finally assign our needed pointers to look at the right place
-    *pskelelength = countn[pid()];
-    free(countn);
+    *pskelelength = countn;
     *pskeleton = skeleton;
 }
 #else
@@ -1413,6 +1359,12 @@ void extract_ip(double ***parr,scalar c,scalar vofref,int *countn, double t){
     scalar kappa[];//get curvature
     curvature (c, kappa);
     boundary({kappa});
+    foreach(){
+        //Count local counts
+        if(c[] > 1e-6 &&  c[] < 1-1e-6){
+            *countn = *countn+1;
+        }
+    }
     //setup MPI array
     passarr = malloc(*countn * sizeof(double*));
     int *tagarr = malloc(*countn * sizeof(int));
@@ -1421,7 +1373,7 @@ void extract_ip(double ***parr,scalar c,scalar vofref,int *countn, double t){
         tagarr[i] = 1;
     }
     char savename[80];
-    sprintf(savename,"dat/interface-%5.3f-p%d.dat",t,0);
+    sprintf(savename,"dat/interface-%5.3f-p%03d.txt",t,0);
     FILE *savefile = fopen(savename,"w");
     int i = 0;
     foreach(){
@@ -1509,9 +1461,6 @@ void calcSkeleton(scalar f,double *alpha,int max_level,double L,double t,double 
     int countn = 0;
     double mindis = 10.;
     foreach(){
-        if(f[] > 1e-6 && f[] < 1-1e-6){
-            countn++;
-        }
         if(Delta < mindis){
             mindis = Delta;
         }
@@ -1557,20 +1506,17 @@ void calcSkeleton(scalar f,double *alpha,int max_level,double L,double t,double 
     smooth = NULL;
     
     //calc skeleton
-    if(countn){
-        countn = countn - 1;
-    }
     double skelemin = mindis;
     char savename[80];
     double **skeleton = NULL; 
-    skeletize(interfacePoints,&countn,savename,&skelemin,false,*alpha,&skeleton);
+    skeletize(interfacePoints,&countn,savename,&skelemin,*alpha,&skeleton);
     //printf("skele\n");
     //Next we thin out our skeleton
     double thindis = mindis;//when r is more than delta/2 :(
     char noname[80];
-    sprintf(noname,"dat/skeletonthin-%5.3f-p%d.dat",t,0);
+    sprintf(noname,"dat/skeletonthin-%5.3f.txt",t);
     thinSkeleton(&skeleton,&countn,alpha,&thindis,noname);
-    sprintf(savename,"dat/skeletonscatter-%5.3f-p%d.dat",t,0);
+    sprintf(savename,"dat/skeletonscatter-%5.3f.txt",t);
     FILE *savefile = fopen(savename,"w");
     for(int i = 0; i < countn; i++){
 #if dimension == 2
