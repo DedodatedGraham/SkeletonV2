@@ -457,7 +457,7 @@ void MPIskeleton(double **points,struct kdleaf *kdstruct,int *length,int *alengt
                     if(i < *length){
                         skeleton[i][dimension+2] = points[i][(dimension * 2)]; 
                     }
-                    if(loopcount == 0)printf("%d skele -> [%f %f %f %f]\n",i,skeleton[i][0],skeleton[i][1],skeleton[i][2],skeleton[i][3]);
+                    //if(loopcount == 0)printf("%d skele -> [%f %f %f %f]\n",i,skeleton[i][0],skeleton[i][1],skeleton[i][2],skeleton[i][3]);
                     complete[i] = 1;
                     completeCase = false; 
                 }
@@ -532,7 +532,7 @@ void intUnpack(double ***precvinfo, int recvleng,int *recvindx,double ***ppoints
                 }
                 if(passes){
                     complete[j] = 0;
-                    printf("ls = %f\n",strackRad[j]);
+                    //printf("ls = %f\n",strackRad[j]);
                     strackRad[j] = recvinfo[i][skelePackSize-2];
                 }
             }
@@ -597,12 +597,13 @@ void skeleUnpack(double ***precvinfo, int recvleng,int searchLength,double **poi
                 }
             }
             if(passes){
-                printf("%d finished %d\n",pid(),j);
+                //printf("%d finished %d\n",pid(),j);
                 trackp++;
                 //if our point matches our recieved point then we push the final information
-                for(int q = 0; q < dimension + extra; q++){
+                for(int q = 0; q < dimension + extra-1; q++){
                     skeleton[j][q] = recvinfo[i][2*dimension+q];
                 }
+                skeleton[j][dimension+extra-1] = points[j][dimension*2];
                 complete[j] = 1;
             }
         }
@@ -636,7 +637,7 @@ void MPIskeletonCom(int *test,double ***ppoints,int *length,int *alength,double 
     //for(int i = *length; i < *length+*alength;i++)if(!complete[i])printf("trackingdir %d-%d -> %d\n",i,pid(),trackDir[i]);
     int sumc=0;
     for(int i = 0; i < *length;i++)if(complete[i]==1)sumc++;
-    printf("(%d/%d)\n",sumc,*length);
+    //printf("(%d/%d)\n",sumc,*length);
     int startl = 0;
     for(int j = startl; j < *length+*alength; j++){
         if(trackDir[j]>=0&&complete[j]==-1)visiting[trackDir[j]]++;//count for pid and direction
@@ -914,7 +915,7 @@ void makeSkeletonMPI(double **points,struct kdleaf *kdstruct,int *length,double 
     double *trackRad;
     int indx = 0;
     while(runcase){
-        printf("step %d\n",indx); 
+        //printf("step %d\n",indx); 
         MPIskeleton(points,kdstruct,length,&alength,mindis,path,disRatio,newl,pskeleton,&trackDir,&trackRad,extra,&complete,indx);
         MPI_Barrier(MPI_COMM_WORLD);
         MPIskeletonCom(&test,&points,length,&alength,pskeleton,&trackRad,&trackDir,&trackOrigin,skelePackSize,&complete,extra,indx); 
@@ -1625,7 +1626,7 @@ void createSD(struct skeleDensity **sd,double **inpts,int *inleng,int *dim,doubl
     }
     allocsd->sB = allocsb;
     *sd = allocsd;
-    printf("complete\n");
+    //printf("complete\n");
 }
 void destroySD(struct skeleDensity **sd, int *dim){
     if(*sd != NULL){

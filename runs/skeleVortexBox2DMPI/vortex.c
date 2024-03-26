@@ -105,17 +105,16 @@ event velocity(i++){
 
 char outpath[80];
 event plot(t += t_out){
-    //view(tx=-0.5,ty=-0.5,sx=1,sy=1,camera="front",width=1000,height=1000);
-    //
-    //clear();
-    //sprintf(outpath,"Img/id-%5.3f.png",t);
-    //draw_vof("f");
-    //scalar fid = f.fid;
-    //squares(color = "fid");
-    //box();
-    //cells();
-    //save(file = outpath);
-    //clear();
+    view(tx=-0.5,ty=-0.5,sx=1,sy=1,camera="front",width=1000,height=1000);
+    
+    clear();
+    sprintf(outpath,"Img/id-%5.3f.png",t);
+    draw_vof("f");
+    squares(color = "");
+    box();
+    cells();
+    save(file = outpath);
+    clear();
     //sprintf(outpath,"Img/levelint-%5.3f.png",t);
     //draw_vof("f");
     //squares(color = "level",min = 1, max = max_level);

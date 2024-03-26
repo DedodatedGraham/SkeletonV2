@@ -11,7 +11,7 @@ clear
 #serial
 
 
-#./vortex 10 650
+./vortex 10 650
 
 #run in mpi
 #gdb

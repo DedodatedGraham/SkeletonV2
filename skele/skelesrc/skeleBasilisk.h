@@ -333,11 +333,7 @@ void unsmooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max
 void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_level){
     int comm_size;
     MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
-#if dimension == 2
-    int nc = 4;
-#else
-    int nc = 6;
-#endif
+    int nc = dimension*2;
     scalar c = p.c;
     struct smooths *smooth = malloc(sizeof(struct smooths));
     //next we calc our total id across all MPI, to ensure we build our ID's correctly
