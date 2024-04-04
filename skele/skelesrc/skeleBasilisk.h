@@ -1,6 +1,6 @@
 #ifndef _skeleB_
 #include "skeletize.h"
-#include "../basiliskfunctions/adapt2.h"
+#include "curvature.h"
 //Extract the interfacial points. here we are extracting the center of the cut surface
 struct OutputXYNorm{
     scalar c;
@@ -769,7 +769,7 @@ void extract_ip_MPI(double ***parr,scalar c,scalar vofref,int *countn, double t)
     //because of weirdness with basilisk, we will write to interficial datafiles and then extract points from said files
     double ***passarr = NULL;
     scalar kappa[];//get curvature
-    curvature (c, kappa);
+    curvature (c, kappa,1.[0],true);
     boundary({kappa});
     int lcount = 0;
     foreach(noauto){

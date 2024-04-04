@@ -19,7 +19,7 @@ def LoadSkeleton(dim,time,np,root):
         skeleton.append([])
         for j in range(dim + 3):
             skeleton[i].append([])
-        path = root + "skeletonscatter-{:.3f}-p{:d}.dat".format(time,i)
+        path = root + "skeletonscatter-{:.3f}-p{:03d}.txt".format(time,i)
         if dim == 2 and os.path.exists(path):
             with open(path,'r') as csvfile:
                 data  = csv.reader(csvfile,delimiter = ' ')
@@ -51,7 +51,7 @@ def LoadThinSkeleton(dim,time,np,root):
         skeleton.append([])
         for j in range(dim + 3):
             skeleton[i].append([])
-        path = root + "skeletonthin-{:.3f}-p{:d}.dat".format(time,i)
+        path = root + "skeletonthin-{:.3f}-p{:03d}.txt".format(time,i)
         if dim == 2 and os.path.exists(path):
             with open(path,'r') as csvfile:
                 data  = csv.reader(csvfile,delimiter = ' ')
@@ -87,17 +87,18 @@ def PlotSkeleton(skeleton,dim,time,np,ax,cmap):
             #ax.scatter(skeleton[i][0],skeleton[i][1],s=4,color=color)
             for q in range(len(skeleton[i][0])):
                 #colortrace.append(skeleton[i][2][q] / skeleton[i][4][q])
-                colortrace.append(skeleton[i][2][q])
+                #colortrace.append(skeleton[i][2][q])
+                colortrace.append(i/np)
                 color = cmap(colortrace[q])
                 maxcolor = max(maxcolor,colortrace[q])
                 mincolor = min(mincolor,colortrace[q])
                 ax.scatter(skeleton[i][0][q],skeleton[i][1][q],s=1,color=color)
             #after the plotting we set max and min if possible
     #finally we plot our colorbar :)
-    norm = plt.Normalize(vmin=mincolor, vmax=maxcolor)
-    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-    sm.set_array([])  # This line is necessary for the color bar to work properly
-    cbar = plt.colorbar(sm, ax=ax)
+    #norm = plt.Normalize(vmin=mincolor, vmax=maxcolor)
+    #sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    #sm.set_array([])  # This line is necessary for the color bar to work properly
+    #cbar = plt.colorbar(sm, ax=ax)
 
 def PlotThinSkeleton(skeleton,dim,time,np,ax,cmap):
     #Plots  data according to process

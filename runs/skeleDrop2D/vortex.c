@@ -161,10 +161,6 @@ event snapshot (t += t_out; t<=T_END) {
     //Here we calculate time taken
     char dumpname[80];
     scalar * dump_list =  (scalar *){f,u,p};
-#if 1
-    sprintf (dumpname, "dumps/snapshot-%5.3f.gfs", t);
-    output_gfs (file = dumpname, t=t,list = dump_list);
-#endif
 
     sprintf (dumpname, "dumps/dump-%5.3f", t);
     //p.nodump = true;

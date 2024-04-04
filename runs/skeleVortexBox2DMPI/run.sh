@@ -11,10 +11,11 @@ clear
 #serial
 
 
-./vortex 10 650
+#./vortex 10 650
 
 #run in mpi
+mpirun -np 12 ./vortex 11 650
 #gdb
-mpirun -np 2 xterm -e gdb -ex run --args ./vortex 10 650
+#mpirun -np 12 xterm -e gdb -ex run --args ./vortex 10 650
 #valgrind
-#mpirun -np 2 xterm -e valgrind --tool=memcheck --leak-check=full --log-file=valgrind.txt ./vortex 10 650
+#mpirun -np 12 valgrind --tool=memcheck --leak-check=full --log-file=valgrind.txt ./vortex 10 650

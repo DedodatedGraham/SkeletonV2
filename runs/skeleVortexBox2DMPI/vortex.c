@@ -2,38 +2,33 @@
  */
 #include <time.h>
 #include "navier-stokes/centered.h"
-//#include "two-phase.h"
-#include "two-phase-s.h"
-
+#include "two-phase.h"
+//#include "two-phase-s.h"
+#include "skele/skeleInclude.h"
 #include "navier-stokes/conserving.h"
 #include "tension.h"
-
+//
 #include "curvature.h"
-#include "view.h"
+//#include "view.h"
 #include "tag.h"
-#include "skele/skeleton.h"
-#include "colormap.h"
-#include "curvature.h"
+//#include "skele/skeleton.h"
+//#include "colormap.h"
+//#include "curvature.h"
 
 #define LARGE 1e36
 
-extern scalar *interfacefid;//id 
-
 double max_level = 6;
 double t_out = 0.01;       
-double T_END = 0.05;
-//double T_END = 4.;
+//double T_END = 0.05;
+double T_END = 4.;
 //double T_END = 2.00;
 
 /** dimensionless properties, normalized by scaling variables rhol, D, sigma
  */
-double L = 1.;
-double rho_L=1;
-double rho_V=1.297e-3;
-double mu_L=5.275e-3;
-double mu_V=9.077e-5;
-double u0 = 83.33;        //free stream velocity
-double h   = 0.2;          //initial gap between drop and inlet
+double rho_L=1 [0];
+double rho_V=1.297e-3 [0];
+double mu_L=5.275e-3 [0];
+double mu_V=9.077e-5 [0];
 double femax = 0.0001;
 double uemax = 0.01;
 double maxruntime = 2.5;
@@ -44,7 +39,7 @@ clock_t timerstart;
 clock_t timernow;
 clock_t timerlast;
 double timertotal = 0.;
-
+double cpu_time_used = 0.;
 //pid tracer
 #if _MPI
 int comm_size;
@@ -78,83 +73,86 @@ int main(int argc, char * argv[]){
 
 event init (t = 0){
     char dumpname[80];
-    sprintf(dumpname,"dumps/dump-%5.3f",0.550);
+    sprintf(dumpname,"dumps/dump-%5.3f",10000.550);
     if (!restore (file = dumpname)) {
         fraction(f,circle(x,y));
     }
 }
 
-event adapt(i++){
-#if TREE
-  adapt_wavelet ({f,u}, (double[]){femax,uemax,uemax}, max_level);
-#endif
-}
-
-#define velox(x,y,t,pi) ((1./pi)*cos(pi*t/50.)*sq(sin(pi*x))*2.*sin(pi*y)*cos(pi*y)*pi)
-#define veloy(x,y,t,pi) ((-1./pi)*cos(pi*t/50.)*sq(sin(pi*y))*2.*sin(pi*x)*cos(pi*x)*pi)
-#ifndef _PI
-#define _PI 3.14159
-#endif
+//event adapt(i++){
+//#if TREE
+//  adapt_wavelet ({f,u}, (double[]){femax,uemax,uemax}, max_level);
+//#endif
+//}
+double _PI = 3.14159 [0,0];
+double u0 = 1.[1,-1];
+double tc = 1.[0,1];
 event velocity(i++){
     //here we ensure the velocity is set
     foreach(){
-        u.x[] = velox(x,y,t,_PI);
-        u.y[] = veloy(x,y,t,_PI);
+        u.x[] = u0*((1./_PI)*cos(_PI*t/(tc*50.))*sq(sin(_PI*x/L0))*2.*sin(_PI*y/L0)*cos(_PI*y/L0)*_PI);
+        u.y[] = u0*((-1./_PI)*cos(_PI*t/(tc*50.))*sq(sin(_PI*y/L0))*2.*sin(_PI*x/L0)*cos(_PI*x/L0)*_PI);
     }
 }
 
-char outpath[80];
-event plot(t += t_out){
-    view(tx=-0.5,ty=-0.5,sx=1,sy=1,camera="front",width=1000,height=1000);
-    
-    clear();
-    sprintf(outpath,"Img/id-%5.3f.png",t);
-    draw_vof("f");
-    squares(color = "");
-    box();
-    cells();
-    save(file = outpath);
-    clear();
-    //sprintf(outpath,"Img/levelint-%5.3f.png",t);
-    //draw_vof("f");
-    //squares(color = "level",min = 1, max = max_level);
-    //box();
-    //cells();
-    //save(file = outpath);
-    //
-    //clear();
-//    
-//    //sprintf(outpath,"Img/ux-%5.3f.png",t);
-//    //squares(color = "u.x");
-//    //box();
-//    //save(file = outpath);
-//    //
-//    //clear();
-//    //sprintf(outpath,"Img/uy-%5.3f.png",t);
-//    //squares(color = "u.y");
-//    //box();
-//    //save(file = outpath);
-//    //
-//    //clear();
+event skeletize(t+=t_out){
+    double **skeleton=NULL,alpha=25*3.14159/180;
+    int skelelength=0;
+    calcSkeletonMPI(f,&alpha,max_level,1.0,t,&skeleton,&skelelength,1);
+    for(int q = 0; q < skelelength; q++){
+        free(skeleton[q]);
+    }
+    free(skeleton);
 }
+
+//char outpath[80];
+//event plot(t += t_out){
+//    view(tx=-0.5,ty=-0.5,sx=1,sy=1,camera="front",width=1000,height=1000);
+//    
+//    clear();
+//    sprintf(outpath,"Img/id-%5.3f.png",t);
+//    draw_vof("f");
+//    squares(color = "");
+//    box();
+//    cells();
+//    save(file = outpath);
+//    clear();
+//    //sprintf(outpath,"Img/levelint-%5.3f.png",t);
+//    //draw_vof("f");
+//    //squares(color = "level",min = 1, max = max_level);
+//    //box();
+//    //cells();
+//    //save(file = outpath);
+//    //
+//    //clear();
+////    
+////    //sprintf(outpath,"Img/ux-%5.3f.png",t);
+////    //squares(color = "u.x");
+////    //box();
+////    //save(file = outpath);
+////    //
+////    //clear();
+////    //sprintf(outpath,"Img/uy-%5.3f.png",t);
+////    //squares(color = "u.y");
+////    //box();
+////    //save(file = outpath);
+////    //
+////    //clear();
+//}
 
 event snapshot (t += t_out; t<=T_END) {
     //Here we calculate time taken
     char dumpname[80];
-    scalar * dump_list =  (scalar *){f,u,p};
-#if 1
-    sprintf (dumpname, "dumps/snapshot-%5.3f.gfs", t);
-    output_gfs (file = dumpname, t=t,list = dump_list);
-#endif
+    //scalar * dump_list =  (scalar *){f,u,p};
 
     sprintf (dumpname, "dumps/dump-%5.3f", t);
     //p.nodump = true;
-    dump (file = dumpname,dump_list); // so that we can restart
+    dump (file = dumpname); // so that we can restart
     
 
     //finally output timer and results as this takes bulk of process
     timernow = clock();
-    double cpu_time_used = ((double) (timernow - timerlast)) / (CLOCKS_PER_SEC);
+    cpu_time_used = ((double) (timernow - timerlast)) / (CLOCKS_PER_SEC);
     timertotal += cpu_time_used;
     printf("calc @ t=%f\n",t);
     fprintf(stdout,"Total Time used: %fm: %fs\n",floor(timertotal / 60.),timertotal - 60 * (floor(timertotal / 60.)));

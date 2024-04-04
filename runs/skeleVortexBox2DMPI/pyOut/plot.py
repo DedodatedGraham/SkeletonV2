@@ -87,8 +87,8 @@ def Plot(data,datatag,dim,time,np,ax):
             ax.set_ylim(miny,maxy)
             PlotInterface(data[i],dim,time,np,ax,jaggcmap,maxk)
         elif did == 1:
-            PlotSkeleton(data[i],dim,time,np,ax,smoothcmap)
-            #PlotSkeleton(data[i],dim,time,np,ax,jaggcmap)
+            #PlotSkeleton(data[i],dim,time,np,ax,smoothcmap)
+            PlotSkeleton(data[i],dim,time,np,ax,jaggcmap)
         elif did == 2:
             PlotSkeletonSpline(data[i],dim,time,np,ax,jaggcmap)
         elif did == 3:
@@ -107,7 +107,7 @@ def main(fig,np,dim,start_time,max_time,root,datalocation,savelocation):
     print("starting at",start_time)
     print("ending at",max_time)
     case = True
-    dt = 0.001
+    dt = 0.01
     mode = 1
     while case:
         if mode == 0:
@@ -147,10 +147,10 @@ if __name__ == "__main__":
     start_time = float(sys.argv[3]) / 1000
     max_time = float(sys.argv[4]) / 1000
     mode = int(sys.argv[5])
-    num_processes = int(mp.cpu_count()/2)
+    num_processes = int(mp.cpu_count()/4)
     print(num_processes)
     root = os.path.split(os.path.dirname(os.path.abspath(__file__)))[0] + r'/'
-    dt = 0.001
+    dt = 0.01
     datalocation = root + r'dat/'
     savelocation = root + r'pyOut/Img/'
     if(mode == 0):
@@ -168,6 +168,7 @@ if __name__ == "__main__":
         totalt = max_time - start_time
         avgdt = totalt / dt # this gives us the amount of time steps now
         avgdt = math.ceil(avgdt / num_processes)
+        print("starting")
         for i in range(num_processes):
             figs.append(plt.figure())
             nps.append(np)
@@ -187,5 +188,6 @@ if __name__ == "__main__":
             roots.append(root)
             datas.append(datalocation)
             saves.append(savelocation)
+        print("collected")
         with mp.Pool(processes=num_processes) as pool:
             pool.starmap(main, zip(figs,nps,dims,starts,maxs,roots,datas,saves))

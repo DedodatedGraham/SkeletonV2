@@ -21,13 +21,13 @@ struct kdleaf{
     double **origin;//node point [x,y] or [x,y,z] @ pos 0
                     //If lowest layer, then list of points
     struct kdleaf *left,*right; 
-#if _MPI
-    //if MPI we will have addition information
-    bool *refflag;
-    double **refPts;
-    int *refID;//location of given point 
-    int *refleng;
-#endif
+//#if _MPI
+//    //if MPI we will have addition information
+//    bool *refflag;
+//    double **refPts;
+//    int *refID;//location of given point 
+//    int *refleng;
+//#endif
 };
 
 //method for getting distance
@@ -42,12 +42,12 @@ double getDistance(double *point1,double *point2){
     distance = sqrt(distance);
     return distance;
 }
-#if _MPI 
-double *getNearest(double *searchpoint,struct kdleaf *kdstruct,double **ignorepoint,int *ileng,double *lowestdistance,int *outcode){
-    int oc = -1;
-#else
+//#if _MPI 
+//double *getNearest(double *searchpoint,struct kdleaf *kdstruct,double **ignorepoint,int *ileng,double *lowestdistance,int *outcode){
+//    int oc = -1;
+//#else
 double *getNearest(double *searchpoint,struct kdleaf *kdstruct,double **ignorepoint,int *ileng,double *lowestdistance){
-#endif
+//#endif
     double *retpoint = NULL;
     if(kdstruct->flag == NULL){
         printf("error\n");
@@ -90,20 +90,20 @@ double *getNearest(double *searchpoint,struct kdleaf *kdstruct,double **ignorepo
         bool side = searchpoint[*kdstruct->axis] < (kdstruct->origin)[0][*kdstruct->axis];
         if(side){
             if(kdstruct->left != NULL){
-#if _MPI
-                retpoint = getNearest(searchpoint,kdstruct->left,ignorepoint,ileng,lowestdistance,outcode);
-#else
+//#if _MPI
+//                retpoint = getNearest(searchpoint,kdstruct->left,ignorepoint,ileng,lowestdistance,outcode);
+//#else
                 retpoint = getNearest(searchpoint,kdstruct->left,ignorepoint,ileng,lowestdistance);
-#endif
+//#endif
             }
         }
         else{
             if(kdstruct->right != NULL){
-#if _MPI
-                retpoint = getNearest(searchpoint,kdstruct->right,ignorepoint,ileng,lowestdistance,outcode);   
-#else
+//#if _MPI
+//                retpoint = getNearest(searchpoint,kdstruct->right,ignorepoint,ileng,lowestdistance,outcode);   
+//#else
                 retpoint = getNearest(searchpoint,kdstruct->right,ignorepoint,ileng,lowestdistance);   
-#endif
+//#endif
             }
         }
         //next we will test if we need to go to the other side of the struct
@@ -113,20 +113,20 @@ double *getNearest(double *searchpoint,struct kdleaf *kdstruct,double **ignorepo
             double templowdis = 0.0;
             if(side){
                 if(kdstruct->right != NULL){
-#if _MPI
-                    tempretpoint = getNearest(searchpoint,kdstruct->right,ignorepoint,ileng,&templowdis,outcode);   
-#else
+//#if _MPI
+//                    tempretpoint = getNearest(searchpoint,kdstruct->right,ignorepoint,ileng,&templowdis,outcode);   
+//#else
                     tempretpoint = getNearest(searchpoint,kdstruct->right,ignorepoint,ileng,&templowdis);   
-#endif
+//#endif
                 }
             }
             else{
                 if(kdstruct->left != NULL){
-#if _MPI
-                    tempretpoint = getNearest(searchpoint,kdstruct->left,ignorepoint,ileng,&templowdis,outcode);
-#else
+//#if _MPI
+//                    tempretpoint = getNearest(searchpoint,kdstruct->left,ignorepoint,ileng,&templowdis,outcode);
+//#else
                     tempretpoint = getNearest(searchpoint,kdstruct->left,ignorepoint,ileng,&templowdis);
-#endif
+//#endif
                 }
             }
             if((*lowestdistance > templowdis|| *lowestdistance == 0.0) && templowdis != 0.0){
@@ -155,20 +155,20 @@ double *getNearest(double *searchpoint,struct kdleaf *kdstruct,double **ignorepo
                 *lowestdistance = nodedis;
             }
         }
-#if _MPI
-        //If we are in an MPI program we might need to consider upper points
-        if(*(kdstruct->refflag)){
-            for(int i = 0; i < *kdstruct->refleng; i++){
-                double computeDistance = getDistance(searchpoint,(kdstruct->refPts)[i]);
-                if(computeDistance < *lowestdistance){
-                    *lowestdistance = computeDistance;
-                    retpoint = (kdstruct->refPts)[i];
-                    oc = (kdstruct->refID)[i];
-                }
-            }
-            if(oc != -1)*outcode = oc;
-        }
-#endif
+//#if _MPI
+//        //If we are in an MPI program we might need to consider upper points
+//        if(*(kdstruct->refflag)){
+//            for(int i = 0; i < *kdstruct->refleng; i++){
+//                double computeDistance = getDistance(searchpoint,(kdstruct->refPts)[i]);
+//                if(computeDistance < *lowestdistance){
+//                    *lowestdistance = computeDistance;
+//                    retpoint = (kdstruct->refPts)[i];
+//                    oc = (kdstruct->refID)[i];
+//                }
+//            }
+//            if(oc != -1)*outcode = oc;
+//        }
+//#endif
     }
     return retpoint;
 }
@@ -194,17 +194,17 @@ void kdDestroy(struct kdleaf **kdstruct){
         free((*kdstruct)->leng);
         free((*kdstruct)->axis);
         free((*kdstruct)->flag);
-#if _MPI
-        if(*(tstruct->refflag)){
-            for(int i = 0; i <  *(tstruct->refleng); i++){
-                free((*kdstruct)->refPts[i]);
-            }
-            free((*kdstruct)->refPts);
-            free((*kdstruct)->refID);
-            free((*kdstruct)->refleng);
-        }
-        free((*kdstruct)->refflag);
-#endif
+//#if _MPI
+//        if(*(tstruct->refflag)){
+//            for(int i = 0; i <  *(tstruct->refleng); i++){
+//                free((*kdstruct)->refPts[i]);
+//            }
+//            free((*kdstruct)->refPts);
+//            free((*kdstruct)->refID);
+//            free((*kdstruct)->refleng);
+//        }
+//        free((*kdstruct)->refflag);
+//#endif
         free(*kdstruct);
         *kdstruct = NULL;
     }
@@ -337,147 +337,86 @@ void outputskeleton(double *points, double *interf,double alpha , int indx,char 
     fclose(fp);
 }
 
-#if _MPI
-//3 functions for skeletonization
-//skeletize current points
-//transfer data (To and From)
-//loop both
-void MPIskeleton(double **points,struct kdleaf *kdstruct,int *length,int *alength,double *mindis,char path[80],double *disRatio,int *newl,double ***pskeleton,int **pdirectionList,double **pexportRad,int extra,int **pcomplete,int loopcount){
-    //Points leaving will either be: complete or need to be sent elsewhere
+void makeSkeleton(double **points,struct kdleaf *kdstruct,int *length,double *mindis,char path[80],double *disRatio,int *newl,double ***pskeleton){
     int MAXCYCLES = 50;
     //allocate needed space
-    double guessr = (double)*length;
-    double **skeleton = *pskeleton;
-    int *directionList = *pdirectionList;
-    double *exportRad = *pexportRad;
-    int *complete  = *pcomplete;
-    if(skeleton == NULL){
-        //if the skeleton doesnt exist yet its first loop
-        skeleton = malloc((*length) * sizeof(double*));
-        directionList = malloc((*length) * sizeof(int));//will be > -1 if need to go to a PID
-        exportRad = malloc((*length) * sizeof(double));//will be > -1 if need to go to a PID
-        complete = calloc((*length) , sizeof(int));//holds completion marker
-        for(int i = 0; i < *length;i++){
-            skeleton[i] = calloc((dimension + extra) , sizeof(double));
-            directionList[i]=-1;
-        }
+    double guessr = *length;
+    int extra = 3;//save r, alpha, kappa to relevant skeletonpoints
+    double **skeleton = malloc((*length) * sizeof(double*));
+    for(int i = 0; i < *length;i++){
+        skeleton[i] = calloc((dimension + extra) , sizeof(double));
     }
-    //temp calculation variables
     double **centerPoint = malloc(MAXCYCLES * sizeof(double*));
     double *radius = malloc(MAXCYCLES * sizeof(double));
     double **interfacePoint = malloc(MAXCYCLES * sizeof(double*));
-    for(int i = 0; i < *length + *alength; i++){
-        if(complete[i]==0){
-            //printf("skel %d / %d\n",i,*length);
-            //Goes through each point of the list & generates a skeleton point
-            //First step is to make an initial guess
-            bool completeCase = true;
-            int index = 0; 
-            //we Grab our temp centerpoint and our ignore point
-            double *ttpoint = malloc(dimension * sizeof(double));
-            double **ilist = malloc(sizeof(double*));
-            double *ignorepoint = malloc(dimension * sizeof(double));
-            double tguessr;
-            if(loopcount){
-                tguessr=exportRad[i];
+    int captured = 0;
+    for(int i = 0; i < *length; i++){
+        //printf("skel %d / %d\n",i,*length);
+        //Goes through each point of the list & generates a skeleton point
+        //First step is to make an initial guess
+        bool completeCase = true;
+        int index = 0; 
+        //we Grab our temp centerpoint and our ignore point
+        double *ttpoint = malloc(dimension * sizeof(double));
+        double **ilist = malloc(sizeof(double*));
+        double *ignorepoint = malloc(dimension * sizeof(double));
+        for(int q = 0; q < dimension; q++){
+            ignorepoint[q] = points[i][q];
+            ttpoint[q] = points[i][q] - points[i][q+dimension] * guessr;
+        }
+        ilist[0] = ignorepoint;
+        int ileng = 1;
+        double lowestdistance = 0; 
+        centerPoint[index] = ttpoint;//this gets overwritten first step, not sure if this plays a role, but this centerpoint will always be completely wrong 
+        //We calculate our starting furthest interface point
+        interfacePoint[index] = getNearest(ttpoint,kdstruct,ilist,&ileng,&lowestdistance);
+        //find starting radius for our starting interface point
+        double *sendpoint = points[i];
+        radius[index] = getRadius(sendpoint,interfacePoint[index]); 
+        //now we itterate until convergence
+        while(completeCase){
+            if(index > MAXCYCLES - 2){
+                break;
             }
-            else{
-                tguessr=guessr;
-            }
+            //get timestep centerpoint and ignore point(not completely nessicary)
             for(int q = 0; q < dimension; q++){
                 ignorepoint[q] = points[i][q];
-                ttpoint[q] = points[i][q] - points[i][q+dimension] * tguessr;
+                ttpoint[q] = points[i][q] - points[i][q+dimension] * radius[index];
             }
             ilist[0] = ignorepoint;
             int ileng = 1;
-            double lowestdistance = 0; 
-            centerPoint[index] = ttpoint;//this gets overwritten first step, not sure if this plays a role, but this centerpoint will always be completely wrong 
-            //We calculate our starting furthest interface point
-            interfacePoint[index] = getNearest(ttpoint,kdstruct,ilist,&ileng,&lowestdistance,&directionList[i]);
-            //find starting radius for our starting interface point
-            double *sendpoint = points[i];
-            radius[index] = getRadius(sendpoint,interfacePoint[index]);
-            if(loopcount > 0 && radius[index] != 0. && fabs(radius[index] - exportRad[i]) < *mindis){
-                double distancecomp = getDistance(interfacePoint[index],points[i]);
-                double alpha = distancecomp / radius[index];
+            //calculate our centerpoint
+            centerPoint[index] = ttpoint;
+            //calculate our interface point closest to the last centerpoint
+            lowestdistance = 0;
+            interfacePoint[index + 1] = getNearest(centerPoint[index],kdstruct,ilist,&ileng,&lowestdistance);
+            //finds the radius of our point and interface point 
+            radius[index + 1] = getRadius(points[i],interfacePoint[index + 1]);
+            //get distance comp, abs distance from point->interface point, for converge check
+            //check for completion of skeleton point
+            if(radius[index] != 0. && fabs(radius[index] - radius[index + 1]) < *mindis){
+                double distancecomp = getDistance(interfacePoint[index + 1],points[i]);
+                double alpha = distancecomp / radius[index + 1];
                 //convergance conditions
                 //our center point should remain the same
-                //printf("passing on start\n");
                 for(int ii = 0; ii < dimension;ii++){
                     skeleton[i][ii] = centerPoint[index][ii];
                 }
-                skeleton[i][dimension] = radius[index];
+                skeleton[i][dimension] = radius[index + 1];
                 skeleton[i][dimension+1] = alpha;
-                if(i < *length){
-                    skeleton[i][dimension+2] = points[i][(dimension * 2)]; 
-                }
-                complete[i] = 1;
-                completeCase = false; 
-            }
-            if(directionList[i] > -1){
-                exportRad[i] = radius[index];
-                complete[i] = -1;//mark for sending
+                skeleton[i][dimension+2] = points[i][(dimension * 2)]; 
+                captured++;
                 completeCase = false;
             }
-            while(completeCase){
-                if(index > MAXCYCLES - 2){
-                    break;
-                }
-                //get timestep centerpoint and ignore point(not completely nessicary)
-                for(int q = 0; q < dimension; q++){
-                    ignorepoint[q] = points[i][q];
-                    ttpoint[q] = points[i][q] - points[i][q+dimension] * radius[index];
-                }
-                ilist[0] = ignorepoint;
-                int ileng = 1;
-                //calculate our centerpoint
-                centerPoint[index] = ttpoint;
-                //calculate our interface point closest to the last centerpoint
-                lowestdistance = 0;
-                interfacePoint[index + 1] = getNearest(centerPoint[index],kdstruct,ilist,&ileng,&lowestdistance,&directionList[i]);
-                //finds the radius of our point and interface point 
-                radius[index + 1] = getRadius(points[i],interfacePoint[index + 1]);
-                //get distance comp, abs distance from point->interface point, for converge check
-                //check for completion of skeleton point
-                if(directionList[i] > -1){
-                    exportRad[i] = radius[index + 1];
-                    complete[i] = -1;//mark for sending
-                    break;
-                }
-                if(radius[index] != 0. && fabs(radius[index] - radius[index + 1]) < *mindis){
-                    double distancecomp = getDistance(interfacePoint[index + 1],points[i]);
-                    double alpha = distancecomp / radius[index + 1];
-                    //convergance conditions
-                    //our center point should remain the same
-                    for(int ii = 0; ii < dimension;ii++){
-                        skeleton[i][ii] = centerPoint[index][ii];
-                    }
-                    skeleton[i][dimension] = radius[index + 1];
-                    skeleton[i][dimension+1] = alpha;
-                    if(i < *length){
-                        skeleton[i][dimension+2] = points[i][(dimension * 2)]; 
-                    }
-                    //if(loopcount == 0)printf("%d skele -> [%f %f %f %f]\n",i,skeleton[i][0],skeleton[i][1],skeleton[i][2],skeleton[i][3]);
-                    complete[i] = 1;
-                    completeCase = false; 
-                }
-                //Stop if too close 
-                if(radius[index + 1] < *mindis){
-                    complete[i] = 1;
-                    completeCase = false;
-                }
-                index = index + 1;
+            if(radius[index + 1] < *mindis){
+                completeCase = false;
             }
-            free(ttpoint);
-            free(ignorepoint);
-            free(ilist);
+            index = index + 1;
         }
+        free(ttpoint);
+        free(ignorepoint);
+        free(ilist);
     }
-    //printf("completeion[");
-    //for(int i = 0; i < *length + *alength; i++){
-    //    printf("%d,",complete[i]);
-    //}
-    //printf("]\n");
     //free up needed values to prevent memory error
     free(radius);
     free(centerPoint);
@@ -485,10 +424,162 @@ void MPIskeleton(double **points,struct kdleaf *kdstruct,int *length,int *alengt
     radius = NULL;
     centerPoint = NULL;
     interfacePoint = NULL;
+    *newl = captured;
     *pskeleton = skeleton;
-    *pdirectionList = directionList;
-    *pexportRad = exportRad;
-    *pcomplete = complete;
+}
+
+#if _MPI
+//3 functions for skeletonization
+//skeletize current points
+//transfer data (To and From)
+//loop both
+void MPIskeleton(double **points,struct kdleaf *kdstruct,int *length,int *alength,double *mindis,char path[80],double *disRatio,int *newl,double ***pskeleton,int **pdirectionList,double **pexportRad,int extra,int **pcomplete,int loopcount){
+    ////Points leaving will either be: complete or need to be sent elsewhere
+    //int MAXCYCLES = 50;
+    ////allocate needed space
+    //double guessr = (double)*length;
+    //double **skeleton = *pskeleton;
+    //int *directionList = *pdirectionList;
+    //double *exportRad = *pexportRad;
+    //int *complete  = *pcomplete;
+    //if(skeleton == NULL){
+    //    //if the skeleton doesnt exist yet its first loop
+    //    skeleton = malloc((*length) * sizeof(double*));
+    //    directionList = malloc((*length) * sizeof(int));//will be > -1 if need to go to a PID
+    //    exportRad = malloc((*length) * sizeof(double));//will be > -1 if need to go to a PID
+    //    complete = calloc((*length) , sizeof(int));//holds completion marker
+    //    for(int i = 0; i < *length;i++){
+    //        skeleton[i] = calloc((dimension + extra) , sizeof(double));
+    //        directionList[i]=-1;
+    //    }
+    //}
+    ////temp calculation variables
+    //double **centerPoint = malloc(MAXCYCLES * sizeof(double*));
+    //double *radius = malloc(MAXCYCLES * sizeof(double));
+    //double **interfacePoint = malloc(MAXCYCLES * sizeof(double*));
+    //for(int i = 0; i < *length + *alength; i++){
+    //    if(complete[i]==0){
+    //        //printf("skel %d / %d\n",i,*length);
+    //        //Goes through each point of the list & generates a skeleton point
+    //        //First step is to make an initial guess
+    //        bool completeCase = true;
+    //        int index = 0; 
+    //        //we Grab our temp centerpoint and our ignore point
+    //        double *ttpoint = malloc(dimension * sizeof(double));
+    //        double **ilist = malloc(sizeof(double*));
+    //        double *ignorepoint = malloc(dimension * sizeof(double));
+    //        double tguessr;
+    //        if(loopcount){
+    //            tguessr=exportRad[i];
+    //        }
+    //        else{
+    //            tguessr=guessr;
+    //        }
+    //        for(int q = 0; q < dimension; q++){
+    //            ignorepoint[q] = points[i][q];
+    //            ttpoint[q] = points[i][q] - points[i][q+dimension] * tguessr;
+    //        }
+    //        ilist[0] = ignorepoint;
+    //        int ileng = 1;
+    //        double lowestdistance = 0; 
+    //        centerPoint[index] = ttpoint;//this gets overwritten first step, not sure if this plays a role, but this centerpoint will always be completely wrong 
+    //        //We calculate our starting furthest interface point
+    //        interfacePoint[index] = getNearest(ttpoint,kdstruct,ilist,&ileng,&lowestdistance,&directionList[i]);
+    //        //find starting radius for our starting interface point
+    //        double *sendpoint = points[i];
+    //        radius[index] = getRadius(sendpoint,interfacePoint[index]);
+    //        if(loopcount > 0 && radius[index] != 0. && fabs(radius[index] - exportRad[i]) < *mindis){
+    //            double distancecomp = getDistance(interfacePoint[index],points[i]);
+    //            double alpha = distancecomp / radius[index];
+    //            //convergance conditions
+    //            //our center point should remain the same
+    //            //printf("passing on start\n");
+    //            for(int ii = 0; ii < dimension;ii++){
+    //                skeleton[i][ii] = centerPoint[index][ii];
+    //            }
+    //            skeleton[i][dimension] = radius[index];
+    //            skeleton[i][dimension+1] = alpha;
+    //            if(i < *length){
+    //                skeleton[i][dimension+2] = points[i][(dimension * 2)]; 
+    //            }
+    //            complete[i] = 1;
+    //            completeCase = false; 
+    //        }
+    //        if(directionList[i] > -1){
+    //            exportRad[i] = radius[index];
+    //            complete[i] = -1;//mark for sending
+    //            completeCase = false;
+    //        }
+    //        while(completeCase){
+    //            if(index > MAXCYCLES - 2){
+    //                break;
+    //            }
+    //            //get timestep centerpoint and ignore point(not completely nessicary)
+    //            for(int q = 0; q < dimension; q++){
+    //                ignorepoint[q] = points[i][q];
+    //                ttpoint[q] = points[i][q] - points[i][q+dimension] * radius[index];
+    //            }
+    //            ilist[0] = ignorepoint;
+    //            int ileng = 1;
+    //            //calculate our centerpoint
+    //            centerPoint[index] = ttpoint;
+    //            //calculate our interface point closest to the last centerpoint
+    //            lowestdistance = 0;
+    //            interfacePoint[index + 1] = getNearest(centerPoint[index],kdstruct,ilist,&ileng,&lowestdistance,&directionList[i]);
+    //            //finds the radius of our point and interface point 
+    //            radius[index + 1] = getRadius(points[i],interfacePoint[index + 1]);
+    //            //get distance comp, abs distance from point->interface point, for converge check
+    //            //check for completion of skeleton point
+    //            if(directionList[i] > -1){
+    //                exportRad[i] = radius[index + 1];
+    //                complete[i] = -1;//mark for sending
+    //                break;
+    //            }
+    //            if(radius[index] != 0. && fabs(radius[index] - radius[index + 1]) < *mindis){
+    //                double distancecomp = getDistance(interfacePoint[index + 1],points[i]);
+    //                double alpha = distancecomp / radius[index + 1];
+    //                //convergance conditions
+    //                //our center point should remain the same
+    //                for(int ii = 0; ii < dimension;ii++){
+    //                    skeleton[i][ii] = centerPoint[index][ii];
+    //                }
+    //                skeleton[i][dimension] = radius[index + 1];
+    //                skeleton[i][dimension+1] = alpha;
+    //                if(i < *length){
+    //                    skeleton[i][dimension+2] = points[i][(dimension * 2)]; 
+    //                }
+    //                //if(loopcount == 0)printf("%d skele -> [%f %f %f %f]\n",i,skeleton[i][0],skeleton[i][1],skeleton[i][2],skeleton[i][3]);
+    //                complete[i] = 1;
+    //                completeCase = false; 
+    //            }
+    //            //Stop if too close 
+    //            if(radius[index + 1] < *mindis){
+    //                complete[i] = 1;
+    //                completeCase = false;
+    //            }
+    //            index = index + 1;
+    //        }
+    //        free(ttpoint);
+    //        free(ignorepoint);
+    //        free(ilist);
+    //    }
+    //}
+    ////printf("completeion[");
+    ////for(int i = 0; i < *length + *alength; i++){
+    ////    printf("%d,",complete[i]);
+    ////}
+    ////printf("]\n");
+    ////free up needed values to prevent memory error
+    //free(radius);
+    //free(centerPoint);
+    //free(interfacePoint);
+    //radius = NULL;
+    //centerPoint = NULL;
+    //interfacePoint = NULL;
+    //*pskeleton = skeleton;
+    //*pdirectionList = directionList;
+    //*pexportRad = exportRad;
+    //*pcomplete = complete;
 }
 void intPack(double ***psendinfo,int sendleng,int sendDir,double **points,double *trackRad,int *trackDir,int *trackOrigin,int searchs,int searchLength,int skelePackSize){
     double **sendinfo = malloc(sendleng*sizeof(double));
@@ -940,163 +1031,279 @@ void makeSkeletonMPI(double **points,struct kdleaf *kdstruct,int *length,double 
 }
 
 //Add collected points to kd tree & set state
-void MPIsubflag(struct kdleaf **pheadKD){
-    struct kdleaf *headKD = *pheadKD;
-    if(headKD != NULL){
-        bool *refflag = malloc(sizeof(bool));
-        *refflag = false;
-        headKD->refflag = refflag;
-        if(!(*headKD->flag)){
-            MPIsubflag(&headKD->left);
-            MPIsubflag(&headKD->right);
+//void MPIsubflag(struct kdleaf **pheadKD){
+//    struct kdleaf *headKD = *pheadKD;
+//    if(headKD != NULL){
+//        bool *refflag = malloc(sizeof(bool));
+//        *refflag = false;
+//        headKD->refflag = refflag;
+//        if(!(*headKD->flag)){
+//            MPIsubflag(&headKD->left);
+//            MPIsubflag(&headKD->right);
+//        }
+//        *pheadKD = headKD;
+//    }
+//}
+//void addkdref(struct kdleaf **pheadKD,int **ptrackPID,double ***pcollectPoints){
+//    struct kdleaf *headKD = *pheadKD;
+//    int *trackPID = *ptrackPID;
+//    double **collectPoints = *pcollectPoints;
+//    if(headKD != NULL){
+//        int count = 0;
+//        //get info
+//        for(int i = 0; i < comm_size; i++){
+//            if(trackPID[i]){
+//                if(i != curID){
+//                    count++;
+//                }
+//            }
+//        }
+//        //create upper structure & condense
+//        double **refpts = malloc(count*sizeof(double*));
+//        int *refID = malloc(count*sizeof(int));
+//        bool *refflag = malloc(sizeof(bool));
+//        int *refleng = malloc(sizeof(int));
+//        *refflag = true;
+//        *refleng = count;
+//        int iloc = 0;
+//        for(int i = 0; i < comm_size; i++){
+//            if(trackPID[i] && i != curID){
+//                //ensure we are adding
+//                refpts[iloc] = malloc(dimension * sizeof(double));
+//                for(int j = 0; j < dimension; j++){
+//                    //copy info
+//                    refpts[iloc][j] = collectPoints[i][j];
+//                }
+//                refID[iloc] = i;
+//                iloc++;
+//            }
+//        }
+//        //asign values
+//        headKD->refID = refID;
+//        headKD->refPts = refpts;
+//        headKD->refflag = refflag;
+//        headKD->refleng = refleng;
+//        //printf("leng=>%d\n",*headKD->refleng);
+//        for(int i = 0; i < *headKD->refleng; i++){
+//            //printf("[%f,%f,%f]\n",(headKD->refPts)[i][0],(headKD->refPts)[i][1],(headKD->refPts)[i][2]);
+//        }
+//        //free point collections
+//        for(int i = 0; i < comm_size; i++){
+//            if(trackPID[i])free(collectPoints[i]);
+//        }
+//        if(!(*headKD->flag)){
+//            MPIsubflag(&headKD->left);
+//            MPIsubflag(&headKD->right);
+//        }
+//        //update upstream
+//        *pheadKD = headKD;
+//    }
+//    //always clear these levels :)
+//    if(collectPoints != NULL){
+//        free(collectPoints);
+//        collectPoints = NULL;
+//    }
+//    if(trackPID != NULL){
+//        free(trackPID);
+//        trackPID = NULL;
+//    }
+//    //update upstream
+//    *ptrackPID = trackPID;
+//    *pcollectPoints = collectPoints;
+//}
+////function for comunication of MPI points
+//void kdMPIrefs(struct kdleaf **pheadKD){
+//    struct kdleaf *headKD = *pheadKD;
+//    curID = pid();
+//    MPI_Comm_size(MPI_COMM_WORLD,&comm_size);
+//    double **collectPoints = malloc(comm_size * sizeof(double*));
+//    int *trackPID = calloc(comm_size,sizeof(int));
+//    //first set active & inactive PID's
+//    for(int i = 0; i < comm_size; i++){
+//        //if we are on current PID
+//        if(i == curID){
+//            int sendCode = 0;
+//            if(headKD != NULL){
+//                //if our kd tree exists, then we have a point
+//                //so we set our point into collectPoints
+//                collectPoints[i] = malloc(dimension*sizeof(double));
+//                for(int j = 0; j < dimension; j++){
+//                    collectPoints[i][j] = (headKD->origin)[0][j];
+//                }
+//                sendCode = 1;
+//                trackPID[i] = 1;
+//            }
+//            else{
+//                free(collectPoints);
+//                collectPoints = NULL;
+//            }
+//            for(int j = 0; j < comm_size; j++){
+//                if(j != i){
+//                    MPI_Send(&sendCode,1,MPI_INT,j,0,MPI_COMM_WORLD);
+//                }
+//            }
+//        }
+//        //If recieving infomation
+//        else{
+//            MPI_Recv(&trackPID[i],1,MPI_INT,i,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+//        }
+//    }
+//    //next send points
+//    for(int i = 0; i < comm_size; i++){
+//        if(trackPID[curID]){
+//            //If PID is active && going to ID is active
+//            if(i == curID){
+//                double *sendPoint = malloc(dimension * sizeof(double));
+//                for(int j = 0; j < dimension; j++){
+//                    sendPoint[j] = collectPoints[i][j];
+//                }
+//                for(int j = 0; j < comm_size; j++){
+//                    if(trackPID[j] && j != i){
+//                        MPI_Send(sendPoint,dimension,MPI_DOUBLE,j,0,MPI_COMM_WORLD);
+//                    }
+//                }
+//                free(sendPoint);
+//            }
+//            else if(trackPID[i]){
+//                double *recvPoint = malloc(dimension * sizeof(double));
+//                MPI_Recv(recvPoint,dimension,MPI_DOUBLE,i,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+//                collectPoints[i] = malloc(dimension * sizeof(double));
+//                for(int j = 0; j < dimension; j++){
+//                    collectPoints[i][j] = recvPoint[j];
+//                }
+//                free(recvPoint);
+//            }
+//        }
+//    }
+//    MPI_Barrier(MPI_COMM_WORLD);
+//    //Set new Points into kd-leaf
+//    addkdref(&headKD,&trackPID,&collectPoints);
+//    //Set Pointers upstream
+//    *pheadKD = headKD;
+//}
+
+
+//serialize 
+void packIMPI(double **interface, int length,double **poutdat,int packsize){
+    double *outdat = *poutdat;
+    outdat = malloc(length*packsize*sizeof(double));
+    for(int i = 0; i < length; i++){
+        for(int j = 0; j < packsize;j++){
+            outdat[i*packsize+j] = interface[i][j];
         }
-        *pheadKD = headKD;
-    }
+    } 
+    *poutdat = outdat; 
 }
-void addkdref(struct kdleaf **pheadKD,int **ptrackPID,double ***pcollectPoints){
-    struct kdleaf *headKD = *pheadKD;
-    int *trackPID = *ptrackPID;
-    double **collectPoints = *pcollectPoints;
-    if(headKD != NULL){
-        int count = 0;
-        //get info
+//deserialize
+void unpackIMPI(double **recieve, int *recievel,double ***pinterface, int *plength,int packsize){
+    int length = *plength;
+    double **interface = *pinterface;
+    int q = 0;
+    if(recieve != NULL){
         for(int i = 0; i < comm_size; i++){
-            if(trackPID[i]){
-                if(i != curID){
-                    count++;
+            for(int j = 0; j < recievel[i]; j++){
+                interface[q] = malloc(packsize*sizeof(double));
+                for(int k = 0; k < packsize; k++){
+                    interface[q][k] = recieve[i][j*packsize+k];
                 }
+                q++;
+            }
+            if(recieve[i]!=NULL){
+                free(recieve[i]);
+                recieve[i]=NULL;
             }
         }
-        //create upper structure & condense
-        double **refpts = malloc(count*sizeof(double*));
-        int *refID = malloc(count*sizeof(int));
-        bool *refflag = malloc(sizeof(bool));
-        int *refleng = malloc(sizeof(int));
-        *refflag = true;
-        *refleng = count;
-        int iloc = 0;
-        for(int i = 0; i < comm_size; i++){
-            if(trackPID[i] && i != curID){
-                //ensure we are adding
-                refpts[iloc] = malloc(dimension * sizeof(double));
-                for(int j = 0; j < dimension; j++){
-                    //copy info
-                    refpts[iloc][j] = collectPoints[i][j];
-                }
-                refID[iloc] = i;
-                iloc++;
-            }
+        if(recieve!=NULL){
+            free(recieve);
+            recieve=NULL;
         }
-        //asign values
-        headKD->refID = refID;
-        headKD->refPts = refpts;
-        headKD->refflag = refflag;
-        headKD->refleng = refleng;
-        //printf("leng=>%d\n",*headKD->refleng);
-        for(int i = 0; i < *headKD->refleng; i++){
-            //printf("[%f,%f,%f]\n",(headKD->refPts)[i][0],(headKD->refPts)[i][1],(headKD->refPts)[i][2]);
-        }
-        //free point collections
-        for(int i = 0; i < comm_size; i++){
-            if(trackPID[i])free(collectPoints[i]);
-        }
-        if(!(*headKD->flag)){
-            MPIsubflag(&headKD->left);
-            MPIsubflag(&headKD->right);
-        }
-        //update upstream
-        *pheadKD = headKD;
     }
-    //always clear these levels :)
-    if(collectPoints != NULL){
-        free(collectPoints);
-        collectPoints = NULL;
+    if(recievel!=NULL){
+        free(recievel);
+        recievel=NULL;
     }
-    if(trackPID != NULL){
-        free(trackPID);
-        trackPID = NULL;
-    }
-    //update upstream
-    *ptrackPID = trackPID;
-    *pcollectPoints = collectPoints;
+    *pinterface = interface;
+    *plength = length;
 }
-//function for comunication of MPI points
-void kdMPIrefs(struct kdleaf **pheadKD){
-    struct kdleaf *headKD = *pheadKD;
-    curID = pid();
-    MPI_Comm_size(MPI_COMM_WORLD,&comm_size);
-    double **collectPoints = malloc(comm_size * sizeof(double*));
-    int *trackPID = calloc(comm_size,sizeof(int));
-    //first set active & inactive PID's
+void pushInterfaceMPI(double **interface,int length,double ***pkdlist,int *pkdl,int extra){
+    double **kdlist = *pkdlist,*senddata=NULL;
+    int kdl = *pkdl,packsize = dimension*2+extra,*gathersizes = malloc(comm_size*sizeof(int));
+    packIMPI(interface,length,&senddata,packsize);
+    //gather sizes
+    printf("comm_size:%d %d\n",comm_size,pid());
     for(int i = 0; i < comm_size; i++){
-        //if we are on current PID
-        if(i == curID){
-            int sendCode = 0;
-            if(headKD != NULL){
-                //if our kd tree exists, then we have a point
-                //so we set our point into collectPoints
-                collectPoints[i] = malloc(dimension*sizeof(double));
-                for(int j = 0; j < dimension; j++){
-                    collectPoints[i][j] = (headKD->origin)[0][j];
-                }
-                sendCode = 1;
-                trackPID[i] = 1;
-            }
-            else{
-                free(collectPoints);
-                collectPoints = NULL;
-            }
+        if(i == pid()){
+            //root send
             for(int j = 0; j < comm_size; j++){
-                if(j != i){
-                    MPI_Send(&sendCode,1,MPI_INT,j,0,MPI_COMM_WORLD);
+                if(j!=i){
+                    MPI_Send(&length,1,MPI_INT,j,0,MPI_COMM_WORLD);
+                }
+                else{ 
+                    gathersizes[i]=length;
                 }
             }
         }
-        //If recieving infomation
         else{
-            MPI_Recv(&trackPID[i],1,MPI_INT,i,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+            //reciving from i
+            MPI_Recv(&gathersizes[i],1,MPI_INT,i,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+            printf("recieved:%d\n",gathersizes[i]);
         }
+        kdl+=gathersizes[i];
     }
-    //next send points
+    printf("check point: in %d out %d\n",length,kdl);
+    if(!length)kdl=0;
+    kdlist = malloc(kdl*sizeof(double*));
+    double **recievedata = NULL;
+    if(length)recievedata = malloc(comm_size*sizeof(double*));
+    //gather data
     for(int i = 0; i < comm_size; i++){
-        if(trackPID[curID]){
-            //If PID is active && going to ID is active
-            if(i == curID){
-                double *sendPoint = malloc(dimension * sizeof(double));
-                for(int j = 0; j < dimension; j++){
-                    sendPoint[j] = collectPoints[i][j];
-                }
-                for(int j = 0; j < comm_size; j++){
-                    if(trackPID[j] && j != i){
-                        MPI_Send(sendPoint,dimension,MPI_DOUBLE,j,0,MPI_COMM_WORLD);
+        if(length)recievedata[i] = malloc(gathersizes[i]*packsize*sizeof(double));
+        if(i == pid()){
+            //root send
+            for(int j = 0; j < comm_size; j++){
+                if(gathersizes[i]>0&&gathersizes[j]>0){
+                    if(j!=i){
+                        int sizecount = 0;
+                        MPI_Pack_size(packsize*gathersizes[i],MPI_DOUBLE,MPI_COMM_WORLD,&sizecount);
+                        printf("%d sending size %.2f GB\n",pid(),sizecount/(pow(1024,3)));
+                        MPI_Send(senddata,gathersizes[i]*packsize,MPI_DOUBLE,j,0,MPI_COMM_WORLD);
                     }
-                }
-                free(sendPoint);
-            }
-            else if(trackPID[i]){
-                double *recvPoint = malloc(dimension * sizeof(double));
-                MPI_Recv(recvPoint,dimension,MPI_DOUBLE,i,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-                collectPoints[i] = malloc(dimension * sizeof(double));
-                for(int j = 0; j < dimension; j++){
-                    collectPoints[i][j] = recvPoint[j];
-                }
-                free(recvPoint);
+                    else{
+                        for(int q = 0; q < length*packsize; q++){
+                            recievedata[i][q]=senddata[q];
+                        }
+                    }
+                }            
             }
         }
+        else{
+            //reciving from i
+            if(gathersizes[i]>0&&length>0){
+                MPI_Recv(recievedata[i],gathersizes[i]*packsize,MPI_DOUBLE,i,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+            }   
+        }
     }
+    unpackIMPI(recievedata,gathersizes,&kdlist,&kdl,packsize);
+    if(senddata != NULL)free(senddata);
+    *pkdlist = kdlist;
+    *pkdl = kdl;
     MPI_Barrier(MPI_COMM_WORLD);
-    //Set new Points into kd-leaf
-    addkdref(&headKD,&trackPID,&collectPoints);
-    //Set Pointers upstream
-    *pheadKD = headKD;
 }
 //Implementation for skeletizing a mpi function
 void skeletizeMPI(double **points,int *length,char path[80],double *mindis,double wantedAngle,double ***pskeleton){
+    MPI_Comm_size(MPI_COMM_WORLD,&comm_size);
     double **skeleton = NULL; 
     //Create our kd tree for calculation
     struct kdleaf *kdstruct = NULL;
-    //DOUBLECHECK!!!! dim+1?
-    CreateStructure(points,&kdstruct,0,0,*length,dimension+1);//make kd-struct
+    //because MPI we need to collect other areas points
+    double **kdlist=NULL;
+    int kdl=0;
+    pushInterfaceMPI(points,*length,&kdlist,&kdl,1);
+    printf("check point: in %d out %d\n",*length,kdl);
+    //for(int i = 0; i < kdl; i++){
+    //    printf("3D pt:%d [%f,%f,%f,%f,%f,%f,%f]\n",i,kdlist[i][0],kdlist[i][0],kdlist[i][0],kdlist[i][3],kdlist[i][4],kdlist[i][5],kdlist[i][6]);
+    //}
+    CreateStructure(kdlist,&kdstruct,0,0,kdl,dimension+1);//make kd-struct
     if(*length != 0 && kdstruct== NULL)printf("error\n");
     //Calculate our distance ratio
     wantedAngle = wantedAngle > 180. ? 180. : wantedAngle < 0.? 0. : wantedAngle;
@@ -1105,10 +1312,11 @@ void skeletizeMPI(double **points,int *length,char path[80],double *mindis,doubl
     int newl = 0;
     MPI_Barrier(MPI_COMM_WORLD);
     //Communicate points & locations as markers
-    kdMPIrefs(&kdstruct);
+    //kdMPIrefs(&kdstruct);//DOESNT WORK :(
     MPI_Barrier(MPI_COMM_WORLD);
     //Next our skeleton will be calculated
-    makeSkeletonMPI(points,kdstruct,length,mindis,path,&calcratio,&newl,&skeleton);
+    makeSkeleton(points,kdstruct,length,mindis,path,&calcratio,&newl,&skeleton);
+    //makeSkeletonMPI(points,kdstruct,length,mindis,path,&calcratio,&newl,&skeleton);
     //Finally clean up to prevent memeory error
     kdDestroy(&kdstruct);
     length = &newl;
@@ -1116,96 +1324,6 @@ void skeletizeMPI(double **points,int *length,char path[80],double *mindis,doubl
     *pskeleton = skeleton;
 }
 #else
-void makeSkeleton(double **points,struct kdleaf *kdstruct,int *length,double *mindis,char path[80],double *disRatio,int *newl,double ***pskeleton){
-    int MAXCYCLES = 50;
-    //allocate needed space
-    double guessr = *length;
-    int extra = 3;//save r, alpha, kappa to relevant skeletonpoints
-    double **skeleton = malloc((*length) * sizeof(double*));
-    for(int i = 0; i < *length;i++){
-        skeleton[i] = calloc((dimension + extra) , sizeof(double));
-    }
-    double **centerPoint = malloc(MAXCYCLES * sizeof(double*));
-    double *radius = malloc(MAXCYCLES * sizeof(double));
-    double **interfacePoint = malloc(MAXCYCLES * sizeof(double*));
-    int captured = 0;
-    for(int i = 0; i < *length; i++){
-        //printf("skel %d / %d\n",i,*length);
-        //Goes through each point of the list & generates a skeleton point
-        //First step is to make an initial guess
-        bool completeCase = true;
-        int index = 0; 
-        //we Grab our temp centerpoint and our ignore point
-        double *ttpoint = malloc(dimension * sizeof(double));
-        double **ilist = malloc(sizeof(double*));
-        double *ignorepoint = malloc(dimension * sizeof(double));
-        for(int q = 0; q < dimension; q++){
-            ignorepoint[q] = points[i][q];
-            ttpoint[q] = points[i][q] - points[i][q+dimension] * guessr;
-        }
-        ilist[0] = ignorepoint;
-        int ileng = 1;
-        double lowestdistance = 0; 
-        centerPoint[index] = ttpoint;//this gets overwritten first step, not sure if this plays a role, but this centerpoint will always be completely wrong 
-        //We calculate our starting furthest interface point
-        interfacePoint[index] = getNearest(ttpoint,kdstruct,ilist,&ileng,&lowestdistance);
-        //find starting radius for our starting interface point
-        double *sendpoint = points[i];
-        radius[index] = getRadius(sendpoint,interfacePoint[index]); 
-        //now we itterate until convergence
-        while(completeCase){
-            if(index > MAXCYCLES - 2){
-                break;
-            }
-            //get timestep centerpoint and ignore point(not completely nessicary)
-            for(int q = 0; q < dimension; q++){
-                ignorepoint[q] = points[i][q];
-                ttpoint[q] = points[i][q] - points[i][q+dimension] * radius[index];
-            }
-            ilist[0] = ignorepoint;
-            int ileng = 1;
-            //calculate our centerpoint
-            centerPoint[index] = ttpoint;
-            //calculate our interface point closest to the last centerpoint
-            lowestdistance = 0;
-            interfacePoint[index + 1] = getNearest(centerPoint[index],kdstruct,ilist,&ileng,&lowestdistance);
-            //finds the radius of our point and interface point 
-            radius[index + 1] = getRadius(points[i],interfacePoint[index + 1]);
-            //get distance comp, abs distance from point->interface point, for converge check
-            //check for completion of skeleton point
-            if(radius[index] != 0. && fabs(radius[index] - radius[index + 1]) < *mindis){
-                double distancecomp = getDistance(interfacePoint[index + 1],points[i]);
-                double alpha = distancecomp / radius[index + 1];
-                //convergance conditions
-                //our center point should remain the same
-                for(int ii = 0; ii < dimension;ii++){
-                    skeleton[i][ii] = centerPoint[index][ii];
-                }
-                skeleton[i][dimension] = radius[index + 1];
-                skeleton[i][dimension+1] = alpha;
-                skeleton[i][dimension+2] = points[i][(dimension * 2)]; 
-                captured++;
-                completeCase = false;
-            }
-            if(radius[index + 1] < *mindis){
-                completeCase = false;
-            }
-            index = index + 1;
-        }
-        free(ttpoint);
-        free(ignorepoint);
-        free(ilist);
-    }
-    //free up needed values to prevent memory error
-    free(radius);
-    free(centerPoint);
-    free(interfacePoint);
-    radius = NULL;
-    centerPoint = NULL;
-    interfacePoint = NULL;
-    *newl = captured;
-    *pskeleton = skeleton;
-}
 void skeletize(double **points,int *length,char path[80],double *mindis,double wantedAngle,double ***pskeleton){
     double **skeleton = NULL; 
     if(*length > 0){
@@ -3217,12 +3335,12 @@ double calcBezierErr(struct kdleaf *kdstruct,double **comppoints, int lengpoints
         double thiserror = 0.;
         int tleng = 1;
         double lowestdis = 0.;
-#if _MPI
-        int trackcode;
-        double *nearpoint = getNearest(comppoints[i],&searchstruct,&ignorepoint,&tleng,&lowestdis,&trackcode);
-#else
+//#if _MPI
+//        int trackcode;
+//        double *nearpoint = getNearest(comppoints[i],&searchstruct,&ignorepoint,&tleng,&lowestdis,&trackcode);
+//#else
         double *nearpoint = getNearest(comppoints[i],&searchstruct,&ignorepoint,&tleng,&lowestdis);
-#endif
+//#endif
         //position error 
         for(int j = 0; j < *dim + 1; j++){
             double dif = fabs(nearpoint[j] - comppoints[i][j]);
