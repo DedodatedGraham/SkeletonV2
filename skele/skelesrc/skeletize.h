@@ -1230,7 +1230,6 @@ void pushInterfaceMPI(double **interface,int length,double ***pkdlist,int *pkdl,
     int kdl = *pkdl,packsize = dimension*2+extra,*gathersizes = malloc(comm_size*sizeof(int));
     packIMPI(interface,length,&senddata,packsize);
     //gather sizes
-    printf("comm_size:%d %d\n",comm_size,pid());
     for(int i = 0; i < comm_size; i++){
         if(i == pid()){
             //root send
@@ -1246,11 +1245,9 @@ void pushInterfaceMPI(double **interface,int length,double ***pkdlist,int *pkdl,
         else{
             //reciving from i
             MPI_Recv(&gathersizes[i],1,MPI_INT,i,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-            printf("recieved:%d\n",gathersizes[i]);
         }
         kdl+=gathersizes[i];
     }
-    printf("check point: in %d out %d\n",length,kdl);
     if(!length)kdl=0;
     kdlist = malloc(kdl*sizeof(double*));
     double **recievedata = NULL;
@@ -1265,7 +1262,8 @@ void pushInterfaceMPI(double **interface,int length,double ***pkdlist,int *pkdl,
                     if(j!=i){
                         int sizecount = 0;
                         MPI_Pack_size(packsize*gathersizes[i],MPI_DOUBLE,MPI_COMM_WORLD,&sizecount);
-                        printf("%d sending size %.2f GB\n",pid(),sizecount/(pow(1024,3)));
+                        double size = sizecount/(pow(1024,3));
+                        if(size > 0.5)printf("%d sending size %.2f GB\n",pid(),size);
                         MPI_Send(senddata,gathersizes[i]*packsize,MPI_DOUBLE,j,0,MPI_COMM_WORLD);
                     }
                     else{
@@ -1299,7 +1297,6 @@ void skeletizeMPI(double **points,int *length,char path[80],double *mindis,doubl
     double **kdlist=NULL;
     int kdl=0;
     pushInterfaceMPI(points,*length,&kdlist,&kdl,1);
-    printf("check point: in %d out %d\n",*length,kdl);
     //for(int i = 0; i < kdl; i++){
     //    printf("3D pt:%d [%f,%f,%f,%f,%f,%f,%f]\n",i,kdlist[i][0],kdlist[i][0],kdlist[i][0],kdlist[i][3],kdlist[i][4],kdlist[i][5],kdlist[i][6]);
     //}
@@ -1316,6 +1313,16 @@ void skeletizeMPI(double **points,int *length,char path[80],double *mindis,doubl
     MPI_Barrier(MPI_COMM_WORLD);
     //Next our skeleton will be calculated
     makeSkeleton(points,kdstruct,length,mindis,path,&calcratio,&newl,&skeleton);
+    for(int i = 0; i < kdl; i++){
+        free(kdlist[i]);
+    }
+    free(kdlist);
+    kdlist = NULL;
+    for(int i = 0; i < *length; i++){
+        free(points[i]);
+    }
+    free(points);
+    points = NULL;
     //makeSkeletonMPI(points,kdstruct,length,mindis,path,&calcratio,&newl,&skeleton);
     //Finally clean up to prevent memeory error
     kdDestroy(&kdstruct);
@@ -1344,13 +1351,304 @@ void skeletize(double **points,int *length,char path[80],double *mindis,double w
         }
         free(points);
         points = NULL;
-        kdDestroy(&kdstruct);
+        kdDestroy(&kdstruct);    
         length = &newl;
+        //free interface
     }
     *pskeleton = skeleton;
 }
 #endif
-void thinSkeleton(double ***pskeleton,int *length,double *alpha,double *thindis,char outname[80]){
+//structure for SOR Filter
+struct sorGrid{
+    //varibales made
+    double **bounds;
+    double *node;
+    int *depth;//the depth of the cell we are at
+    int *maxdepth;
+    //children
+    int *hasChildren;
+    struct sorGrid **subGrid;//there are 4 children in 2D(quadtree) 8 in 3D(octree)
+    int *subCount;
+    //points container
+    double **points;
+    int *pointslength;
+    int *maxpointslength;
+    double *nnstat;//nn stat computes a nn distance using sqrt sum with the radius considered aswell
+};
+//util functions
+double distSor(double *point1,double *point2){
+    //finds distance with radius between 2 points
+    double ret = 0.;
+    for(int i = 0; i < dimension+1; i++){
+        ret = ret + sq(point1[i] - point2[i]);
+    }
+    ret = sqrt(ret);
+    return ret;
+}
+int validPoint(double *point,double *node,int dirx,int diry,int dirz){
+    int ret = 1;
+    if(!dirx && point[0] > node[0])return 0;
+    else if(dirx && point[0] < node[0])return 0;
+    if(!diry && point[1] > node[1])return 0;
+    else if(diry && point[1] < node[1])return 0;
+#if dimension == 3
+    if(!dirz && point[2] > node[2])return 0;
+    else if(dirz && point[2] < node[2])return 0;
+#endif
+    return ret;
+}
+void createBounds(double **parentBounds,double *node,int dirx,int diry,int dirz,double ***pbounds){
+    double **ret = malloc(2*sizeof(double));
+    ret[0] = malloc(dimension*sizeof(double));
+    ret[1] = malloc(dimension*sizeof(double));
+    if(!dirx){ret[0][0]=parentBounds[0][0],ret[1][0]=node[0];}
+    else{ret[0][0]=node[0];ret[1][0]=parentBounds[1][0];}
+    if(!diry){ret[0][1]=parentBounds[0][1],ret[1][1]=node[1];}
+    else{ret[0][1]=node[1];ret[1][1]=parentBounds[1][1];}
+#if dimension == 3
+    if(!dirz){ret[0][2]=parentBounds[0][2],ret[1][2]=node[2];}
+    else{ret[0][2]=node[2];ret[1][2]=parentBounds[1][2];}
+#endif
+    *pbounds = ret;
+}
+//recursive functions
+void destroySorGrid(struct sorGrid **psorGrid){
+    struct sorGrid *mainGrid = *psorGrid;
+    if(mainGrid != NULL){
+        //we need to free structure
+        free(mainGrid->depth);
+        //if(mainGrid->bounds!=NULL){
+        //    free(mainGrid->bounds[0]);
+        //    free(mainGrid->bounds[1]);
+        //    free(mainGrid->bounds);
+        //    mainGrid->bounds=NULL;
+        //}
+        if(*mainGrid->hasChildren){
+            //there are lower levels
+            for(int i = 0; i < *mainGrid->subCount; i++){
+                destroySorGrid(&mainGrid->subGrid[i]);
+            }
+            free(mainGrid->subGrid);
+            mainGrid->subGrid = NULL;
+            if(mainGrid->node != NULL)free(mainGrid->node);
+            mainGrid->node=NULL;
+        }
+        else{
+            if(*mainGrid->pointslength > 0){
+                //bottom level
+                free(mainGrid->nnstat);
+            }
+        }
+        free(mainGrid->hasChildren);
+    }
+}
+void createSorGrid(struct sorGrid **psorGrid,int depth,double **points,int *length,int *maxpointslength,int *maxdepth,double ***pbounds){
+    //we are always input a minbound and maxbound, these only matter on creation as the method wont need to re sort any nodes after creation
+    double **bounds = *pbounds;
+    if(depth == 0 && *length > 0){
+        //when depth is 0 we need to define our bounds of the tree we want to construct
+        //we will apply a quicksort through the field and take the first and last values for each
+        bounds = malloc(2*sizeof(double*));
+        bounds[0] = malloc(dimension*sizeof(double));//min bounds
+        bounds[1] = malloc(dimension*sizeof(double));//max bounds
+        printf("points l: %d\n",*length);
+        //for(int j = 0; j < *length; j++){
+        //    printf("points before: %d-[%f,%f,%f,%f]\n",j,points[j][0],points[j][1],points[j][2],points[j][3]);
+        //}
+        for(int i = 0; i < dimension; i++){
+            skeleQuickSort(points,0,*length-1,i,3);//2 extra for r & ratio
+            bounds[0][i] = points[0][i];
+            bounds[1][i] = points[*length-1][i];
+        }
+        //for(int j = 0; j < *length; j++){
+        //    printf("points after: %d-[%f,%f,%f,%f]\n",j,points[j][0],points[j][1],points[j][2],points[j][3]);
+        //}
+    }
+    struct sorGrid *mainGrid = *psorGrid;
+    mainGrid = malloc(sizeof(struct sorGrid));//create structure if we can
+    if(*length > 0){
+        double *node = malloc(dimension*sizeof(double));
+        if(*length > *maxpointslength)for(int i = 0; i < dimension; i++)node[i] = (bounds[0][i]+bounds[1][i])/2.;
+        mainGrid->subCount = malloc(sizeof(int));
+#if dimension == 2
+        *mainGrid->subCount=4;
+#else
+        *mainGrid->subCount=8;
+#endif
+        if(*length > *maxpointslength && depth < *maxdepth){
+            mainGrid->bounds = bounds;
+            mainGrid->maxpointslength = maxpointslength;
+            mainGrid->node = node;
+            mainGrid->depth = malloc(sizeof(int));//apply depth
+            *mainGrid->depth = depth;
+            mainGrid->maxdepth = maxdepth;
+            mainGrid->hasChildren = malloc(sizeof(int));
+            *mainGrid->hasChildren = 1;
+            //if we have enough points and depth we can make children
+            mainGrid->subGrid = malloc(*mainGrid->subCount*sizeof(struct sorGrid*));//allocate space for the pointers of the structures 
+            double ***sortpoints = malloc(*mainGrid->subCount*sizeof(double**));//holds subcount collections of points
+            int *sortlengths = malloc(*mainGrid->subCount*sizeof(int));
+            for(int i = 0; i < *mainGrid->subCount; i++){
+#if dimension == 2
+                int ix = i%2==0?0:1;
+                int iy = ((int)i/2)%2==0?0:1;
+                int iz = -1;
+#else
+                int ix = i%2==0?0:1;
+                int iy = ((int)i/2)%2==0?0:1;
+                int iz = ((int)i/4)%2==0?0:1;
+#endif
+                //sort through all points
+                int si = 0;//sorting indexer for each sortpoints layer
+                for(int j = 0; j < *length; j++){
+                    if(validPoint(points[j],node,ix,iy,iz)){
+                        //if the point is on the right location we add it to its list
+                        if(si==0)sortpoints[i]=malloc(sizeof(double*)); 
+                        else sortpoints[i] = realloc(sortpoints[i],(si+1)*sizeof(double*));
+                        sortpoints[i][si] = malloc((dimension+3)*sizeof(double));
+                        for(int q = 0; q < dimension+3; q++){
+                            sortpoints[i][si][q]=points[j][q];
+                        }
+                        si++;
+                    }
+                }
+                sortlengths[i]=si;
+                //create child
+                double **newbounds = NULL;
+                createBounds(bounds,node,ix,iy,iz,&newbounds);
+                createSorGrid(&mainGrid->subGrid[i],depth+1,sortpoints[i],&sortlengths[i],maxpointslength,maxdepth,&newbounds);
+                //for(int j = 0; j < *length; j++){
+                //    printf("sorted points %d-%d [%f,%f]\n",i,j,sortpoints[i][j][0],sortpoints[i][j][1]);
+                //}
+            }
+        }
+        else if(*length > 0){
+            mainGrid->bounds = bounds;
+            mainGrid->maxpointslength = maxpointslength;
+            mainGrid->depth = malloc(sizeof(int));//apply depth
+            *mainGrid->depth = depth;
+            mainGrid->maxdepth = maxdepth;
+            mainGrid->hasChildren = malloc(sizeof(int));
+            *mainGrid->hasChildren = 0;
+            //otherwise we place all points at this level given there are some
+            mainGrid->points = points;
+            mainGrid->pointslength = length;
+            mainGrid->nnstat = malloc(*length * sizeof(double));
+        }
+    }
+    else{
+        //set 0 points & no children
+        mainGrid->depth = malloc(sizeof(int));//apply depth
+        *mainGrid->depth = depth;
+        mainGrid->hasChildren = malloc(sizeof(int));
+        *mainGrid->hasChildren = 0;
+        mainGrid->pointslength = length;
+    }
+    *psorGrid = mainGrid;
+}
+void fillSorFilter(struct sorGrid **psorGrid){
+    //compute each individual points nearest neighbor search with distance based on(x,y,z,r)
+    struct sorGrid *mainGrid = *psorGrid;
+    if(mainGrid != NULL){
+        if(*mainGrid->hasChildren){
+            //dig deeper
+            for(int i = 0; i < *mainGrid->subCount; i++)fillSorFilter(&mainGrid->subGrid[i]);
+        }
+        else if(*mainGrid->pointslength > 0){
+            //find nearest neighbor
+            for(int i = 0; i < *mainGrid->pointslength; i++){
+                double mindis = 1e6;
+                for(int j = 0; j < *mainGrid->pointslength; j++)if(j != i)mindis = min(mindis,distSor(mainGrid->points[i],mainGrid->points[j]));
+                if(mindis == 1e6){
+                    //printf("oops! better method needed...point will be dropped\n");
+                    mainGrid->nnstat[i] = -1;
+                }
+                else{
+                    mainGrid->nnstat[i] = mindis;
+                }
+            }
+        }
+    }
+    *psorGrid = mainGrid;
+}
+void computeSorFilter(struct sorGrid **psorGrid,double *mean, double *stdev,int *refcount,int passno){
+    //solve for normal distribution values
+    struct sorGrid *mainGrid = *psorGrid;
+    if(mainGrid != NULL){
+        if(*mainGrid->hasChildren){
+            //go deeper no points
+            for(int i = 0; i < *mainGrid->subCount; i++)computeSorFilter(&mainGrid->subGrid[i],mean,stdev,refcount,passno);
+        }
+        else if(mainGrid->pointslength > 0){
+            if(!passno){
+                for(int i = 0 ; i < *mainGrid->pointslength; i++)if(mainGrid->nnstat[i]!=-1){
+                    *mean=*mean+mainGrid->nnstat[i];//compute mean
+                    *refcount=*refcount+1;
+                }
+            }        
+            else for(int i = 0; i < *mainGrid->pointslength; i++)if(mainGrid->nnstat[i]!=-1)*stdev = *stdev + sq(mainGrid->nnstat[i]-*mean);//compute stdev
+        }
+        if(*mainGrid->depth == 0){
+            //find mean value
+            *mean = *mean / *refcount;
+            //find stdev
+            if(*mainGrid->hasChildren)for(int i = 0; i < *mainGrid->subCount; i++)computeSorFilter(&mainGrid->subGrid[i],mean,stdev,refcount,1);//go to children
+            *stdev = sqrt(*stdev / *refcount);
+        }
+    }
+    *psorGrid = mainGrid;
+}
+void reduceSor(struct sorGrid **psorGrid,double *mean, double *stdev,double ***pskeleton, int *length,int stdevf){
+    //gather good valued points
+    struct sorGrid *mainGrid = *psorGrid;
+    if(mainGrid != NULL){
+        if(*mainGrid->hasChildren){
+            //go deeper no points
+            for(int i = 0; i < *mainGrid->subCount; i++)reduceSor(&mainGrid->subGrid[i],mean,stdev,pskeleton,length,stdevf);
+        }
+        else if(*mainGrid->pointslength > 0){
+            double **skeleton = *pskeleton;
+            //only pass in good points
+            for(int i = 0; i < *mainGrid->pointslength; i++){
+                if(mainGrid->nnstat[i] < *mean + stdevf*(*stdev) && mainGrid->nnstat[i] > *mean - stdevf*(*stdev)){
+                    if(*length == 0)skeleton = malloc(sizeof(double*));
+                    else skeleton = realloc(skeleton,(*length+1)*sizeof(double*));//give new size
+                    skeleton[*length] = malloc((dimension+3)*sizeof(double));
+                    for(int j = 0; j < dimension + 3; j++){
+                        skeleton[*length][j] = mainGrid->points[i][j];
+                    }
+                    *length = *length + 1;
+                }
+            }
+            *pskeleton = skeleton;
+        }
+    }
+    *psorGrid = mainGrid;
+}
+void statThinSkeleton(double ***pskeleton, int **plength,int maxpoints,int maxdepth){
+    double **skeleton = *pskeleton;
+    int *length = *plength;
+    //compute SOR filter
+    if(*length > 0){
+        struct sorGrid *sorgrid = NULL;
+        double **bounds=NULL;
+        createSorGrid(&sorgrid,0,skeleton,length,&maxpoints,&maxdepth,&bounds);//fills structure
+        fillSorFilter(&sorgrid);//gets distances
+        double mean=0.,stdev=0.;
+        int rc=0;
+        computeSorFilter(&sorgrid,&mean,&stdev,&rc,0);//finds values needed
+        double **newskeleton = NULL;
+        int newlength = 0;
+        reduceSor(&sorgrid,&mean,&stdev,&newskeleton,&newlength,2);//removes outliers
+        destroySorGrid(&sorgrid);//free memeory
+        //apply changes
+        skeleton = newskeleton;
+        *length = newlength;
+    }
+    *pskeleton = skeleton;
+    *plength = length;
+}
+void thinSkeleton(double ***pskeleton,int *length,double *alpha,double *thindis,char outname[80],int max_level,int statThin){
     int extra = 3;
     double **skeleton = *pskeleton;
     //we need to handle situations 
@@ -1398,6 +1696,9 @@ void thinSkeleton(double ***pskeleton,int *length,double *alpha,double *thindis,
     }
     fflush(fp);
     fclose(fp);
+//    if(statThin){
+//        statThinSkeleton(&skeleton,&length,10,max_level);
+//    }
     *pskeleton = skeleton;
 }
 //Gets spline

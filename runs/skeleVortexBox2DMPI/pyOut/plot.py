@@ -27,9 +27,9 @@ def Load(dim,time,np,root):
     #2 => skeleton(spline)
 
     #Load interface
-    interface = LoadInterface(dim,time,np,root)
-    data.append(interface)
-    datatag.append(0)
+    #interface = LoadInterface(dim,time,np,root)
+    #data.append(interface)
+    #datatag.append(0)
 
     #Load Skeleton
     skeleton = LoadSkeleton(dim,time,np,root)
@@ -102,7 +102,8 @@ def Save(root,plt,time):
     timeform = '{:3.3f}'.format(time)
     save = root + r'plot-' + timeform.zfill(6) + r'.png'.format(time)
     plt.savefig(save,dpi=1000)
-def main(fig,np,dim,start_time,max_time,root,datalocation,savelocation):
+def main(np,dim,start_time,max_time,root,datalocation,savelocation):
+    fig = plt.figure()
     time = start_time
     print("starting at",start_time)
     print("ending at",max_time)
@@ -147,15 +148,14 @@ if __name__ == "__main__":
     start_time = float(sys.argv[3]) / 1000
     max_time = float(sys.argv[4]) / 1000
     mode = int(sys.argv[5])
-    num_processes = int(mp.cpu_count()/4)
+    num_processes = int(mp.cpu_count()/2)
     print(num_processes)
     root = os.path.split(os.path.dirname(os.path.abspath(__file__)))[0] + r'/'
     dt = 0.01
     datalocation = root + r'dat/'
     savelocation = root + r'pyOut/Img/'
     if(mode == 0):
-        fig = plt.figure()
-        main(fig,np,dim,start_time,max_time,root,datalocation,savelocation)
+        main(np,dim,start_time,max_time,root,datalocation,savelocation)
     else:
         nps = []
         dims = []
@@ -170,7 +170,6 @@ if __name__ == "__main__":
         avgdt = math.ceil(avgdt / num_processes)
         print("starting")
         for i in range(num_processes):
-            figs.append(plt.figure())
             nps.append(np)
             dims.append(dim)
             if i == 0:
@@ -190,4 +189,4 @@ if __name__ == "__main__":
             saves.append(savelocation)
         print("collected")
         with mp.Pool(processes=num_processes) as pool:
-            pool.starmap(main, zip(figs,nps,dims,starts,maxs,roots,datas,saves))
+            pool.starmap(main, zip(nps,dims,starts,maxs,roots,datas,saves))

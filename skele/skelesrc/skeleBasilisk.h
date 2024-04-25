@@ -915,7 +915,7 @@ void calcSkeletonMPI(scalar f,double *alpha,int max_level,double L,double t,doub
     double thindis = mindis;//when r is more than delta/2 :(
     char noname[80];
     sprintf(noname,"dat/skeletonthin-%5.3f-p%03d.txt",t,pid());
-    thinSkeleton(&skeleton,&countn,alpha,&thindis,noname);
+    thinSkeleton(&skeleton,&countn,alpha,&thindis,noname,max_level,1);
     MPI_Barrier(MPI_COMM_WORLD);
     
     sprintf(savename,"dat/skeletonscatter-%5.3f-p%03d.txt",t,pid());
@@ -1510,8 +1510,9 @@ void calcSkeleton(scalar f,double *alpha,int max_level,double L,double t,double 
     //Next we thin out our skeleton
     double thindis = mindis;//when r is more than delta/2 :(
     char noname[80];
-    sprintf(noname,"dat/skeletonthin-%5.3f.txt",t);
-    thinSkeleton(&skeleton,&countn,alpha,&thindis,noname);
+    s
+printf(noname,"dat/skeletonthin-%5.3f.txt",t);
+    thinSkeleton(&skeleton,&countn,alpha,&thindis,noname,max_level,1);
     sprintf(savename,"dat/skeletonscatter-%5.3f.txt",t);
     FILE *savefile = fopen(savename,"w");
     for(int i = 0; i < countn; i++){

@@ -20,9 +20,8 @@
 double max_level = 6;
 double t_out = 0.01;       
 //double T_END = 0.05;
-double T_END = 4.;
-//double T_END = 2.00;
-
+//double T_END = 4.;
+double T_END = 2.00;
 /** dimensionless properties, normalized by scaling variables rhol, D, sigma
  */
 double rho_L=1 [0];
@@ -79,11 +78,11 @@ event init (t = 0){
     }
 }
 
-//event adapt(i++){
-//#if TREE
-//  adapt_wavelet ({f,u}, (double[]){femax,uemax,uemax}, max_level);
-//#endif
-//}
+event adapt(i++){
+#if TREE
+  adapt_wavelet ({f,u}, (double[]){femax,uemax,uemax}, max_level);
+#endif
+}
 double _PI = 3.14159 [0,0];
 double u0 = 1.[1,-1];
 double tc = 1.[0,1];
@@ -98,7 +97,11 @@ event velocity(i++){
 event skeletize(t+=t_out){
     double **skeleton=NULL,alpha=25*3.14159/180;
     int skelelength=0;
+#if _MPI
     calcSkeletonMPI(f,&alpha,max_level,1.0,t,&skeleton,&skelelength,1);
+#else
+    calcSkeleton(f,&alpha,max_level,1.0,t,&skeleton,&skelelength,1);
+#endif
     for(int q = 0; q < skelelength; q++){
         free(skeleton[q]);
     }
