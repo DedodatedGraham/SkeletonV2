@@ -3,12 +3,13 @@
 #include "navier-stokes/conserving.h"
 #include "tension.h"
 #include "view.h"
+#include "axi.h"
 
-double max_level = 9;
+double max_level = 7;
 double femax = 0.001;
 double uemax = 0.001;
 
-double L = 4 [1];
+double L = 2 [1];
 double t_out = 0.010 [0,1];       
 double t_end = 0.3001 [0,1];    
 
@@ -28,6 +29,7 @@ double maxruntime = 14420;
  u.n[right] = neumann(0);
  p[right] = dirichlet(0);
  pf[right] = dirichlet(0);
+ periodic(right);
 
 int main(int argc, char * argv[]){
   size(L);
