@@ -20,8 +20,9 @@
 double max_level = 6;
 double t_out = 0.01;       
 //double T_END = 0.05;
-//double T_END = 4.;
-double T_END = 2.00;
+double T_END = 3.0;
+//double T_END = 6.00;
+//double T_END = 0.11;
 /** dimensionless properties, normalized by scaling variables rhol, D, sigma
  */
 double rho_L=1 [0];
@@ -94,13 +95,13 @@ event velocity(i++){
     }
 }
 
-event skeletize(t+=t_out){
-    double **skeleton=NULL,alpha=25*3.14159/180;
+event skeletizeEvent(t+=t_out){
+    double **skeleton=NULL,alpha=0.1;
     int skelelength=0;
 #if _MPI
-    calcSkeletonMPI(f,&alpha,max_level,1.0,t,&skeleton,&skelelength,1);
+    calcSkeletonMPI(f,&alpha,max_level,1.0,t,&skeleton,&skelelength,0);
 #else
-    calcSkeleton(f,&alpha,max_level,1.0,t,&skeleton,&skelelength,1);
+    calcSkeleton(f,&alpha,max_level,1.0,t,&skeleton,&skelelength,0);
 #endif
     for(int q = 0; q < skelelength; q++){
         free(skeleton[q]);
@@ -154,17 +155,14 @@ event snapshot (t += t_out; t<=T_END) {
     
 
     //finally output timer and results as this takes bulk of process
-    timernow = clock();
-    cpu_time_used = ((double) (timernow - timerlast)) / (CLOCKS_PER_SEC);
-    timertotal += cpu_time_used;
-    printf("calc @ t=%f\n",t);
-    fprintf(stdout,"Total Time used: %fm: %fs\n",floor(timertotal / 60.),timertotal - 60 * (floor(timertotal / 60.)));
-    fprintf(stdout,"ran @ t=%f took (%fm : %fs)\n\n",t,floor(cpu_time_used / 60.),cpu_time_used - 60 * (floor(cpu_time_used / 60.)));
-    int ncells = 0;
-    foreach(reduction(+:ncells)){
-        ncells++;
+    if(pid() == 0){
+        timernow = clock();
+        cpu_time_used = ((double) (timernow - timerlast)) / (CLOCKS_PER_SEC);
+        timertotal += cpu_time_used;
+        printf("calc @ t=%f - %f\n",t,max_level);
+        fprintf(stdout,"Total Time used: %fm: %fs\n",floor(timertotal / 60.),timertotal - 60 * (floor(timertotal / 60.)));
+        fprintf(stdout,"ran @ t=%f took (%fm : %fs)\n\n",t,floor(cpu_time_used / 60.),cpu_time_used - 60 * (floor(cpu_time_used / 60.)));
+        timerlast = timernow;
     }
-    fprintf(stdout,"Ncells --> %d\n",ncells);
-    timerlast = timernow;
 }
 

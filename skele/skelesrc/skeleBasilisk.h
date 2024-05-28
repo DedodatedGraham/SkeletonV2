@@ -198,14 +198,20 @@ void unsmooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max
         if(c[] > 1e-6 && c[] < 1.-1e-6 && vofref[] != nodata){
             coord n = facet_normal(point, c, s);
 	        double aalpha = plane_alpha(c[], n);
-            normalize(&n);
 #if dimension == 2
-	        coord pc;
-	        plane_area_center(n, aalpha, &pc);
-            smoothnow->smoothpoints[ref][0] = (x+Delta*pc.x);
-            smoothnow->smoothpoints[ref][1] = (y+Delta*pc.y);
-            smoothnow->smoothpoints[ref][2] = n.x;
-            smoothnow->smoothpoints[ref][3] = n.y;
+	        coord pc[2];
+            if(facets(n,aalpha,pc) == 2){
+                for(int i = 0; i < 2; i++){
+                    smoothnow->smoothpoints[ref][0] = smoothnow->smoothpoints[ref][0] + (x+Delta*pc[i].x);
+                    smoothnow->smoothpoints[ref][1] = smoothnow->smoothpoints[ref][1] + (y+Delta*pc[i].y);
+                }
+                smoothnow->smoothpoints[ref][0] = smoothnow->smoothpoints[ref][0] / 2;
+                smoothnow->smoothpoints[ref][1] = smoothnow->smoothpoints[ref][1] / 2;
+                coord normn = n;
+                normalize(&normn);
+                smoothnow->smoothpoints[ref][2] = normn.x;
+                smoothnow->smoothpoints[ref][3] = normn.y;
+            }
 #else
 	        coord pc[12];
 	        int m = facets(n, aalpha, pc, 1.);
@@ -217,9 +223,11 @@ void unsmooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max
             smoothnow->smoothpoints[ref][0] = smoothnow->smoothpoints[ref][0] / m;
             smoothnow->smoothpoints[ref][1] = smoothnow->smoothpoints[ref][1] / m;
             smoothnow->smoothpoints[ref][2] = smoothnow->smoothpoints[ref][2] / m;
-            smoothnow->smoothpoints[ref][3] = n.x;
-            smoothnow->smoothpoints[ref][4] = n.y;
-            smoothnow->smoothpoints[ref][5] = n.z;
+            coord normn = n;
+            normalize(&normn);
+            smoothnow->smoothpoints[ref][3] = normn.x;
+            smoothnow->smoothpoints[ref][4] = normn.y;
+            smoothnow->smoothpoints[ref][5] = normn.z;
 #endif
         }
     }
@@ -435,6 +443,7 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
             }
         }
     }
+
     //After our barrier we want to gather MPI values and store them inside our structure
     //To do this we will first build a list of pid's we will need to send&recieve from, each will have to send and recieve some amount of values
     int *pidmarker = calloc(comm_size , sizeof(int));//counts wanted information
@@ -601,10 +610,11 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
                 getCoeffGE(n+1,n+2,&B,&A);
                 //Finally we will Get our current point
                 smoothnow->smoothpoints[ref][jx] = smoothnow->points[ref][jx];
-                smoothnow->smoothpoints[ref][jy] = 0;
+                smoothnow->smoothpoints[ref][jy] = smoothnow->points[ref][jy];
+                //smoothnow->smoothpoints[ref][jy] = 0;
                 double *AP = calloc(n+1,sizeof(double));
                 for(int i = 0; i <= n; i++){
-                    smoothnow->smoothpoints[ref][jy] = smoothnow->smoothpoints[ref][jy] + pow(smoothnow->points[ref][jx],i) * A[i];
+                    //smoothnow->smoothpoints[ref][jy] = smoothnow->smoothpoints[ref][jy] + pow(smoothnow->points[ref][jx],i) * A[i];
                     AP[i] = A[i] * i;
                 }
                 //and then calculate the norms using the prime
@@ -702,13 +712,14 @@ void smooth_interface_MPI(struct OutputXYNorm p,scalar vofref,double t,int max_l
                 //Finally we will Get our current point
                 smoothnow->smoothpoints[ref][jx] = smoothnow->points[ref][jx];
                 smoothnow->smoothpoints[ref][jy] = smoothnow->points[ref][jy];
-                smoothnow->smoothpoints[ref][jz] = 0;
-                for(int i = 0; i < 2*n + 1; i++){
-                    int addi = jx,powi = i; 
-                    if(i > n)addi = jy,powi = i-n;
-                    double addup = A[i] * pow(smoothnow->smoothpoints[ref][addi],powi);
-                    smoothnow->smoothpoints[ref][jz] = smoothnow->smoothpoints[ref][jz] + addup;
-                }
+                smoothnow->smoothpoints[ref][jz] = smoothnow->points[ref][jz];
+                //smoothnow->smoothpoints[ref][jz] = 0;
+                //for(int i = 0; i < 2*n + 1; i++){
+                //    int addi = jx,powi = i; 
+                //    if(i > n)addi = jy,powi = i-n;
+                //    double addup = A[i] * pow(smoothnow->smoothpoints[ref][addi],powi);
+                //    smoothnow->smoothpoints[ref][jz] = smoothnow->smoothpoints[ref][jz] + addup;
+                //}
                 double dzdx = 0.,dzdy = 0.;
                 for(int i = 1; i <= n; i++){
                     dzdx = dzdx + A[i  ] * i * pow(smoothnow->smoothpoints[ref][jx],i-1);
@@ -908,7 +919,6 @@ void calcSkeletonMPI(scalar f,double *alpha,int max_level,double L,double t,doub
     double skelemin = mindis * 0.5;
     char savename[80];
     double **skeleton = NULL; 
-    printf("counted: %d\n",countn);
     skeletizeMPI(interfacePoints,&countn,savename,&skelemin,*alpha,&skeleton);
     MPI_Barrier(MPI_COMM_WORLD);
     //Next we thin out our skeleton
@@ -916,8 +926,7 @@ void calcSkeletonMPI(scalar f,double *alpha,int max_level,double L,double t,doub
     char noname[80];
     sprintf(noname,"dat/skeletonthin-%5.3f-p%03d.txt",t,pid());
     thinSkeleton(&skeleton,&countn,alpha,&thindis,noname,max_level,1);
-    MPI_Barrier(MPI_COMM_WORLD);
-    
+    MPI_Barrier(MPI_COMM_WORLD); 
     sprintf(savename,"dat/skeletonscatter-%5.3f-p%03d.txt",t,pid());
     FILE *savefile = fopen(savename,"w");
     for(int i = 0; i < countn; i++){
@@ -1000,14 +1009,26 @@ void unsmooth_interface(struct OutputXYNorm p,scalar vofref,double t,int max_lev
         if(c[] > 1e-6 && c[] < 1.-1e-6 && vofref[] != nodata){
             coord n = facet_normal(point, c, s);
 	        double aalpha = plane_alpha(c[], n);
-            normalize(&n);
 #if dimension == 2
-	        coord pc;
-	        plane_area_center(n, aalpha, &pc);
-            smoothnow->smoothpoints[ref][0] = (x+Delta*pc.x);
-            smoothnow->smoothpoints[ref][1] = (y+Delta*pc.y);
-            smoothnow->smoothpoints[ref][2] = n.x;
-            smoothnow->smoothpoints[ref][3] = n.y;
+	        //coord pc;
+	        //plane_area_center(n, aalpha, &pc);
+            //smoothnow->smoothpoints[ref][0] = (x+Delta*pc.x);
+            //smoothnow->smoothpoints[ref][1] = (y+Delta*pc.y);
+            //smoothnow->smoothpoints[ref][2] = n.x;
+            //smoothnow->smoothpoints[ref][3] = n.y;
+	        coord pc[2];
+            if(facets(n,aalpha,pc) == 2){
+                for(int i = 0; i < 2; i++){
+                    smoothnow->smoothpoints[ref][0] = smoothnow->smoothpoints[ref][0] + (x+Delta*pc[i].x);
+                    smoothnow->smoothpoints[ref][1] = smoothnow->smoothpoints[ref][1] + (y+Delta*pc[i].y);
+                }
+                smoothnow->smoothpoints[ref][0] = smoothnow->smoothpoints[ref][0] / 2;
+                smoothnow->smoothpoints[ref][1] = smoothnow->smoothpoints[ref][1] / 2;
+                coord normn = n;
+                normalize(&normn);
+                smoothnow->smoothpoints[ref][2] = normn.x;
+                smoothnow->smoothpoints[ref][3] = normn.y;
+            }
 #else
 	        coord pc[12];
 	        int m = facets(n, aalpha, pc, 1.);
@@ -1019,9 +1040,11 @@ void unsmooth_interface(struct OutputXYNorm p,scalar vofref,double t,int max_lev
             smoothnow->smoothpoints[ref][0] = smoothnow->points[ref][0] / m;
             smoothnow->smoothpoints[ref][1] = smoothnow->points[ref][1] / m;
             smoothnow->smoothpoints[ref][2] = smoothnow->points[ref][2] / m;
-            smoothnow->smoothpoints[ref][3] = n.x;
-            smoothnow->smoothpoints[ref][4] = n.y;
-            smoothnow->smoothpoints[ref][5] = n.z;
+            coord normn = n;
+            normalize(&normn);
+            smoothnow->smoothpoints[ref][3] = normn.x;
+            smoothnow->smoothpoints[ref][4] = normn.y;
+            smoothnow->smoothpoints[ref][5] = normn.z;
 #endif
         }
     }
@@ -1189,10 +1212,11 @@ void smooth_interface(struct OutputXYNorm p,scalar vofref,double t,int max_level
                 getCoeffGE(n+1,n+2,&B,&A);
                 //Finally we will Get our current point
                 smoothnow->smoothpoints[ref][jx] = smoothnow->points[ref][jx];
-                smoothnow->smoothpoints[ref][jy] = 0;
+                smoothnow->smoothpoints[ref][jy] = smoothnow->points[ref][jy];
+                //smoothnow->smoothpoints[ref][jy] = 0;
                 double *AP = calloc(n+1,sizeof(double));
                 for(int i = 0; i <= n; i++){
-                    smoothnow->smoothpoints[ref][jy] = smoothnow->smoothpoints[ref][jy] + pow(smoothnow->points[ref][jx],i) * A[i];
+                    //smoothnow->smoothpoints[ref][jy] = smoothnow->smoothpoints[ref][jy] + pow(smoothnow->points[ref][jx],i) * A[i];
                     AP[i] = A[i] * i;
                 }
                 //and then calculate the norms using the prime
@@ -1290,13 +1314,14 @@ void smooth_interface(struct OutputXYNorm p,scalar vofref,double t,int max_level
                 //Finally we will Get our current point
                 smoothnow->smoothpoints[ref][jx] = smoothnow->points[ref][jx];
                 smoothnow->smoothpoints[ref][jy] = smoothnow->points[ref][jy];
-                smoothnow->smoothpoints[ref][jz] = 0;
-                for(int i = 0; i < 2*n + 1; i++){
-                    int addi = jx,powi = i; 
-                    if(i > n)addi = jy,powi = i-n;
-                    double addup = A[i] * pow(smoothnow->smoothpoints[ref][addi],powi);
-                    smoothnow->smoothpoints[ref][jz] = smoothnow->smoothpoints[ref][jz] + addup;
-                }
+                smoothnow->smoothpoints[ref][jz] = smoothnow->points[ref][jz];
+                //smoothnow->smoothpoints[ref][jz] = 0;
+                //for(int i = 0; i < 2*n + 1; i++){
+                //    int addi = jx,powi = i; 
+                //    if(i > n)addi = jy,powi = i-n;
+                //    double addup = A[i] * pow(smoothnow->smoothpoints[ref][addi],powi);
+                //    smoothnow->smoothpoints[ref][jz] = smoothnow->smoothpoints[ref][jz] + addup;
+                //}
                 double dzdx = 0.,dzdy = 0.;
                 for(int i = 1; i <= n; i++){
                     dzdx = dzdx + A[i  ] * i * pow(smoothnow->smoothpoints[ref][jx],i-1);
@@ -1349,18 +1374,21 @@ void smooth_interface(struct OutputXYNorm p,scalar vofref,double t,int max_level
     vofref.smooth = smooth;//sets the field to point at our structure
     //finally we need to free the struct and its variables allocated
 }
+
 void extract_ip(double ***parr,scalar c,scalar vofref,int *countn, double t){
     //because of weirdness with basilisk, we will write to interficial datafiles and then extract points from said files
     double **passarr = NULL;
     scalar kappa[];//get curvature
     curvature (c, kappa);
     boundary({kappa});
+    int counter = *countn;
     foreach(){
         //Count local counts
         if(c[] > 1e-6 &&  c[] < 1-1e-6){
-            *countn = *countn+1;
+            counter++;
         }
     }
+    *countn = counter;
     //setup MPI array
     passarr = malloc(*countn * sizeof(double*));
     int *tagarr = malloc(*countn * sizeof(int));
@@ -1499,10 +1527,9 @@ void calcSkeleton(scalar f,double *alpha,int max_level,double L,double t,double 
     free(smooth->smoothpoints);
     free(smooth->length);
     free(smooth);
-    smooth = NULL;
-    
+    smooth = NULL; 
     //calc skeleton
-    double skelemin = mindis;
+    double skelemin = mindis * 0.5;
     char savename[80];
     double **skeleton = NULL; 
     skeletize(interfacePoints,&countn,savename,&skelemin,*alpha,&skeleton);
@@ -1510,10 +1537,9 @@ void calcSkeleton(scalar f,double *alpha,int max_level,double L,double t,double 
     //Next we thin out our skeleton
     double thindis = mindis;//when r is more than delta/2 :(
     char noname[80];
-    s
-printf(noname,"dat/skeletonthin-%5.3f.txt",t);
+    sprintf(noname,"dat/skeletonthin-%5.3f-p%03d.txt",t,0);
     thinSkeleton(&skeleton,&countn,alpha,&thindis,noname,max_level,1);
-    sprintf(savename,"dat/skeletonscatter-%5.3f.txt",t);
+    sprintf(savename,"dat/skeletonscatter-%5.3f-p%03d.txt",t,0);
     FILE *savefile = fopen(savename,"w");
     for(int i = 0; i < countn; i++){
 #if dimension == 2
@@ -1533,6 +1559,22 @@ printf(noname,"dat/skeletonthin-%5.3f.txt",t);
     //double minbranchlength = 0.01;
     //int mxpt = 100; 
     //skeleReduce(skeleton,del,&minbranchlength,&countn,dim,&mxpt,t,skelen);
+    
+    //output vars if wanted
+    //char gname[80];
+    //char vofname[80];
+    //sprintf(gname,"dat/grid-%5.3f-p000.txt",t);
+    //FILE *gfile = fopen(gname,"w");
+    //sprintf(vofname,"dat/vof-%5.3f-p000.txt",t);
+    //FILE *voffile = fopen(vofname,"w");
+    //foreach(){
+    //    fprintf(gfile,"%f %f %f\n",x,y,Delta);
+    //}
+    //output_facets(f,voffile);
+    //fflush(gfile);
+    //fclose(gfile);
+    //fflush(voffile);
+    //fclose(voffile);
 
     //Clean up needed
     //finally assign our needed pointers to look at the right place

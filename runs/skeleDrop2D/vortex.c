@@ -9,7 +9,7 @@
 #include "tension.h"
 
 #include "curvature.h"
-#include "view.h"
+//#include "view.h"
 #include "tag.h"
 #include "skele/skeleton.h"
 #include "colormap.h"
@@ -73,27 +73,6 @@ int main(int argc, char * argv[]){
     run();
 }
 
-#define circle(x,y) (sq(0.2) - (sq(x - 0.5) + sq(y - .75)))
-double voidintsphere(double x,double y,double z,double r,double x0, double y0, double z0){
-    double outer = -sq(x-x0)-sq(y-y0)-sq(z-z0)+sq(r);
-    double inner = -sq(x-x0)-sq(y-y0)-sq(z-z0)+sq((r-0.1));// + 0.04*sin(2.*atan2(sqrt(sq(y-y0)+sq(z-z0)),x-x0)));
-    if(inner <= 0.){
-        //not inside inner
-        if(x-x0 > 0. && outer > 0.){
-            //if in right half
-            return outer;
-        }
-    }
-    if(x-x0 >= -0.2 && x-x0 <= 0.2){
-        //place our torus
-        double tor = -sq((r-0.05) - sqrt(sq(y-y0) + sq(z-z0)))-sq(x-x0)+sq(0.05); 
-        if(tor > 0.)return tor;
-    }
-    //if nothing else we return our inside val
-    if(inner < 0.)return inner;
-    return -inner;
-}
-
 event init (t = 0){
     char dumpname[80];
     sprintf(dumpname,"aaaadumps/dump-%5.3f",0.550);
@@ -106,19 +85,6 @@ event adapt(i++){
 #if TREE
   adapt_wavelet ({f,u}, (double[]){femax,uemax,uemax}, max_level);
 #endif
-}
-
-#define velox(x,y,t,pi) ((1./pi)*cos(pi*t/50.)*sq(sin(pi*x))*2.*sin(pi*y)*cos(pi*y)*pi)
-#define veloy(x,y,t,pi) ((-1./pi)*cos(pi*t/50.)*sq(sin(pi*y))*2.*sin(pi*x)*cos(pi*x)*pi)
-#ifndef _PI
-#define _PI 3.14159
-#endif
-event velocity(i++){
-    //here we ensure the velocity is set
-    foreach(){
-        u.x[] = velox(x,y,t,_PI);
-        u.y[] = veloy(x,y,t,_PI);
-    }
 }
 
 char outpath[80];
@@ -160,11 +126,11 @@ event plot(t += t_out){
 event snapshot (t += t_out; t<=T_END) {
     //Here we calculate time taken
     char dumpname[80];
-    scalar * dump_list =  (scalar *){f,u,p};
+    //scalar * dump_list =  (scalar *){f,u,p};
 
     sprintf (dumpname, "dumps/dump-%5.3f", t);
     //p.nodump = true;
-    dump (file = dumpname,dump_list); // so that we can restart
+    dump (file = dumpname); // so that we can restart
     
 
     //finally output timer and results as this takes bulk of process

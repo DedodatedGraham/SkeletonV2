@@ -170,7 +170,6 @@ event snapshot (t += t_out; t<=t_end ) {
   char name[80];
   printf("t=%05.3f\n",t);
   sprintf (name, "dumps/snapshot-%05.3f.gfs", t);
-  output_gfs (file = name, t=t, list = {f,u,p});
 
   sprintf (name, "dumps/dump-%05.3f", t);
   p.nodump = false;

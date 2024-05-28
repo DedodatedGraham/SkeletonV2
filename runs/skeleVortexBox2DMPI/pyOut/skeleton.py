@@ -77,36 +77,39 @@ def LoadThinSkeleton(dim,time,np,root):
 
 def PlotSkeleton(skeleton,dim,time,np,ax,cmap):
     #Plots interface data according to process
-    maxcolor = 0;
-    mincolor = 1000000;
+    maxcolor = 0
+    mincolor = 1000000
+    avgcolor = 0
+    avgcount = 0
     #we track max and min for a colorbar
     for i in range(np):
         if len(skeleton[i][0]) > 0:
-            colortrace = []
-            #scatter whole skeleton at once
-            #ax.scatter(skeleton[i][0],skeleton[i][1],s=4,color=color)
             for q in range(len(skeleton[i][0])):
-                #colortrace.append(skeleton[i][2][q] / skeleton[i][4][q])
-                #colortrace.append(skeleton[i][2][q])
-                colortrace.append(i/np)
-                color = cmap(colortrace[q])
-                maxcolor = max(maxcolor,colortrace[q])
-                mincolor = min(mincolor,colortrace[q])
-                ax.scatter(skeleton[i][0][q],skeleton[i][1][q],s=1,color=color)
+                maxcolor = max(maxcolor,skeleton[i][2][q])
+                mincolor = min(mincolor,skeleton[i][2][q])
+                avgcolor = avgcolor + skeleton[i][2][q]
+                avgcount = avgcount + 1
+    avgcolor = avgcolor / avgcount
+    for i in range(np):
+        if len(skeleton[i][0]) > 0:
+            for q in range(len(skeleton[i][0])):
+                ax.scatter(skeleton[i][0][q],skeleton[i][1][q],s=1,c=skeleton[i][2][q],cmap=cmap,vmin = mincolor,vmax = maxcolor)
+                #if(skeleton[i][3][q] < 0.5):
+                #    circle2 = plt.Circle((skeleton[i][0][q],skeleton[i][1][q]),skeleton[i][2][q],color="blue",fill=False)
+                #    ax.add_patch(circle2)
             #after the plotting we set max and min if possible
     #finally we plot our colorbar :)
-    #norm = plt.Normalize(vmin=mincolor, vmax=maxcolor)
-    #sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-    #sm.set_array([])  # This line is necessary for the color bar to work properly
-    #cbar = plt.colorbar(sm, ax=ax)
+    norm = plt.Normalize(vmin=mincolor, vmax=maxcolor)
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])  # This line is necessary for the color bar to work properly
+    cbar = plt.colorbar(sm, ax=ax)
 
 def PlotThinSkeleton(skeleton,dim,time,np,ax,cmap):
     #Plots  data according to process
     for i in range(np):
         if len(skeleton[i][0]) > 0:
             for q in range(len(skeleton[i][0])):
-                color = cmap(i / np)
-                ax.scatter(skeleton[i][0][q],skeleton[i][1][q],s=4,color=color)
+                ax.scatter(skeleton[i][0][q],skeleton[i][1][q],s=4,c=skeleton[i][2][q])
 
 
 
