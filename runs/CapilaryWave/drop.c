@@ -68,6 +68,7 @@ event plot(t += t_out; t <= t_end){
      draw_vof("f");
      squares(color = "f");
      box();
+     cells();
      save(file = outpath);
      clear();
 }
