@@ -1,2 +1,0 @@
-qsub -l nodes=1:ppn=1 -q ling superrun.sh
-qsub -l nodes=1:ppn=1 -q ling2 superrun.sh

@@ -916,6 +916,25 @@ void calcSkeletonMPI(scalar f,double *alpha,int max_level,double L,double t,doub
     free(smooth->length);
     free(smooth);
     smooth = NULL;
+#if AXI
+    //when axisymetric we want to replicate our interface
+    //only occurs in 2D so we can be explicit
+    double **newinterface = malloc(2*countn*sizeof(double*));
+    for(int q = 0; q < countn; q++){
+        newinterface[q] = malloc(5*sizeof(double));
+        newinterface[countn+q] = malloc(5*sizeof(double));
+        for(int p = 0; p < 5; p++){
+            newinterface[q][p]        = interfacePoints[q][p];
+            newinterface[countn+q][p] = interfacePoints[q][p];
+        }
+        newinterface[countn+q][1] = -1 * newinterface[countn+q][1];
+        newinterface[countn+q][3] = -1 * newinterface[countn+q][3];
+        free(interfacePoints[q]);
+    }
+    countn = countn*2;
+    free(interfacePoints);
+    interfacePoints = newinterface;
+#endif
     double skelemin = mindis * 0.5;
     char savename[80];
     double **skeleton = NULL; 

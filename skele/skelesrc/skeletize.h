@@ -295,32 +295,43 @@ void CreateStructure(double **points,struct kdleaf **kdstruct,int axis,int lower
 #define PI 3.1415926535897932384626433832795
 #endif
 
+//OLD radius function unessicary
+//double getRadius(double *point,double *interface){
+//    //point has norm data attached
+//    //dim is size of data(makes life easier)
+//    double top1 = 0.0;
+//    double bot = getDistance(interface,point);
+//    for(int i = 0; i < dimension; i++){
+//        //goes though each dimension
+//        double diff1 = point[i] - interface[i];
+//        double add1 = point[dimension+i] * diff1;
+//        top1 += add1;
+//    }
+//    double inside1 = top1/bot; 
+//    if(inside1 > 1){
+//        inside1 = 1;
+//    }
+//    if(inside1 < -1){
+//        inside1 = -1;
+//    }
+//    double theta1 = acos(inside1);
+//    double ret1 = (bot / (2 * cos(theta1)));
+//    if(ret1 > 0){
+//        return ret1;
+//    }
+//    else{
+//        return -ret1;
+//    }
+//}
 double getRadius(double *point,double *interface){
     //point has norm data attached
-    //dim is size of data(makes life easier)
-    double top1 = 0.0;
-    double bot = getDistance(interface,point);
+    double sum = 0.0;
+    double dist = getDistance(interface,point);
     for(int i = 0; i < dimension; i++){
         //goes though each dimension
-        double diff1 = point[i] - interface[i];
-        double add1 = point[dimension+i] * diff1;
-        top1 += add1;
+        sum += point[dimension+i] * (point[i] - interface[i]);
     }
-    double inside1 = top1/bot; 
-    if(inside1 > 1){
-        inside1 = 1;
-    }
-    if(inside1 < -1){
-        inside1 = -1;
-    }
-    double theta1 = acos(inside1);
-    double ret1 = (bot / (2 * cos(theta1)));
-    if(ret1 > 0){
-        return ret1;
-    }
-    else{
-        return -ret1;
-    }
+    return (sq(dist) / (2 * sum));
 }
 
 void outputskeleton(double *points, double *interf,double alpha , int indx,char path[80]){
@@ -748,7 +759,7 @@ void MPIskeletonCom(int *test,double ***ppoints,int *length,int *alength,double 
         if(trackDir[j]>=0&&complete[j]==-1)visiting[trackDir[j]]++;//count for pid and direction
         if(j >= *length && complete[j]==1)fvisiting[trackOrigin[j]]++;
     }
-    //first step we comunicate intended sending sizes  
+    //first step we c  omunicate intended sending sizes  
     int tsum = 0;
     for(int i = 0; i < comm_size; i++){
         if(i == curID){
@@ -1312,9 +1323,6 @@ void skeletizeMPI(double **points,int *length,char path[80],double *mindis,doubl
     int kdl=0;
     pushInterfaceMPI(points,*length,&kdlist,&kdl,1);
     printf("counted: %d/%d\n",*length,kdl);
-    //for(int i = 0; i < kdl; i++){
-    //    printf("3D pt:%d [%f,%f,%f,%f,%f,%f,%f]\n",i,kdlist[i][0],kdlist[i][0],kdlist[i][0],kdlist[i][3],kdlist[i][4],kdlist[i][5],kdlist[i][6]);
-    //}
     CreateStructure(kdlist,&kdstruct,0,0,kdl,dimension+1);//make kd-struct
     if(*length != 0 && kdstruct== NULL)printf("error\n");
     //Calculate our distance ratio

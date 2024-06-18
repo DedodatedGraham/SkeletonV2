@@ -11,10 +11,10 @@ clear
 #serial
 
 
-#./vortex 8 650
+./vortex 10 650
 
 #run in mpi
-mpirun -np 12 ./vortex 12 650
+#mpirun -np 12 ./vortex 12 650
 #gdb
 #mpirun -np 12 xterm -e gdb -ex run --args ./vortex 11 650
 #valgrind
